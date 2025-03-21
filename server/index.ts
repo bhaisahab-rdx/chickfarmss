@@ -72,16 +72,21 @@ app.use((req, res, next) => {
     serveStatic(app);
   }
 
-  // ALWAYS serve the app on port 5000
-  // this serves both the API and the client
-  // Use Replit's port environment variable if available, otherwise default to 5000
-  const port = process.env.PORT || 5000;
+  // ALWAYS serve the app on port 5000 for Replit compatibility
+  // This serves both the API and the client
+  // Replit specifically looks for port 5000 in our configuration
+  const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 5000;
   
   console.log("Starting server on port", port);
   
   // Add a test route that's easy to access
   app.get('/test', (req, res) => {
     res.send('Server is working!');
+  });
+  
+  // Add a route for Replit health checks
+  app.get('/health', (req, res) => {
+    res.status(200).send('Healthy');
   });
   
   // Add a root route that returns a simple response to verify server is up
@@ -100,14 +105,18 @@ app.use((req, res, next) => {
     next();
   });
   
-  server.listen({
-    port,
-    host: "0.0.0.0",
-    reusePort: true,
-  }, () => {
+  server.listen(port, "0.0.0.0", () => {
     log(`serving on port ${port}`);
     console.log(`Server is listening on http://0.0.0.0:${port}`);
     console.log(`Environment: ${app.get("env")}`);
-    console.log(`Open in browser: https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`);
+    
+    const replSlug = process.env.REPL_SLUG;
+    const replOwner = process.env.REPL_OWNER;
+    
+    if (replSlug && replOwner) {
+      console.log(`Open in browser: https://${replSlug}.${replOwner}.repl.co`);
+    } else {
+      console.log(`Open in browser: http://localhost:${port}`);
+    }
   });
 })();
