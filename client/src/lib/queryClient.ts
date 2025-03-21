@@ -1,4 +1,5 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
+import config from './config';
 
 const defaultHeaders = {
   "Accept": "application/json",
@@ -36,7 +37,12 @@ export async function apiRequest(
 
   if (methodOrUrl === 'GET' || methodOrUrl === 'POST' || methodOrUrl === 'PUT' || methodOrUrl === 'DELETE' || methodOrUrl === 'PATCH') {
     const method = methodOrUrl;
-    const url = urlOrData as string;
+    let url = urlOrData as string;
+    
+    // If the URL starts with /api, use the config API base URL
+    if (url.startsWith('/api/')) {
+      url = `${config.apiBaseUrl}${url.substring(4)}`;
+    }
 
     console.log(`[API Request] ${method} ${url}`);
     response = await fetch(url, {
@@ -49,8 +55,13 @@ export async function apiRequest(
       credentials: "include",
     });
   } else {
-    const url = methodOrUrl;
+    let url = methodOrUrl;
     const options = urlOrData as RequestInit;
+    
+    // If the URL starts with /api, use the config API base URL
+    if (url.startsWith('/api/')) {
+      url = `${config.apiBaseUrl}${url.substring(4)}`;
+    }
 
     console.log(`[API Request] ${options?.method || 'GET'} ${url}`);
     response = await fetch(url, {
@@ -75,15 +86,22 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
-    console.log(`[Query] Fetching ${queryKey[0]}`);
-    const response = await fetch(queryKey[0] as string, {
+    let url = queryKey[0] as string;
+    
+    // If the URL starts with /api, use the config API base URL
+    if (url.startsWith('/api/')) {
+      url = `${config.apiBaseUrl}${url.substring(4)}`;
+    }
+    
+    console.log(`[Query] Fetching ${url}`);
+    const response = await fetch(url, {
       headers: defaultHeaders,
       credentials: "include",
     });
 
-    console.log(`[Query] ${queryKey[0]} - Status:`, response.status);
+    console.log(`[Query] ${url} - Status:`, response.status);
     if (unauthorizedBehavior === "returnNull" && response.status === 401) {
-      console.log(`[Query] Returning null for unauthorized request to ${queryKey[0]}`);
+      console.log(`[Query] Returning null for unauthorized request to ${url}`);
       return null;
     }
 

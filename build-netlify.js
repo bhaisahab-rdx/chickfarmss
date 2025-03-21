@@ -7,7 +7,8 @@ const execPromise = util.promisify(exec);
 
 async function build() {
   try {
-    console.log('Building client for production...');
+    console.log('Building client and server for production...');
+    // Use the existing build command from package.json
     await execPromise('npm run build');
     
     console.log('Copying necessary server files to netlify functions...');
@@ -18,6 +19,9 @@ async function build() {
     // Copy server and shared directories
     await fs.copy('./server', './netlify/functions/server');
     await fs.copy('./shared', './netlify/functions/shared');
+    
+    // Copy drizzle.config.ts file
+    await fs.copy('./drizzle.config.ts', './netlify/functions/drizzle.config.ts');
     
     console.log('Build completed successfully!');
   } catch (error) {
