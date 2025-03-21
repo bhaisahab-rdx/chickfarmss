@@ -150,15 +150,23 @@ function Router() {
   return (
     <Switch key={locationPath}>
       <Route path="/">
-        {() => <Redirect to="/landing" />}
+        {() => <Redirect to={user ? "/home" : "/landing"} />}
       </Route>
-      <Route path="/landing" component={LandingPage} />
-      <Route path="/auth" component={AuthPage} />
+      <Route path="/landing">
+        {() => user ? <Redirect to="/home" /> : <LandingPage />}
+      </Route>
+      <Route path="/auth">
+        {() => user ? <Redirect to="/home" /> : <AuthPage />}
+      </Route>
       <Route path="/contact-us" component={ContactUsPage} />
       <Route path="/terms-of-service" component={TermsOfServicePage} />
       <Route path="/privacy-policy" component={PrivacyPolicyPage} />
-      <Route path="/chickens" component={ShopPage} />
-      <Route path="/marketplace" component={MarketPage} />
+      <Route path="/chickens">
+        {() => user ? <ShopPage /> : <Redirect to="/auth?redirect=/shop" />}
+      </Route>
+      <Route path="/marketplace">
+        {() => user ? <MarketPage /> : <Redirect to="/auth?redirect=/market" />}
+      </Route>
       <Route path="/referral">
         {() => <Redirect to={user ? "/account?tab=referral" : "/auth?redirect=/account?tab=referral"} />}
       </Route>

@@ -152,11 +152,38 @@ export function FloatingSpinButton() {
           <motion.div
             className="absolute inset-0 bg-gradient-to-r from-amber-400 to-amber-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
           />
-          <img 
-            src="/assets/spin-wheel-icon.svg" 
+          <svg 
+            xmlns="http://www.w3.org/2000/svg" 
+            viewBox="0 0 100 100" 
             className="w-12 h-12 relative z-10 transform group-hover:rotate-180 transition-transform duration-500" 
-            alt="Spin" 
-          />
+            role="img"
+          >
+            <title>Spin Wheel</title>
+            {/* Main wheel circle */}
+            <circle cx="50" cy="50" r="45" fill="#FEF3C7" stroke="#F59E0B" strokeWidth="2" />
+            
+            {/* Spin wheel partitions */}
+            <path d="M50,50 L95,50 A45,45 0 0,0 73,11 Z" fill="#FBBF24" />
+            <path d="M50,50 L73,11 A45,45 0 0,0 27,11 Z" fill="#F59E0B" />
+            <path d="M50,50 L27,11 A45,45 0 0,0 5,50 Z" fill="#FBBF24" />
+            <path d="M50,50 L5,50 A45,45 0 0,0 27,89 Z" fill="#F59E0B" />
+            <path d="M50,50 L27,89 A45,45 0 0,0 73,89 Z" fill="#FBBF24" />
+            <path d="M50,50 L73,89 A45,45 0 0,0 95,50 Z" fill="#F59E0B" />
+            
+            {/* Center circle */}
+            <circle cx="50" cy="50" r="8" fill="#FEF3C7" stroke="#F59E0B" strokeWidth="2" />
+            
+            {/* Pointer */}
+            <polygon points="50,10 45,25 55,25" fill="#EA580C" />
+            
+            {/* Stars/Reward icons */}
+            <circle cx="80" cy="30" r="4" fill="#FDBA74" />
+            <circle cx="30" cy="30" r="4" fill="#FDBA74" />
+            <circle cx="80" cy="70" r="4" fill="#FDBA74" />
+            <circle cx="30" cy="70" r="4" fill="#FDBA74" />
+            <circle cx="20" cy="50" r="4" fill="#FDBA74" />
+            <circle cx="50" cy="80" r="4" fill="#FDBA74" />
+          </svg>
           
           {/* Notification Badge */}
           <AnimatePresence>
