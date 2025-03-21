@@ -210,11 +210,12 @@ export default function WalletPage() {
     },
   });
 
+  // No longer needed with NOWPayments but keeping as a placeholder in case we need manual deposit option in the future
   const handleCopyAddress = () => {
-    navigator.clipboard.writeText(networkAddresses[selectedNetwork as keyof typeof networkAddresses]);
+    // This function is not used anymore since we're using NOWPayments
     toast({
-      title: "Address Copied",
-      description: "The USDT address has been copied to your clipboard.",
+      title: "Using NOWPayments",
+      description: "We now use automatic payment processing with NOWPayments.",
     });
   };
 
@@ -287,102 +288,141 @@ export default function WalletPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
                   <div className="space-y-3 sm:space-y-4">
                     <div className="bg-primary/10 p-2 sm:p-4 rounded-lg text-center space-y-1 sm:space-y-2">
-                      <QRCodeSVG
-                        value={qrCodeData}
-                        size={120}
-                        className="mx-auto"
-                      />
-                      <p className="text-xs sm:text-sm font-medium">Scan QR to pay with USDT</p>
-                      <p className="text-xs text-muted-foreground">Enter your transaction ID after payment</p>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Select
-                        value={selectedNetwork}
-                        onValueChange={(value) => {
-                          setSelectedNetwork(value);
-                          rechargeForm.setValue('network', value);
-                        }}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select network" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="ethereum">{networkLabels.ethereum}</SelectItem>
-                          <SelectItem value="tron">{networkLabels.tron}</SelectItem>
-                          <SelectItem value="bnb">{networkLabels.bnb}</SelectItem>
-                        </SelectContent>
-                      </Select>
-
-                      <div className="flex items-center space-x-1 sm:space-x-2 bg-gray-50 p-1 sm:p-2 rounded-lg border border-gray-200">
-                        <code className="flex-1 p-1 sm:p-2 rounded text-xs sm:text-sm overflow-x-auto font-mono break-all">
-                          {networkAddresses[selectedNetwork as keyof typeof networkAddresses]}
-                        </code>
-                        <Button
-                          className="h-7 w-7 sm:h-8 sm:w-8 bg-amber-500 hover:bg-amber-600 text-white"
-                          onClick={handleCopyAddress}
-                        >
-                          <Copy className="h-3 w-3 sm:h-4 sm:w-4" />
-                        </Button>
-                      </div>
+                      {paymentDetails ? (
+                        <>
+                          <QRCodeSVG
+                            value={qrCodeData}
+                            size={150}
+                            className="mx-auto bg-white p-2 rounded-md"
+                          />
+                          <p className="text-xs sm:text-sm font-medium">Scan QR to pay with {paymentDetails.currency}</p>
+                          <p className="text-xs text-muted-foreground">
+                            Send exactly {paymentDetails.amount} {paymentDetails.currency} to complete your payment
+                          </p>
+                        </>
+                      ) : (
+                        <>
+                          <div className="relative mx-auto w-[150px] h-[150px] flex items-center justify-center bg-white/70 p-2 rounded-md">
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              <p className="text-xs text-muted-foreground p-4 text-center">
+                                Enter an amount and click "Create Payment" to generate a QR code
+                              </p>
+                            </div>
+                            <QRCodeSVG
+                              value={qrCodeData}
+                              size={150}
+                              className="mx-auto opacity-20"
+                            />
+                          </div>
+                          <p className="text-xs sm:text-sm font-medium">NOWPayments Cryptocurrency Gateway</p>
+                          <p className="text-xs text-muted-foreground">
+                            Secure, fast, and automated cryptocurrency payments
+                          </p>
+                        </>
+                      )}
                     </div>
                   </div>
 
-                  <Form {...rechargeForm}>
-                    <form
-                      onSubmit={rechargeForm.handleSubmit((data) =>
-                        rechargeMutation.mutate(data)
-                      )}
-                      className="space-y-3 sm:space-y-4"
-                    >
-                      <FormField
-                        control={rechargeForm.control}
-                        name="amount"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-xs sm:text-sm">Amount (USDT)</FormLabel>
-                            <FormControl>
-                              <Input
-                                type="number"
-                                {...field}
-                                className="h-8 sm:h-10 text-sm"
-                                onChange={(e) =>
-                                  field.onChange(parseFloat(e.target.value))
-                                }
-                              />
-                            </FormControl>
-                            <FormMessage className="text-xs" />
-                          </FormItem>
+                  {paymentDetails ? (
+                    <div className="space-y-4 bg-gray-50 p-4 rounded-lg border border-gray-200">
+                      <div className="text-center">
+                        <h3 className="font-semibold text-sm sm:text-base mb-1">Payment in Progress</h3>
+                        <p className="text-xs sm:text-sm text-muted-foreground">
+                          {checkingPayment 
+                            ? "Checking payment status..." 
+                            : "Please complete payment to the address below"}
+                        </p>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <div className="bg-white p-2 rounded border border-gray-200">
+                          <p className="text-xs text-muted-foreground">Payment Amount</p>
+                          <p className="font-mono font-medium">{paymentDetails.amount} {paymentDetails.currency}</p>
+                        </div>
+                        
+                        <div className="bg-white p-2 rounded border border-gray-200">
+                          <p className="text-xs text-muted-foreground">Payment Address</p>
+                          <div className="flex items-center">
+                            <code className="font-mono text-xs sm:text-sm flex-1 break-all">
+                              {paymentDetails.address}
+                            </code>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="ml-2 h-7 w-7"
+                              onClick={() => {
+                                navigator.clipboard.writeText(paymentDetails.address);
+                                toast({
+                                  title: "Address Copied",
+                                  description: "The payment address has been copied to your clipboard."
+                                });
+                              }}
+                            >
+                              <Copy className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </div>
+                        
+                        <div className="bg-white p-2 rounded border border-gray-200">
+                          <p className="text-xs text-muted-foreground">Payment ID</p>
+                          <p className="font-mono text-xs">{paymentDetails.paymentId}</p>
+                        </div>
+                      </div>
+                      
+                      <div className="text-center text-xs text-muted-foreground pt-2">
+                        <p>Once payment is sent, we'll automatically detect it and update your balance.</p>
+                        <Button 
+                          variant="link" 
+                          className="text-xs p-0 h-auto"
+                          onClick={() => setPaymentDetails(null)}
+                        >
+                          Cancel and start over
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <Form {...rechargeForm}>
+                      <form
+                        onSubmit={rechargeForm.handleSubmit((data) =>
+                          rechargeMutation.mutate(data)
                         )}
-                      />
-
-                      <FormField
-                        control={rechargeForm.control}
-                        name="transactionId"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-xs sm:text-sm">Transaction ID</FormLabel>
-                            <FormControl>
-                              <Input
-                                {...field}
-                                className="h-8 sm:h-10 text-sm"
-                                placeholder="Enter your USDT transaction ID"
-                              />
-                            </FormControl>
-                            <FormMessage className="text-xs" />
-                          </FormItem>
-                        )}
-                      />
-
-                      <Button
-                        type="submit"
-                        className="w-full h-8 sm:h-10 text-xs sm:text-sm mt-2"
-                        disabled={rechargeMutation.isPending}
+                        className="space-y-3 sm:space-y-4"
                       >
-                        Submit Recharge Request
-                      </Button>
-                    </form>
-                  </Form>
+                        <FormField
+                          control={rechargeForm.control}
+                          name="amount"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-xs sm:text-sm">Amount (USDT)</FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  {...field}
+                                  className="h-8 sm:h-10 text-sm"
+                                  onChange={(e) =>
+                                    field.onChange(parseFloat(e.target.value))
+                                  }
+                                />
+                              </FormControl>
+                              <FormMessage className="text-xs" />
+                            </FormItem>
+                          )}
+                        />
+
+                        <Button
+                          type="submit"
+                          className="w-full h-8 sm:h-10 text-xs sm:text-sm mt-2"
+                          disabled={rechargeMutation.isPending}
+                        >
+                          Create Payment
+                        </Button>
+                        
+                        <p className="text-xs text-center text-muted-foreground">
+                          Powered by NOWPayments - Secure Cryptocurrency Payment Processing
+                        </p>
+                      </form>
+                    </Form>
+                  )}
                 </div>
               </CardContent>
             </Card>
