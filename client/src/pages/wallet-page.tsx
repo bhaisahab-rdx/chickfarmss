@@ -31,8 +31,8 @@ import {
 
 const rechargeSchema = z.object({
   amount: z.number().positive("Amount must be positive"),
-  network: z.string().min(1, "Network is required"),
-  transactionId: z.string().min(1, "Transaction ID is required").regex(/^[A-Za-z0-9]+$/, "Transaction ID must contain only letters and numbers"),
+  currency: z.string().default("USD"),
+  payCurrency: z.string().default("USDT"),
 });
 
 const withdrawalSchema = z.object({
@@ -66,8 +66,8 @@ export default function WalletPage() {
     resolver: zodResolver(rechargeSchema),
     defaultValues: {
       amount: 0,
-      network: "ethereum",
-      transactionId: "",
+      currency: "USD",
+      payCurrency: "USDT",
     },
   });
 
@@ -91,24 +91,98 @@ export default function WalletPage() {
     bnb: "USDT (BEP2) - BNB Beacon Chain",
   };
 
+  // Add state to track payment information
+  const [paymentDetails, setPaymentDetails] = useState<{
+    paymentId: string;
+    address: string;
+    amount: number;
+    currency: string;
+  } | null>(null);
+  
+  // Add state to track payment status
+  const [checkingPayment, setCheckingPayment] = useState(false);
+
   const rechargeMutation = useMutation({
     mutationFn: async (data: z.infer<typeof rechargeSchema>) => {
       return await apiRequest("POST", "/api/wallet/recharge", data);
     },
-    onSuccess: (data) => {
+    onSuccess: (response) => {
       queryClient.invalidateQueries({ queryKey: ["/api/user"] });
       queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
 
-      toast({
-        title: "Recharge Requested",
-        description: "Your USDT recharge request has been submitted for verification.",
-      });
+      // Store payment details for QR code and display
+      if (response?.payment) {
+        setPaymentDetails({
+          paymentId: response.payment.paymentId,
+          address: response.payment.address,
+          amount: response.payment.amount,
+          currency: response.payment.currency,
+        });
+        
+        // Set up payment status polling (every 15 seconds)
+        const checkPaymentStatus = async () => {
+          try {
+            setCheckingPayment(true);
+            const statusResponse = await apiRequest(
+              "GET", 
+              `/api/payments/${response.payment.paymentId}/status`
+            );
+            
+            if (statusResponse?.payment?.status === 'finished') {
+              queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+              toast({
+                title: "Payment Completed",
+                description: "Your payment has been confirmed and your balance has been updated.",
+              });
+              setPaymentDetails(null);
+              rechargeForm.reset();
+              // Clear the polling interval
+              return true;
+            } else if (
+              statusResponse?.payment?.status === 'failed' || 
+              statusResponse?.payment?.status === 'expired'
+            ) {
+              toast({
+                title: "Payment Failed",
+                description: "Your payment could not be processed. Please try again.",
+                variant: "destructive",
+              });
+              setPaymentDetails(null);
+              // Clear the polling interval
+              return true;
+            }
+            setCheckingPayment(false);
+            return false;
+          } catch (error) {
+            console.error("Error checking payment status:", error);
+            setCheckingPayment(false);
+            return false;
+          }
+        };
+        
+        // Check immediately
+        checkPaymentStatus();
+        
+        // Then check every 15 seconds
+        const interval = setInterval(async () => {
+          const shouldClearInterval = await checkPaymentStatus();
+          if (shouldClearInterval) {
+            clearInterval(interval);
+          }
+        }, 15000);
+        
+        // Clear the interval when component unmounts
+        return () => clearInterval(interval);
+      }
 
-      rechargeForm.reset();
+      toast({
+        title: "Payment Initiated",
+        description: "Please complete the payment to add funds to your account.",
+      });
     },
     onError: (error: Error) => {
       toast({
-        title: "Recharge Failed",
+        title: "Payment Failed",
         description: error.message,
         variant: "destructive",
       });
@@ -147,11 +221,15 @@ export default function WalletPage() {
   const [qrCodeData, setQrCodeData] = useState("");
 
   useEffect(() => {
-    const amount = rechargeForm.watch("amount");
-    const address = networkAddresses[selectedNetwork as keyof typeof networkAddresses];
-    const qrData = `${selectedNetwork}:${address}?amount=${amount}`;
-    setQrCodeData(qrData);
-  }, [rechargeForm.watch("amount"), selectedNetwork]);
+    // If we have payment details, show payment QR code
+    if (paymentDetails) {
+      setQrCodeData(`${paymentDetails.currency}:${paymentDetails.address}?amount=${paymentDetails.amount}`);
+    } else {
+      // Just show a preview based on the form amount
+      const amount = rechargeForm.watch("amount");
+      setQrCodeData(`usdt:preview?amount=${amount}`);
+    }
+  }, [rechargeForm.watch("amount"), paymentDetails]);
 
   // Add scroll reset effect
   useEffect(() => {

@@ -45,6 +45,96 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "Failed to retrieve minimum payment amount" });
     }
   });
+  
+  // Payment status check endpoint
+  app.get("/api/payments/:paymentId/status", isAuthenticated, async (req, res) => {
+    try {
+      const paymentId = req.params.paymentId;
+      
+      // Check if this is our transaction
+      const transaction = await storage.getTransactionByTransactionId(paymentId);
+      if (!transaction) {
+        return res.status(404).json({ error: "Transaction not found" });
+      }
+      
+      // Verify this transaction belongs to the requesting user
+      if (transaction.userId !== req.user!.id) {
+        return res.status(403).json({ error: "Unauthorized access to transaction" });
+      }
+      
+      // Get status from NOWPayments
+      const paymentStatus = await nowPaymentsService.getPaymentStatus(paymentId);
+      
+      // If payment is completed but our transaction is still pending, update it
+      if (paymentStatus.payment_status === 'finished' && transaction.status === 'pending') {
+        console.log(`[NOWPayments] Payment ${paymentId} is completed, updating transaction status`);
+        
+        // Update transaction status
+        await storage.updateTransactionStatus(paymentId, "completed");
+        
+        // Update user balance
+        await storage.updateUserBalance(req.user!.id, parseFloat(transaction.amount));
+        
+        // Process referral commissions if applicable
+        const user = await storage.getUser(req.user!.id);
+        if (user && user.referredBy) {
+          try {
+            // Find the referrer
+            const referrer = await storage.getUserByReferralCode(user.referredBy);
+            if (referrer) {
+              console.log(`[NOWPayments] Processing referral commission for payment ${paymentId}`);
+              
+              // Calculate level 1 commission (10% of deposit)
+              const level1Amount = parseFloat(transaction.amount) * 0.1;
+              
+              // Update referrer's earnings
+              await storage.updateUserBalance(referrer.id, level1Amount);
+              await storage.updateUserReferralEarnings(referrer.id, level1Amount);
+              await storage.updateUserTeamEarnings(referrer.id, level1Amount);
+              
+              // Record the referral earning
+              await storage.createReferralEarning({
+                userId: referrer.id,
+                referredUserId: req.user!.id,
+                level: 1,
+                amount: level1Amount.toFixed(2),
+                claimed: false
+              });
+              
+              // Process higher level referrals as well (levels 2-6)
+              // Follow the same pattern as in the existing referral processing
+            }
+          } catch (referralError) {
+            console.error(`[NOWPayments] Error processing referral for payment ${paymentId}:`, referralError);
+            // Continue execution - don't fail the payment update because of referral issues
+          }
+        }
+      }
+      
+      // Return both our transaction status and the NOWPayments status
+      res.json({
+        transaction: {
+          id: transaction.id,
+          status: transaction.status,
+          amount: transaction.amount,
+          createdAt: transaction.createdAt
+        },
+        payment: {
+          paymentId: paymentStatus.payment_id,
+          status: paymentStatus.payment_status,
+          payAddress: paymentStatus.pay_address,
+          amount: paymentStatus.pay_amount,
+          currency: paymentStatus.pay_currency,
+          actuallyPaid: paymentStatus.actually_paid,
+          actuallyPaidAt: paymentStatus.actually_paid_at,
+          updatedAt: paymentStatus.updated_at
+        }
+      });
+    } catch (error) {
+      console.error(`[NOWPayments] Error checking payment status:`, error);
+      res.status(500).json({ error: "Failed to check payment status" });
+    }
+  });
 
   // Admin routes
   app.get("/api/admin/transactions", async (req, res) => {
@@ -669,22 +759,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/wallet/recharge", isAuthenticated, async (req, res) => {
     const schema = z.object({
       amount: z.number().positive(),
-      transactionId: z.string()
+      currency: z.string().optional().default("USD"),
+      payCurrency: z.string().optional().default("USDT")
     });
 
     const result = schema.safeParse(req.body);
     if (!result.success) return res.status(400).json(result.error);
 
     try {
-      // Create the main deposit transaction without any bonus
+      // Create payment via NOWPayments API
+      const callbackUrl = process.env.NODE_ENV === 'production' 
+        ? `${process.env.API_URL || 'https://chickfarms.com'}/api/payments/callback` 
+        : undefined;
+      
+      console.log(`[NOWPayments] Creating payment for $${result.data.amount} from user ${req.user!.id}`);
+      
+      const payment = await nowPaymentsService.createPayment(
+        result.data.amount,
+        req.user!.id,
+        result.data.currency,
+        result.data.payCurrency,
+        undefined,
+        undefined,
+        callbackUrl
+      );
+      
+      console.log(`[NOWPayments] Payment created: ${payment.payment_id}`);
+      
+      // Create a pending transaction in our database
       const transaction = await storage.createTransaction(
         req.user!.id,
         "recharge",
         result.data.amount,
-        result.data.transactionId
+        payment.payment_id, // Use NOWPayments payment ID as our transaction ID
+        undefined,
+        JSON.stringify({ 
+          paymentDetails: payment,
+          paymentMethod: "nowpayments" 
+        })
       );
-
-      res.json({ ...transaction });
+      
+      // Return both the transaction and the payment details
+      res.json({
+        transaction,
+        payment: {
+          paymentId: payment.payment_id,
+          status: payment.payment_status,
+          address: payment.pay_address,
+          amount: payment.pay_amount,
+          currency: payment.pay_currency,
+          createdAt: payment.created_at,
+        }
+      });
     } catch (err) {
       if (err instanceof Error) {
         res.status(400).send(err.message);
