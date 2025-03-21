@@ -15,6 +15,7 @@ import { FloatingSpinButton } from "@/components/floating-spin-button";
 import HelpMenu from "@/components/help-menu";
 import ContextSensitiveHelp from "@/components/context-sensitive-help";
 import BalanceBar from "@/components/balance-bar";
+import { TouchScrollFix } from "@/components/touch-scroll-fix";
 
 // Import pages
 import HomePage from "@/pages/home-page";
