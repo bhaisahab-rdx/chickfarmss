@@ -4,8 +4,11 @@ import { setupVite, serveStatic, log } from "./vite";
 import cors from 'cors';
 
 const app = express();
+// Allow any origin in development to help with Replit preview
 app.use(cors({
-  origin: ['http://localhost:5000', 'https://chickfarms.replit.app'],
+  origin: process.env.NODE_ENV === 'production' 
+    ? ['https://chickfarms.replit.app', 'https://chickfarms.com'] 
+    : true,
   credentials: true
 }));
 app.use(express.json());
@@ -71,9 +74,31 @@ app.use((req, res, next) => {
 
   // ALWAYS serve the app on port 5000
   // this serves both the API and the client
-  const port = 5000;
+  // Use Replit's port environment variable if available, otherwise default to 5000
+  const port = process.env.PORT || 5000;
   
   console.log("Starting server on port", port);
+  
+  // Add a test route that's easy to access
+  app.get('/test', (req, res) => {
+    res.send('Server is working!');
+  });
+  
+  // Add a root route that returns a simple response to verify server is up
+  app.get('/', (req, res, next) => {
+    // For API requests, pass to the next handler
+    if (req.path === '/api') {
+      return next();
+    }
+    
+    // Only respond with text for direct root requests (not handled by Vite)
+    if (req.headers.accept && !req.headers.accept.includes('text/html')) {
+      return res.send('ChickFarms API Server is running');
+    }
+    
+    // Let Vite or static serving handle the HTML response
+    next();
+  });
   
   server.listen({
     port,
@@ -83,10 +108,6 @@ app.use((req, res, next) => {
     log(`serving on port ${port}`);
     console.log(`Server is listening on http://0.0.0.0:${port}`);
     console.log(`Environment: ${app.get("env")}`);
-    
-    // Add a test route that's easy to access
-    app.get('/test', (req, res) => {
-      res.send('Server is working!');
-    });
+    console.log(`Open in browser: https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`);
   });
 })();
