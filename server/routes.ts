@@ -4,6 +4,7 @@ import { setupAuth, isAuthenticated } from "./auth";
 import { storage, mysteryBoxTypes } from "./storage";
 import { z } from "zod";
 import { dailySpinRewards, superJackpotRewards } from "@shared/schema";
+import { nowPaymentsService } from "./nowpayments";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   setupAuth(app);
@@ -11,6 +12,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Health endpoint for monitoring
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok" });
+  });
+  
+  // NOWPayments API endpoints
+  app.get("/api/payments/status", async (req, res) => {
+    try {
+      const status = await nowPaymentsService.getStatus();
+      res.json(status);
+    } catch (error) {
+      console.error("Error checking NOWPayments status:", error);
+      res.status(500).json({ error: "Failed to check payment service status" });
+    }
+  });
+
+  app.get("/api/payments/currencies", async (req, res) => {
+    try {
+      const currencies = await nowPaymentsService.getAvailableCurrencies();
+      res.json(currencies);
+    } catch (error) {
+      console.error("Error retrieving available currencies:", error);
+      res.status(500).json({ error: "Failed to retrieve available currencies" });
+    }
+  });
+
+  app.get("/api/payments/min-amount", async (req, res) => {
+    try {
+      const currency = req.query.currency as string || "USDT";
+      const minAmount = await nowPaymentsService.getMinimumPaymentAmount(currency);
+      res.json({ minAmount, currency });
+    } catch (error) {
+      console.error("Error retrieving minimum amount:", error);
+      res.status(500).json({ error: "Failed to retrieve minimum payment amount" });
+    }
   });
 
   // Admin routes
