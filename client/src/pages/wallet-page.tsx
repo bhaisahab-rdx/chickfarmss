@@ -31,7 +31,7 @@ import {
 
 const rechargeSchema = z.object({
   amount: z.number().positive("Amount must be positive"),
-  currency: z.string().default("USD"),
+  currency: z.string().default("USDT"),
   payCurrency: z.string().default("USDT"),
 });
 
@@ -66,7 +66,7 @@ export default function WalletPage() {
     resolver: zodResolver(rechargeSchema),
     defaultValues: {
       amount: 0,
-      currency: "USD",
+      currency: "USDT",
       payCurrency: "USDT",
     },
   });

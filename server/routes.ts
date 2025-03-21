@@ -759,7 +759,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/wallet/recharge", isAuthenticated, async (req, res) => {
     const schema = z.object({
       amount: z.number().positive(),
-      currency: z.string().optional().default("USD"),
+      currency: z.string().optional().default("USDT"),
       payCurrency: z.string().optional().default("USDT")
     });
 
