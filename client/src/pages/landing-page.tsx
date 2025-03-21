@@ -736,7 +736,7 @@ export default function LandingPage() {
                   animate={{ boxShadow: ["0px 0px 0px rgba(245, 158, 11, 0)", "0px 0px 20px rgba(245, 158, 11, 0.7)", "0px 0px 0px rgba(245, 158, 11, 0)"] }}
                   transition={{ boxShadow: { repeat: Infinity, duration: 2 } }}
                 >
-                  <span className="text-white font-bold text-xl">SPIN</span>
+                  <RefreshCw className="h-6 w-6 text-white" />
                 </motion.div>
               </div>
             </motion.div>
