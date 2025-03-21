@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { setupAuth, isAuthenticated } from "./auth";
 import { storage, mysteryBoxTypes } from "./storage";
 import { z } from "zod";
-import { dailySpinRewards, superJackpotRewards } from "@shared/schema";
+import { dailySpinRewards, superJackpotRewards } from "../shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   setupAuth(app);

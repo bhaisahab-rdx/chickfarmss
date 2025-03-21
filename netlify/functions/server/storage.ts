@@ -10,13 +10,13 @@ import {
   DailyReward, InsertDailyReward, ActiveBoost, InsertActiveBoost,
   milestoneThresholds, referralCommissionRates, SALARY_PER_REFERRAL,
   dailyRewardsByDay, boostTypes, SpinHistory, InsertSpinHistory,
-} from "@shared/schema";
+} from "../shared/schema";
 import {
   users, chickens, resources, transactions, prices,
   userProfiles, gameSettings as gameSettingsTable,
   mysteryBoxRewards, referralEarnings, milestoneRewards,
   salaryPayments, dailyRewards, activeBoosts, spinHistory
-} from "@shared/schema";
+} from "../shared/schema";
 import session from "express-session";
 import createMemoryStore from "memorystore";
 import { randomBytes } from "crypto";

@@ -2,10 +2,10 @@ import express, { Express } from "express";
 import serverless from "serverless-http";
 import session from "express-session";
 import MemoryStore from "memorystore";
-import { setupAuth } from "../../server/auth";
-import { registerRoutes } from "../../server/routes";
+import { setupAuth } from "./server/auth";
+import { registerRoutes } from "./server/routes";
 import cors from "cors";
-import { pool, db } from "../../server/db";
+import { pool, db } from "./server/db";
 
 const app: Express = express();
 const MemoryStoreFactory = MemoryStore(session);
