@@ -126,7 +126,7 @@ export function FloatingSpinButton() {
               exit={{ opacity: 0, y: 10, scale: 0.8 }}
               className="mb-2 bg-white/80 backdrop-blur-sm px-3 py-1 rounded-full shadow-md text-amber-900 text-xs font-medium"
             >
-              {timeRemaining}
+              Next spin: {timeRemaining}
             </motion.div>
           )}
         </AnimatePresence>

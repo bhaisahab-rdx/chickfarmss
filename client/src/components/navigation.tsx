@@ -181,7 +181,7 @@ export default function Navigation() {
           initial={{ y: 100 }}
           animate={{ y: 0 }}
           exit={{ y: 100 }}
-          transition={{ type: "spring", stiffness: 300, damping: 30 }}
+          transition={{ type: "spring", stiffness: 400, damping: 35 }}
           className="block md:hidden fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur-sm border-t shadow-lg z-50"
         >
           <div className="container mx-auto px-1 sm:px-2">
@@ -207,15 +207,17 @@ export default function Navigation() {
                     <Button 
                       variant={isActive(item.path) ? "default" : "ghost"}
                       className={`flex flex-col items-center justify-center space-y-1 h-14 w-14 sm:h-16 sm:w-16 px-0
-                        ${isActive(item.path) ? 'bg-primary/10' : ''}`}
+                        ${isActive(item.path) ? 'bg-primary/10 border border-primary/30' : ''}`}
                     >
-                      {item.icon}
+                      <div className="flex items-center justify-center h-8">
+                        {item.icon}
+                      </div>
                       <span className="text-[10px] sm:text-xs font-medium">{item.label}</span>
                     </Button>
                     {isActive(item.path) && (
                       <motion.div
                         layoutId="activeIndicator"
-                        className="absolute -bottom-2 left-0 right-0 h-0.5 bg-primary"
+                        className="absolute -bottom-1 left-0 right-0 h-1 bg-primary rounded-t-full"
                         transition={{ type: "spring", stiffness: 300, damping: 30 }}
                       />
                     )}

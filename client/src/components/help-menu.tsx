@@ -52,10 +52,11 @@ export default function HelpMenu() {
       <Dialog>
         <DialogTrigger asChild>
           <Button 
-            className="fixed bottom-4 right-4 rounded-full w-12 h-12 p-0 bg-amber-500 hover:bg-amber-600 shadow-lg" 
+            className="fixed bottom-4 right-4 rounded-full w-12 h-12 p-0 bg-amber-500 hover:bg-amber-600 shadow-lg z-50 animate-pulse" 
             aria-label="Get Help"
+            title="Need help? Click here!"
           >
-            <HelpCircle size={24} />
+            <HelpCircle size={24} className="text-white" />
           </Button>
         </DialogTrigger>
         
