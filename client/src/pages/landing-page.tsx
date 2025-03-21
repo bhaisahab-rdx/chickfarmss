@@ -102,7 +102,7 @@ export default function LandingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#FEF3C7] flex flex-col overflow-x-hidden">
+    <div className="min-h-screen bg-[#FEF3C7] flex flex-col overflow-y-auto">
       {/* Navbar */}
       <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-sm border-b border-amber-100">
         <div className="container mx-auto px-2 sm:px-4 py-3 sm:py-4 flex justify-between items-center">
@@ -1424,18 +1424,18 @@ export default function LandingPage() {
               <ul className="space-y-2">
                 <li><a href="#how-it-works" className="text-amber-300 hover:text-white transition-colors">How It Works</a></li>
                 <li>
-                  <Link href="/chickens">
-                    <a className="text-amber-300 hover:text-white transition-colors">Chickens</a>
+                  <Link href="/chickens" className="text-amber-300 hover:text-white transition-colors">
+                    Chickens
                   </Link>
                 </li>
                 <li>
-                  <Link href="/marketplace">
-                    <a className="text-amber-300 hover:text-white transition-colors">Marketplace</a>
+                  <Link href="/marketplace" className="text-amber-300 hover:text-white transition-colors">
+                    Marketplace
                   </Link>
                 </li>
                 <li>
-                  <Link href="/referral">
-                    <a className="text-amber-300 hover:text-white transition-colors">Referral Program</a>
+                  <Link href="/referral" className="text-amber-300 hover:text-white transition-colors">
+                    Referral Program
                   </Link>
                 </li>
               </ul>
@@ -1445,18 +1445,18 @@ export default function LandingPage() {
               <h3 className="text-white font-semibold mb-4">Support</h3>
               <ul className="space-y-2">
                 <li>
-                  <Link href="/contact-us">
-                    <a className="text-amber-300 hover:text-white transition-colors">Contact Us</a>
+                  <Link href="/contact-us" className="text-amber-300 hover:text-white transition-colors">
+                    Contact Us
                   </Link>
                 </li>
                 <li>
-                  <Link href="/terms-of-service">
-                    <a className="text-amber-300 hover:text-white transition-colors">Terms of Service</a>
+                  <Link href="/terms-of-service" className="text-amber-300 hover:text-white transition-colors">
+                    Terms of Service
                   </Link>
                 </li>
                 <li>
-                  <Link href="/privacy-policy">
-                    <a className="text-amber-300 hover:text-white transition-colors">Privacy Policy</a>
+                  <Link href="/privacy-policy" className="text-amber-300 hover:text-white transition-colors">
+                    Privacy Policy
                   </Link>
                 </li>
               </ul>
