@@ -1,0 +1,17 @@
+{
+  "name": "chickfarms-api-functions",
+  "version": "1.0.0",
+  "description": "Netlify Functions for Chickfarms API",
+  "main": "api.js",
+  "dependencies": {
+    "express": "^4.21.2",
+    "serverless-http": "^3.2.0",
+    "express-session": "^1.18.1",
+    "memorystore": "^1.6.7",
+    "cors": "^2.8.5",
+    "pg": "^8.14.0",
+    "drizzle-orm": "^0.39.1",
+    "passport": "^0.7.0",
+    "passport-local": "^1.0.0"
+  }
+}
