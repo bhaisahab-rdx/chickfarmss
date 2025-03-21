@@ -23,7 +23,7 @@ export default function AuthPage() {
   // Get referral code and redirect path from URL if present
   const params = new URLSearchParams(window.location.search);
   const referralCode = params.get('ref');
-  const redirectPath = params.get('redirect') || '/'; // Default to '/' if no redirect is specified
+  const redirectPath = params.get('redirect') || '/home'; // Default to '/home' if no redirect is specified
 
   const loginForm = useForm({
     resolver: zodResolver(insertUserSchema),

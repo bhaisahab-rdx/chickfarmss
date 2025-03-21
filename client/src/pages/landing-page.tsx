@@ -110,52 +110,34 @@ export default function LandingPage() {
             <img src="/assets/chickfarms-logo.png" alt="ChickFarms Logo" className="h-8 sm:h-10" />
             <span className="text-lg sm:text-xl font-bold text-amber-900">ChickFarms</span>
           </div>
-          <div className="flex items-center space-x-1 sm:space-x-4">
+          <div className="flex items-center">
             <motion.div
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
+              className="relative"
             >
+              <motion.div
+                animate={{
+                  boxShadow: ["0px 0px 0px rgba(245, 158, 11, 0)", "0px 0px 15px rgba(245, 158, 11, 0.5)", "0px 0px 0px rgba(245, 158, 11, 0)"]
+                }}
+                transition={{
+                  repeat: Infinity,
+                  duration: 2
+                }}
+                className="absolute inset-0 rounded-md"
+              />
               <Button
-                variant="ghost"
-                onClick={() => setLocation(user ? "/home" : "/auth")}
-                className="text-amber-900 hover:text-amber-700 hover:bg-amber-50 px-2 sm:px-4 h-9 sm:h-10 text-xs sm:text-sm"
+                variant="default"
+                onClick={() => setLocation(user ? "/home" : "/auth?redirect=/home")}
+                className="bg-amber-500 hover:bg-amber-600 text-white relative z-10 border border-amber-400 px-2 sm:px-6 h-9 sm:h-10 text-xs sm:text-base font-medium"
               >
                 <span className="flex items-center">
-                  <span className="mr-1 sm:mr-1.5 text-base sm:text-lg">🏠</span> 
-                  <span className="hidden xs:inline">{user ? "Dashboard" : "Login"}</span>
+                  <span className="mr-1 sm:mr-2 text-base sm:text-xl">🐔</span>
+                  <span>Play Now</span>
                 </span>
               </Button>
             </motion.div>
-
-            {!user && (
-              <motion.div
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="relative"
-              >
-                <motion.div
-                  animate={{
-                    boxShadow: ["0px 0px 0px rgba(245, 158, 11, 0)", "0px 0px 15px rgba(245, 158, 11, 0.5)", "0px 0px 0px rgba(245, 158, 11, 0)"]
-                  }}
-                  transition={{
-                    repeat: Infinity,
-                    duration: 2
-                  }}
-                  className="absolute inset-0 rounded-md"
-                />
-                <Button
-                  variant="default"
-                  onClick={() => setLocation("/auth")}
-                  className="bg-amber-500 hover:bg-amber-600 text-white relative z-10 border border-amber-400 px-2 sm:px-4 h-9 sm:h-10 text-xs sm:text-sm"
-                >
-                  <span className="flex items-center">
-                    <span className="mr-1 sm:mr-1.5 text-base sm:text-lg">🐔</span>
-                    <span className="hidden xs:inline">Sign Up</span>
-                    <span className="xs:hidden">Join</span>
-                  </span>
-                </Button>
-              </motion.div>
-            )}
+          
           </div>
         </div>
       </header>
