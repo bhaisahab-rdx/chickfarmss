@@ -2,6 +2,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import cors from 'cors';
+import * as pathModule from 'path';
 
 const app = express();
 // Allow any origin in development to help with Replit preview
@@ -16,7 +17,7 @@ app.use(express.urlencoded({ extended: false }));
 
 app.use((req, res, next) => {
   const start = Date.now();
-  const path = req.path;
+  const reqPath = req.path;
   let capturedJsonResponse: Record<string, any> | undefined = undefined;
 
   const originalResJson = res.json;
@@ -27,8 +28,8 @@ app.use((req, res, next) => {
 
   res.on("finish", () => {
     const duration = Date.now() - start;
-    if (path.startsWith("/api")) {
-      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
+    if (reqPath.startsWith("/api")) {
+      let logLine = `${req.method} ${reqPath} ${res.statusCode} in ${duration}ms`;
       if (capturedJsonResponse) {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
       }
@@ -89,20 +90,19 @@ app.use((req, res, next) => {
     res.status(200).send('Healthy');
   });
   
-  // Add a root route that returns a simple response to verify server is up
-  app.get('/', (req, res, next) => {
-    // For API requests, pass to the next handler
-    if (req.path === '/api') {
+  // Explicitly serve our static HTML file for the root path
+  app.get('/', (req, res) => {
+    res.sendFile(pathModule.join(__dirname, '../client/public/index.html'));
+  });
+  
+  // But let other HTML requests go to Vite
+  app.get(/^\/(?!api).*/, (req, res, next) => {
+    if (req.headers.accept && req.headers.accept.includes('text/html')) {
       return next();
     }
     
-    // Only respond with text for direct root requests (not handled by Vite)
-    if (req.headers.accept && !req.headers.accept.includes('text/html')) {
-      return res.send('ChickFarms API Server is running');
-    }
-    
-    // Let Vite or static serving handle the HTML response
-    next();
+    // For non-HTML requests, try static files
+    express.static(pathModule.join(__dirname, '../client/public'))(req, res, next);
   });
   
   server.listen(port, "0.0.0.0", () => {
