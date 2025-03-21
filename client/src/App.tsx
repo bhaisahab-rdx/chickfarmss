@@ -227,7 +227,7 @@ function AppContent() {
         >
           <main
             id="main-content"
-            className={`flex-grow bg-gradient-to-b from-amber-50/50 to-white overflow-x-hidden ${!isLandingPage ? "pt-20 pb-20 md:pb-16" : ""}`}
+            className={`flex-grow bg-gradient-to-b from-amber-50/50 to-white overflow-x-hidden scrollable-content ${!isLandingPage ? "pt-20 pb-20 md:pb-16" : ""}`}
           >
             <Router />
           </main>
@@ -261,6 +261,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <UIStateProvider>
+          <TouchScrollFix />
           <AppContent />
         </UIStateProvider>
       </AuthProvider>

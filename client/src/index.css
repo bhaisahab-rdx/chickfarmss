@@ -5,6 +5,7 @@
 @layer base {
   * {
     @apply border-border;
+    -webkit-tap-highlight-color: transparent;
   }
 
   html, body {
@@ -13,11 +14,34 @@
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     position: relative;
+    overscroll-behavior-y: none;
+    touch-action: manipulation;
+  }
+  
+  body {
+    /* Prevent pull-to-refresh on mobile */
+    overflow-x: hidden;
+    /* Prevent text size adjust on orientation change */
+    -webkit-text-size-adjust: 100%;
+    /* Disable callout & IOS touch behavior */
+    -webkit-touch-callout: none;
   }
   
   #root {
     min-height: 100%;
     display: flex;
     flex-direction: column;
+  }
+  
+  /* Fix for iOS momentum scrolling */
+  .scrollable-content {
+    -webkit-overflow-scrolling: touch;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  
+  /* Fix for double-tap zoom on mobile */
+  a, button, [role="button"] {
+    touch-action: manipulation;
   }
 }
