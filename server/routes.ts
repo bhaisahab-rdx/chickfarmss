@@ -760,8 +760,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const schema = z.object({
       amount: z.number().positive(),
       currency: z.string().optional().default("USDT"),
-      payCurrency: z.string().optional().default("USDT"),
-      paymentMethod: z.enum(["auto", "manual"]).optional().default("auto")
+      payCurrency: z.string().optional().default("USDT")
     });
 
     const result = schema.safeParse(req.body);
@@ -775,35 +774,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Generate a unique transaction ID for tracking
       const manualTransactionId = `M${Date.now()}${Math.floor(Math.random() * 1000)}`;
       
-      // If manual payment method is selected
-      if (result.data.paymentMethod === "manual") {
-        console.log(`[Manual Payment] Creating payment for $${result.data.amount} from user ${req.user!.id}`);
-        
-        // Create a pending transaction in our database
-        const transaction = await storage.createTransaction(
-          req.user!.id,
-          "recharge",
-          result.data.amount,
-          manualTransactionId,
-          undefined,
-          JSON.stringify({ 
-            paymentMethod: "manual" 
-          })
-        );
-        
-        // Return both the transaction and the payment details
-        res.json({
-          transaction,
-          payment: {
-            paymentId: manualTransactionId,
-            status: "waiting",
-            address: paymentAddress,
-            amount: result.data.amount,
-            currency: "USDT",
-            createdAt: new Date().toISOString(),
-          }
-        });
-      } else {
+      // Always use manual payment method (admin controlled)
+      console.log(`[Manual Payment] Creating payment for $${result.data.amount} from user ${req.user!.id}`);
+      
+      // Create a pending transaction in our database
+      const transaction = await storage.createTransaction(
+        req.user!.id,
+        "recharge",
+        result.data.amount,
+        manualTransactionId,
+        undefined,
+        JSON.stringify({ 
+          paymentMethod: "manual" 
+        })
+      );
+      
+      // Return both the transaction and the payment details
+      res.json({
+        transaction,
+        payment: {
+          paymentId: manualTransactionId,
+          status: "waiting",
+          address: paymentAddress,
+          amount: result.data.amount,
+          currency: "USDT",
+          createdAt: new Date().toISOString(),
+        }
+      });
+      
+      // NOWPayments API integration - disabled as admin controls payments
+      // This code section is kept for reference but is not active
+      /* 
+      // The following code is commented out as we're using manual payment processing
         // Create payment via NOWPayments API for automatic payments
         const apiUrl = process.env.API_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:5000');
         const callbackUrl = process.env.NODE_ENV === 'production' 
@@ -849,7 +851,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             createdAt: payment.created_at,
           }
         });
-      }
+      */
     } catch (err) {
       console.error("[Payment Error]", err);
       if (err instanceof Error) {
