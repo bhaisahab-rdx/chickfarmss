@@ -5,6 +5,7 @@ import { storage, mysteryBoxTypes } from "./storage";
 import { z } from "zod";
 import { dailySpinRewards, superJackpotRewards } from "@shared/schema";
 import { nowPaymentsService } from "./nowpayments";
+import { config } from "./config";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   setupAuth(app);
@@ -55,7 +56,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const ipnData = req.body;
       
       // Verify the IPN signature if NOWPayments IPN secret is provided
-      // This part can be enhanced with signature verification for additional security
+      const ipnSecret = config.nowpayments.ipnSecret;
+      
+      if (ipnSecret) {
+        // Get the signature from headers
+        const ipnSignature = req.headers['x-nowpayments-sig'];
+        
+        if (!ipnSignature) {
+          console.error("[NOWPayments Callback] Missing signature in IPN headers");
+          return res.status(400).json({ error: "Missing signature" });
+        }
+        
+        // Verify the signature
+        const crypto = require('crypto');
+        const hmac = crypto.createHmac('sha512', ipnSecret);
+        const computedSignature = hmac.update(JSON.stringify(ipnData)).digest('hex');
+        
+        // Check if signatures match
+        if (computedSignature !== ipnSignature) {
+          console.error("[NOWPayments Callback] Invalid IPN signature");
+          return res.status(403).json({ error: "Invalid signature" });
+        }
+        
+        console.log("[NOWPayments Callback] IPN signature verified successfully");
+      } else {
+        console.warn("[NOWPayments Callback] IPN secret not configured, skipping signature verification");
+      }
       
       if (!ipnData.payment_id) {
         console.error("[NOWPayments Callback] Missing payment_id in IPN data");
@@ -936,6 +962,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!result.success) return res.status(400).json(result.error);
 
     try {
+      // Create payment via NOWPayments API for automatic payments
+      const apiUrl = config.urls.api || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:5000');
+      const callbackUrl = `${apiUrl}/api/payments/callback`;
+      
+      console.log(`[NOWPayments] Creating payment for $${result.data.amount} from user ${req.user!.id}`);
+      console.log(`[NOWPayments] Callback URL: ${callbackUrl}`);
+      
+      const payment = await nowPaymentsService.createPayment(
+        result.data.amount,
+        req.user!.id,
+        result.data.currency,
+        result.data.payCurrency,
+        undefined,
+        undefined,
+        callbackUrl
+      );
+      
+      console.log(`[NOWPayments] Payment created: ${payment.payment_id}`);
+      
+      // Create a pending transaction in our database
+      const transaction = await storage.createTransaction(
+        req.user!.id,
+        "recharge",
+        result.data.amount,
+        payment.payment_id, // Use NOWPayments payment ID as our transaction ID
+        undefined,
+        JSON.stringify({ 
+          paymentDetails: payment,
+          paymentMethod: "nowpayments" 
+        })
+      );
+      
+      // Return both the transaction and the payment details
+      res.json({
+        transaction,
+        payment: {
+          paymentId: payment.payment_id,
+          status: payment.payment_status,
+          address: payment.pay_address,
+          amount: payment.pay_amount,
+          currency: payment.pay_currency,
+          createdAt: payment.created_at,
+        }
+      });
+      
+      /* Manual payment method code - replaced with NOWPayments API integration
       // Get the payment address for manual payments
       const gameSettings = await storage.getSettings();
       const paymentAddress = gameSettings?.paymentAddress || "TRX8nHHo2Jd7H9ZwKhh6h8h"; // default address as fallback
@@ -970,56 +1042,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           createdAt: new Date().toISOString(),
         }
       });
-      
-      // NOWPayments API integration - disabled as admin controls payments
-      // This code section is kept for reference but is not active
-      /* 
-      // The following code is commented out as we're using manual payment processing
-        // Create payment via NOWPayments API for automatic payments
-        const apiUrl = process.env.API_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:5000');
-        const callbackUrl = process.env.NODE_ENV === 'production' 
-          ? `${apiUrl}/api/payments/callback` 
-          : undefined;
-        
-        console.log(`[NOWPayments] Creating payment for $${result.data.amount} from user ${req.user!.id}`);
-        
-        const payment = await nowPaymentsService.createPayment(
-          result.data.amount,
-          req.user!.id,
-          result.data.currency,
-          result.data.payCurrency,
-          undefined,
-          undefined,
-          callbackUrl
-        );
-        
-        console.log(`[NOWPayments] Payment created: ${payment.payment_id}`);
-        
-        // Create a pending transaction in our database
-        const transaction = await storage.createTransaction(
-          req.user!.id,
-          "recharge",
-          result.data.amount,
-          payment.payment_id, // Use NOWPayments payment ID as our transaction ID
-          undefined,
-          JSON.stringify({ 
-            paymentDetails: payment,
-            paymentMethod: "nowpayments" 
-          })
-        );
-        
-        // Return both the transaction and the payment details
-        res.json({
-          transaction,
-          payment: {
-            paymentId: payment.payment_id,
-            status: payment.payment_status,
-            address: payment.pay_address,
-            amount: payment.pay_amount,
-            currency: payment.pay_currency,
-            createdAt: payment.created_at,
-          }
-        });
       */
     } catch (err) {
       console.error("[Payment Error]", err);
