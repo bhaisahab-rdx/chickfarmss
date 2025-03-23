@@ -33,6 +33,7 @@ const rechargeSchema = z.object({
   amount: z.number().positive("Amount must be positive"),
   currency: z.string().default("USDT"),
   payCurrency: z.string().default("USDT"),
+  paymentMethod: z.enum(["auto", "manual"]).default("auto"),
 });
 
 const withdrawalSchema = z.object({

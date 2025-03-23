@@ -760,58 +760,97 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const schema = z.object({
       amount: z.number().positive(),
       currency: z.string().optional().default("USDT"),
-      payCurrency: z.string().optional().default("USDT")
+      payCurrency: z.string().optional().default("USDT"),
+      paymentMethod: z.enum(["auto", "manual"]).optional().default("auto")
     });
 
     const result = schema.safeParse(req.body);
     if (!result.success) return res.status(400).json(result.error);
 
     try {
-      // Create payment via NOWPayments API
-      const callbackUrl = process.env.NODE_ENV === 'production' 
-        ? `${config.urls.api}/api/payments/callback` 
-        : undefined;
+      // Get the payment address from game settings for manual payments
+      const gameSettings = await db.query.gameSettings.findFirst();
+      const paymentAddress = gameSettings?.paymentAddress || "TRX8nHHo2Jd7H9ZwKhh6h8h"; // default address as fallback
       
-      console.log(`[NOWPayments] Creating payment for $${result.data.amount} from user ${req.user!.id}`);
+      // Generate a unique transaction ID for tracking
+      const manualTransactionId = `M${Date.now()}${Math.floor(Math.random() * 1000)}`;
       
-      const payment = await nowPaymentsService.createPayment(
-        result.data.amount,
-        req.user!.id,
-        result.data.currency,
-        result.data.payCurrency,
-        undefined,
-        undefined,
-        callbackUrl
-      );
-      
-      console.log(`[NOWPayments] Payment created: ${payment.payment_id}`);
-      
-      // Create a pending transaction in our database
-      const transaction = await storage.createTransaction(
-        req.user!.id,
-        "recharge",
-        result.data.amount,
-        payment.payment_id, // Use NOWPayments payment ID as our transaction ID
-        undefined,
-        JSON.stringify({ 
-          paymentDetails: payment,
-          paymentMethod: "nowpayments" 
-        })
-      );
-      
-      // Return both the transaction and the payment details
-      res.json({
-        transaction,
-        payment: {
-          paymentId: payment.payment_id,
-          status: payment.payment_status,
-          address: payment.pay_address,
-          amount: payment.pay_amount,
-          currency: payment.pay_currency,
-          createdAt: payment.created_at,
-        }
-      });
+      // If manual payment method is selected
+      if (result.data.paymentMethod === "manual") {
+        console.log(`[Manual Payment] Creating payment for $${result.data.amount} from user ${req.user!.id}`);
+        
+        // Create a pending transaction in our database
+        const transaction = await storage.createTransaction(
+          req.user!.id,
+          "recharge",
+          result.data.amount,
+          manualTransactionId,
+          undefined,
+          JSON.stringify({ 
+            paymentMethod: "manual" 
+          })
+        );
+        
+        // Return both the transaction and the payment details
+        res.json({
+          transaction,
+          payment: {
+            paymentId: manualTransactionId,
+            status: "waiting",
+            address: paymentAddress,
+            amount: result.data.amount,
+            currency: "USDT",
+            createdAt: new Date().toISOString(),
+          }
+        });
+      } else {
+        // Create payment via NOWPayments API for automatic payments
+        const callbackUrl = process.env.NODE_ENV === 'production' 
+          ? `${config.urls.api}/api/payments/callback` 
+          : undefined;
+        
+        console.log(`[NOWPayments] Creating payment for $${result.data.amount} from user ${req.user!.id}`);
+        
+        const payment = await nowPaymentsService.createPayment(
+          result.data.amount,
+          req.user!.id,
+          result.data.currency,
+          result.data.payCurrency,
+          undefined,
+          undefined,
+          callbackUrl
+        );
+        
+        console.log(`[NOWPayments] Payment created: ${payment.payment_id}`);
+        
+        // Create a pending transaction in our database
+        const transaction = await storage.createTransaction(
+          req.user!.id,
+          "recharge",
+          result.data.amount,
+          payment.payment_id, // Use NOWPayments payment ID as our transaction ID
+          undefined,
+          JSON.stringify({ 
+            paymentDetails: payment,
+            paymentMethod: "nowpayments" 
+          })
+        );
+        
+        // Return both the transaction and the payment details
+        res.json({
+          transaction,
+          payment: {
+            paymentId: payment.payment_id,
+            status: payment.payment_status,
+            address: payment.pay_address,
+            amount: payment.pay_amount,
+            currency: payment.pay_currency,
+            createdAt: payment.created_at,
+          }
+        });
+      }
     } catch (err) {
+      console.error("[Payment Error]", err);
       if (err instanceof Error) {
         res.status(400).send(err.message);
       } else {
