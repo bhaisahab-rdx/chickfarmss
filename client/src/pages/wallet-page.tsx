@@ -69,6 +69,7 @@ export default function WalletPage() {
       amount: 0,
       currency: "USDT",
       payCurrency: "USDT",
+      paymentMethod: "auto", // Default to automatic payment
     },
   });
 

@@ -111,6 +111,9 @@ export interface IStorage {
   getActiveBoostsByUserId(userId: number): Promise<ActiveBoost[]>;
   getActiveEggBoost(userId: number): Promise<number>; // Returns current multiplier
 
+  // Game settings
+  getSettings(): Promise<any>;
+
   // Admin methods
   getTransactions(): Promise<Transaction[]>;
   getTransactionByTransactionId(transactionId: string): Promise<Transaction | undefined>;
@@ -614,6 +617,29 @@ export class DatabaseStorage implements IStorage {
     } catch (error) {
       console.error("Error updating withdrawal tax:", error);
       throw error;
+    }
+  }
+
+  async getSettings(): Promise<any> {
+    try {
+      const settings = await db.select().from(gameSettingsTable);
+      
+      // Convert settings array to an object for easier access
+      const settingsObject: Record<string, any> = {};
+      for (const setting of settings) {
+        settingsObject[setting.settingKey] = setting.settingValue;
+      }
+      
+      return {
+        withdrawalTax: parseFloat(settingsObject.withdrawal_tax || this.defaultWithdrawalTax.toString()),
+        paymentAddress: settingsObject.payment_address || this.defaultPaymentAddress
+      };
+    } catch (error) {
+      console.error("Error getting game settings:", error);
+      return {
+        withdrawalTax: this.defaultWithdrawalTax,
+        paymentAddress: this.defaultPaymentAddress
+      };
     }
   }
 

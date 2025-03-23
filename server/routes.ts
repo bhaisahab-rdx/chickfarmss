@@ -768,8 +768,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!result.success) return res.status(400).json(result.error);
 
     try {
-      // Get the payment address from game settings for manual payments
-      const gameSettings = await db.query.gameSettings.findFirst();
+      // Get the payment address for manual payments
+      const gameSettings = await storage.getSettings();
       const paymentAddress = gameSettings?.paymentAddress || "TRX8nHHo2Jd7H9ZwKhh6h8h"; // default address as fallback
       
       // Generate a unique transaction ID for tracking
@@ -805,8 +805,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       } else {
         // Create payment via NOWPayments API for automatic payments
+        const apiUrl = process.env.API_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:5000');
         const callbackUrl = process.env.NODE_ENV === 'production' 
-          ? `${config.urls.api}/api/payments/callback` 
+          ? `${apiUrl}/api/payments/callback` 
           : undefined;
         
         console.log(`[NOWPayments] Creating payment for $${result.data.amount} from user ${req.user!.id}`);
