@@ -769,7 +769,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       // Create payment via NOWPayments API
       const callbackUrl = process.env.NODE_ENV === 'production' 
-        ? `${process.env.API_URL || 'https://chickfarms.com'}/api/payments/callback` 
+        ? `${config.urls.api}/api/payments/callback` 
         : undefined;
       
       console.log(`[NOWPayments] Creating payment for $${result.data.amount} from user ${req.user!.id}`);

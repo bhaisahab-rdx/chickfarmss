@@ -1,8 +1,9 @@
 import axios from 'axios';
 import { Transaction } from '../shared/schema';
+import { config } from './config';
 
 const API_BASE_URL = 'https://api.nowpayments.io/v1';
-const API_KEY = process.env.NOWPAYMENTS_API_KEY;
+const API_KEY = config.nowpayments.apiKey;
 
 interface CreatePaymentResponse {
   payment_id: string;
