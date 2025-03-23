@@ -104,8 +104,8 @@ export default function WalletPage() {
   // Add state to track payment status
   const [checkingPayment, setCheckingPayment] = useState(false);
   
-  // Add state to track selected payment method
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<"auto" | "manual">("auto");
+  // Payment method is controlled from admin panel
+  const selectedPaymentMethod = "auto"; // Set to auto by default for UI display
 
   const rechargeMutation = useMutation({
     mutationFn: async (data: z.infer<typeof rechargeSchema>) => {
@@ -332,29 +332,17 @@ export default function WalletPage() {
                                 Enter an amount and click "Create Payment" to generate payment details
                               </p>
                             </div>
-                            {rechargeForm.watch("paymentMethod") === "auto" ? (
-                              <QRCodeSVG
-                                value={qrCodeData}
-                                size={150}
-                                className="mx-auto opacity-20"
-                              />
-                            ) : (
-                              <img 
-                                src="/assets/tether-usdt-logo.png" 
-                                alt="USDT" 
-                                className="w-20 h-20 opacity-20"
-                              />
-                            )}
+                            <QRCodeSVG
+                              value={qrCodeData}
+                              size={150}
+                              className="mx-auto opacity-20"
+                            />
                           </div>
                           <p className="text-xs sm:text-sm font-medium">
-                            {rechargeForm.watch("paymentMethod") === "auto" 
-                              ? "NOWPayments Cryptocurrency Gateway" 
-                              : "Manual USDT Payment"}
+                            NOWPayments Cryptocurrency Gateway
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            {rechargeForm.watch("paymentMethod") === "auto"
-                              ? "Secure, fast, and automated cryptocurrency payments"
-                              : "Send USDT directly to our wallet address"}
+                            Secure, fast, and automated cryptocurrency payments
                           </p>
                         </>
                       )}
@@ -424,16 +412,13 @@ export default function WalletPage() {
                   ) : (
                     <Form {...rechargeForm}>
                       <form
-                        onSubmit={rechargeForm.handleSubmit((data) => {
-                          // Using manual payment method by default as admin controls this
-                          setSelectedPaymentMethod("manual");
-                          
-                          return rechargeMutation.mutate({
+                        onSubmit={rechargeForm.handleSubmit((data) => 
+                          rechargeMutation.mutate({
                             amount: data.amount,
                             currency: data.currency,
                             payCurrency: data.payCurrency
-                          });
-                        })}
+                          })
+                        )}
                         className="space-y-3 sm:space-y-4"
                       >
                         <FormField
@@ -457,36 +442,6 @@ export default function WalletPage() {
                           )}
                         />
                         
-                        <FormField
-                          control={rechargeForm.control}
-                          name="paymentMethod"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="text-xs sm:text-sm">Payment Method</FormLabel>
-                              <Select
-                                value={field.value}
-                                onValueChange={field.onChange}
-                              >
-                                <FormControl>
-                                  <SelectTrigger className="h-8 sm:h-10 text-sm">
-                                    <SelectValue placeholder="Select payment method" />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  <SelectItem value="auto">Automatic Payment (QR Code)</SelectItem>
-                                  <SelectItem value="manual">Manual Payment (Copy Address)</SelectItem>
-                                </SelectContent>
-                              </Select>
-                              <FormDescription className="text-xs">
-                                {field.value === "auto" 
-                                  ? "Automated payment processing with NOWPayments" 
-                                  : "You'll need to manually send USDT to our wallet address"}
-                              </FormDescription>
-                              <FormMessage className="text-xs" />
-                            </FormItem>
-                          )}
-                        />
-
                         <Button
                           type="submit"
                           className="w-full h-8 sm:h-10 text-xs sm:text-sm mt-2"
