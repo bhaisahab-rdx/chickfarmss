@@ -105,6 +105,9 @@ export default function WalletPage() {
   
   // Add state to track payment status
   const [checkingPayment, setCheckingPayment] = useState(false);
+  
+  // Add state to track selected payment method
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<"auto" | "manual">("auto");
 
   const rechargeMutation = useMutation({
     mutationFn: async (data: z.infer<typeof rechargeSchema>) => {
@@ -293,34 +296,67 @@ export default function WalletPage() {
                   <div className="space-y-3 sm:space-y-4">
                     <div className="bg-primary/10 p-2 sm:p-4 rounded-lg text-center space-y-1 sm:space-y-2">
                       {paymentDetails ? (
-                        <>
-                          <QRCodeSVG
-                            value={qrCodeData}
-                            size={150}
-                            className="mx-auto bg-white p-2 rounded-md"
-                          />
-                          <p className="text-xs sm:text-sm font-medium">Scan QR to pay with {paymentDetails.currency}</p>
-                          <p className="text-xs text-muted-foreground">
-                            Send exactly {paymentDetails.amount} {paymentDetails.currency} to complete your payment
-                          </p>
-                        </>
+                        selectedPaymentMethod === "auto" ? (
+                          <>
+                            <QRCodeSVG
+                              value={qrCodeData}
+                              size={150}
+                              className="mx-auto bg-white p-2 rounded-md"
+                            />
+                            <p className="text-xs sm:text-sm font-medium">Scan QR to pay with {paymentDetails.currency}</p>
+                            <p className="text-xs text-muted-foreground">
+                              Send exactly {paymentDetails.amount} {paymentDetails.currency} to complete your payment
+                            </p>
+                          </>
+                        ) : (
+                          <>
+                            <div className="mx-auto w-[150px] h-[150px] flex items-center justify-center bg-white p-2 rounded-md">
+                              <div className="flex flex-col items-center justify-center">
+                                <img 
+                                  src="/assets/tether-usdt-logo.png" 
+                                  alt="USDT" 
+                                  className="w-20 h-20 mb-2"
+                                />
+                                <p className="text-xs font-medium">Manual USDT Payment</p>
+                              </div>
+                            </div>
+                            <p className="text-xs sm:text-sm font-medium">Send USDT to the address below</p>
+                            <p className="text-xs text-muted-foreground">
+                              Copy the payment address from the payment details section
+                            </p>
+                          </>
+                        )
                       ) : (
                         <>
                           <div className="relative mx-auto w-[150px] h-[150px] flex items-center justify-center bg-white/70 p-2 rounded-md">
                             <div className="absolute inset-0 flex items-center justify-center">
                               <p className="text-xs text-muted-foreground p-4 text-center">
-                                Enter an amount and click "Create Payment" to generate a QR code
+                                Enter an amount and click "Create Payment" to generate payment details
                               </p>
                             </div>
-                            <QRCodeSVG
-                              value={qrCodeData}
-                              size={150}
-                              className="mx-auto opacity-20"
-                            />
+                            {rechargeForm.watch("paymentMethod") === "auto" ? (
+                              <QRCodeSVG
+                                value={qrCodeData}
+                                size={150}
+                                className="mx-auto opacity-20"
+                              />
+                            ) : (
+                              <img 
+                                src="/assets/tether-usdt-logo.png" 
+                                alt="USDT" 
+                                className="w-20 h-20 opacity-20"
+                              />
+                            )}
                           </div>
-                          <p className="text-xs sm:text-sm font-medium">NOWPayments Cryptocurrency Gateway</p>
+                          <p className="text-xs sm:text-sm font-medium">
+                            {rechargeForm.watch("paymentMethod") === "auto" 
+                              ? "NOWPayments Cryptocurrency Gateway" 
+                              : "Manual USDT Payment"}
+                          </p>
                           <p className="text-xs text-muted-foreground">
-                            Secure, fast, and automated cryptocurrency payments
+                            {rechargeForm.watch("paymentMethod") === "auto"
+                              ? "Secure, fast, and automated cryptocurrency payments"
+                              : "Send USDT directly to our wallet address"}
                           </p>
                         </>
                       )}
@@ -334,7 +370,10 @@ export default function WalletPage() {
                         <p className="text-xs sm:text-sm text-muted-foreground">
                           {checkingPayment 
                             ? "Checking payment status..." 
-                            : "Please complete payment to the address below"}
+                            : selectedPaymentMethod === "auto"
+                              ? "Scan the QR code or copy the address below to complete payment"
+                              : "Please send USDT to the address below to complete payment"
+                          }
                         </p>
                       </div>
                       
@@ -387,14 +426,17 @@ export default function WalletPage() {
                   ) : (
                     <Form {...rechargeForm}>
                       <form
-                        onSubmit={rechargeForm.handleSubmit((data) =>
-                          rechargeMutation.mutate({
+                        onSubmit={rechargeForm.handleSubmit((data) => {
+                          // Save the selected payment method to state
+                          setSelectedPaymentMethod(data.paymentMethod as "auto" | "manual");
+                          
+                          return rechargeMutation.mutate({
                             amount: data.amount,
                             currency: data.currency,
                             payCurrency: data.payCurrency,
                             paymentMethod: data.paymentMethod as "auto" | "manual"
-                          })
-                        )}
+                          });
+                        })}
                         className="space-y-3 sm:space-y-4"
                       >
                         <FormField
