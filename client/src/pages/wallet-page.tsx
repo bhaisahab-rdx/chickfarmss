@@ -8,11 +8,20 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -21,13 +30,6 @@ import { QrCode, Copy } from "lucide-react";
 import { QRCodeSVG } from 'qrcode.react';
 import { useState, useEffect } from 'react';
 import BalanceBar from "@/components/balance-bar";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 
 const rechargeSchema = z.object({
   amount: z.number().positive("Amount must be positive"),
@@ -386,7 +388,12 @@ export default function WalletPage() {
                     <Form {...rechargeForm}>
                       <form
                         onSubmit={rechargeForm.handleSubmit((data) =>
-                          rechargeMutation.mutate(data)
+                          rechargeMutation.mutate({
+                            amount: data.amount,
+                            currency: data.currency,
+                            payCurrency: data.payCurrency,
+                            paymentMethod: data.paymentMethod as "auto" | "manual"
+                          })
                         )}
                         className="space-y-3 sm:space-y-4"
                       >
@@ -406,6 +413,36 @@ export default function WalletPage() {
                                   }
                                 />
                               </FormControl>
+                              <FormMessage className="text-xs" />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={rechargeForm.control}
+                          name="paymentMethod"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-xs sm:text-sm">Payment Method</FormLabel>
+                              <Select
+                                value={field.value}
+                                onValueChange={field.onChange}
+                              >
+                                <FormControl>
+                                  <SelectTrigger className="h-8 sm:h-10 text-sm">
+                                    <SelectValue placeholder="Select payment method" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  <SelectItem value="auto">Automatic Payment (QR Code)</SelectItem>
+                                  <SelectItem value="manual">Manual Payment (Copy Address)</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <FormDescription className="text-xs">
+                                {field.value === "auto" 
+                                  ? "Automated payment processing with NOWPayments" 
+                                  : "You'll need to manually send USDT to our wallet address"}
+                              </FormDescription>
                               <FormMessage className="text-xs" />
                             </FormItem>
                           )}
