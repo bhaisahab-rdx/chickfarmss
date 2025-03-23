@@ -35,7 +35,6 @@ const rechargeSchema = z.object({
   amount: z.number().positive("Amount must be positive"),
   currency: z.string().default("USDT"),
   payCurrency: z.string().default("USDT"),
-  paymentMethod: z.enum(["auto", "manual"]).default("auto"),
 });
 
 const withdrawalSchema = z.object({
@@ -70,8 +69,7 @@ export default function WalletPage() {
     defaultValues: {
       amount: 0,
       currency: "USDT",
-      payCurrency: "USDT",
-      paymentMethod: "auto", // Default to automatic payment
+      payCurrency: "USDT"
     },
   });
 
@@ -427,14 +425,13 @@ export default function WalletPage() {
                     <Form {...rechargeForm}>
                       <form
                         onSubmit={rechargeForm.handleSubmit((data) => {
-                          // Save the selected payment method to state
-                          setSelectedPaymentMethod(data.paymentMethod as "auto" | "manual");
+                          // Using manual payment method by default as admin controls this
+                          setSelectedPaymentMethod("manual");
                           
                           return rechargeMutation.mutate({
                             amount: data.amount,
                             currency: data.currency,
-                            payCurrency: data.payCurrency,
-                            paymentMethod: data.paymentMethod as "auto" | "manual"
+                            payCurrency: data.payCurrency
                           });
                         })}
                         className="space-y-3 sm:space-y-4"
