@@ -46,6 +46,175 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // NOWPayments IPN callback endpoint
+  app.post("/api/payments/callback", async (req, res) => {
+    try {
+      console.log("[NOWPayments Callback] Received payment callback:", JSON.stringify(req.body));
+      
+      // Extract payment data from the IPN callback
+      const ipnData = req.body;
+      
+      // Verify the IPN signature if NOWPayments IPN secret is provided
+      // This part can be enhanced with signature verification for additional security
+      
+      if (!ipnData.payment_id) {
+        console.error("[NOWPayments Callback] Missing payment_id in IPN data");
+        return res.status(400).json({ error: "Missing payment_id" });
+      }
+      
+      // Get the payment details
+      const paymentId = ipnData.payment_id;
+      const paymentStatus = ipnData.payment_status;
+      
+      console.log(`[NOWPayments Callback] Processing payment ${paymentId} with status ${paymentStatus}`);
+      
+      // Retrieve our transaction using the payment ID
+      const transaction = await storage.getTransactionByTransactionId(paymentId);
+      
+      if (!transaction) {
+        console.error(`[NOWPayments Callback] Transaction not found for payment ID ${paymentId}`);
+        return res.status(404).json({ error: "Transaction not found" });
+      }
+      
+      console.log(`[NOWPayments Callback] Found transaction ID ${transaction.id} for user ${transaction.userId}`);
+      
+      // Map the NOWPayments status to our transaction status
+      const newStatus = nowPaymentsService.mapPaymentStatusToTransactionStatus(paymentStatus);
+      
+      // Only process completed payments
+      if (newStatus === "completed" && transaction.status !== "completed") {
+        console.log(`[NOWPayments Callback] Updating transaction ${transaction.id} to status ${newStatus}`);
+        
+        // Update transaction status
+        await storage.updateTransactionStatus(paymentId, newStatus);
+        
+        // Get the user
+        const user = await storage.getUser(transaction.userId);
+        if (!user) {
+          console.error(`[NOWPayments Callback] User ${transaction.userId} not found`);
+          return res.status(404).json({ error: "User not found" });
+        }
+        
+        console.log(`[NOWPayments Callback] Updating balance for user ${user.id}, adding ${transaction.amount}`);
+        
+        // Update user's balance
+        await storage.updateUserBalance(user.id, parseFloat(transaction.amount));
+        
+        // Check if this is the user's first deposit
+        const userTransactions = await storage.getTransactionsByUserId(user.id);
+        const completedDeposits = userTransactions.filter(t => 
+          t.type === "recharge" && 
+          t.status === "completed" && 
+          t.id !== transaction.id // Exclude current transaction
+        );
+        
+        const isFirstDeposit = completedDeposits.length === 0;
+        
+        // Apply first deposit bonus if applicable
+        if (isFirstDeposit) {
+          const bonusAmount = parseFloat(transaction.amount) * 0.1; // 10% bonus
+          console.log(`[NOWPayments Callback] Applying first deposit bonus: ${bonusAmount} for user ${user.id}`);
+          
+          // Create bonus transaction
+          await storage.createTransaction(
+            user.id,
+            "bonus",
+            bonusAmount,
+            `bonus-${transaction.transactionId}`,
+            undefined,
+            JSON.stringify({ reason: "First deposit bonus" })
+          );
+          
+          // Add bonus to user's balance
+          await storage.updateUserBalance(user.id, bonusAmount);
+        }
+        
+        // Process referral commission if applicable
+        if (user.referredBy) {
+          try {
+            // Find the referrer
+            const referrer = await storage.getUserByReferralCode(user.referredBy);
+            if (referrer) {
+              console.log(`[NOWPayments Callback] Processing referral commission for referrer ${referrer.id}`);
+              
+              // Calculate level 1 commission (10% of deposit)
+              const level1Amount = parseFloat(transaction.amount) * 0.1;
+              
+              // Update referrer's earnings
+              await storage.updateUserBalance(referrer.id, level1Amount);
+              await storage.updateUserReferralEarnings(referrer.id, level1Amount);
+              await storage.updateUserTeamEarnings(referrer.id, level1Amount);
+              
+              // Record the referral earning
+              await storage.createReferralEarning({
+                userId: referrer.id,
+                referredUserId: user.id,
+                level: 1,
+                amount: level1Amount.toFixed(2),
+                claimed: false
+              });
+              
+              // Process higher level referrals
+              let currentReferrer = referrer;
+              
+              // Process levels 2-6 (if applicable)
+              for (let level = 2; level <= 6; level++) {
+                if (!currentReferrer.referredBy) break;
+                
+                const nextReferrer = await storage.getUserByReferralCode(currentReferrer.referredBy);
+                if (!nextReferrer) break;
+                
+                // Calculate commission based on level
+                let commissionRate = 0;
+                switch (level) {
+                  case 2: commissionRate = 0.05; break; // 5%
+                  case 3: commissionRate = 0.03; break; // 3%
+                  case 4: commissionRate = 0.02; break; // 2%
+                  case 5: commissionRate = 0.01; break; // 1%
+                  case 6: commissionRate = 0.01; break; // 1%
+                  default: commissionRate = 0;
+                }
+                
+                const commissionAmount = parseFloat(transaction.amount) * commissionRate;
+                
+                console.log(`[NOWPayments Callback] Processing level ${level} commission: ${commissionAmount} for user ${nextReferrer.id}`);
+                
+                // Update earnings
+                await storage.updateUserBalance(nextReferrer.id, commissionAmount);
+                await storage.updateUserReferralEarnings(nextReferrer.id, commissionAmount);
+                await storage.updateUserTeamEarnings(nextReferrer.id, commissionAmount);
+                
+                // Record the referral earning
+                await storage.createReferralEarning({
+                  userId: nextReferrer.id,
+                  referredUserId: user.id,
+                  level,
+                  amount: commissionAmount.toFixed(2),
+                  claimed: false
+                });
+                
+                // Move to next level referrer
+                currentReferrer = nextReferrer;
+              }
+            }
+          } catch (referralError) {
+            console.error("[NOWPayments Callback] Error processing referral commissions:", referralError);
+            // Continue execution - don't fail the payment process because of referral issues
+          }
+        }
+      } else {
+        console.log(`[NOWPayments Callback] Transaction status unchanged or not completed: ${paymentStatus}`);
+      }
+      
+      // Always return 200 OK to NOWPayments
+      res.status(200).json({ status: "success" });
+    } catch (error) {
+      console.error("[NOWPayments Callback] Error processing payment callback:", error);
+      // Always return 200 OK to NOWPayments even on error to prevent retries
+      res.status(200).json({ status: "error", message: "Error processing payment callback" });
+    }
+  });
+  
   // Payment status check endpoint
   app.get("/api/payments/:paymentId/status", isAuthenticated, async (req, res) => {
     try {
