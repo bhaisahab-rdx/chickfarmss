@@ -58,20 +58,19 @@ export function SpinWheelModal({
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent 
-        className="sm:max-w-[800px] p-0 bg-gradient-to-b from-amber-50 to-orange-100 border-amber-300 max-h-[90vh] overflow-y-auto overscroll-contain"
+        className="sm:max-w-[800px] p-0 bg-gradient-to-b from-amber-50 to-orange-100 border-amber-300 max-h-[85vh] overflow-y-auto overscroll-contain"
         aria-describedby="spin-wheel-description"
       >
-        <div className="relative pt-10 pb-6 px-6">
+        <div className="relative pt-10 pb-6 px-6 overflow-y-auto">
           <VisuallyHidden>
             <DialogTitle>Spin Wheel Game</DialogTitle>
           </VisuallyHidden>
           
-          {/* Close button - now fixed to ensure it's always visible */}
+          {/* Close button - fixed to viewport to ensure it's always accessible */}
           <button
             onClick={onClose}
-            className="fixed top-4 right-4 rounded-full h-8 w-8 inline-flex items-center justify-center border border-amber-200 bg-white/80 hover:bg-amber-100 transition-colors z-[60]"
+            className="fixed top-4 right-4 rounded-full h-8 w-8 inline-flex items-center justify-center border border-amber-200 bg-white/90 hover:bg-amber-100 transition-colors z-[60] shadow-md"
             disabled={isSpinning}
-            style={{ position: 'fixed' }}
           >
             <X className="h-4 w-4 text-amber-900" />
             <span className="sr-only">Close</span>
