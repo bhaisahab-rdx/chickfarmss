@@ -406,6 +406,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "Failed to check service status" });
     }
   });
+  
+  // Debug endpoint to test creating an invoice (no authentication)
+  app.post("/api/public/payments/test-invoice", async (req, res) => {
+    try {
+      // This is a debug route, so we'll use a fixed amount
+      const amount = 10; // $10 USD
+      
+      // Set up callback URL for NOWPayments IPN webhook
+      const successUrl = `${config.urls.app}/wallet?payment=success`;
+      const cancelUrl = `${config.urls.app}/wallet?payment=cancelled`;
+      const callbackUrl = `${config.urls.api}/api/payments/callback`;
+      
+      console.log(`Creating test NOWPayments invoice, amount: ${amount} USD`);
+      
+      // Create the invoice using NOWPayments API
+      const invoice = await nowPaymentsService.createInvoice(
+        amount,
+        999, // Test user ID
+        'USD',
+        successUrl,
+        cancelUrl,
+        `test_${Date.now()}`, // Generate a unique order ID
+        `ChickFarms TEST deposit - ${amount} USD`,
+        callbackUrl
+      );
+      
+      console.log(`Created test invoice with ID ${invoice.id}, popup URL: ${invoice.invoice_url}`);
+      
+      // Return the NOWPayments invoice URL to open in a popup/iframe
+      res.json({
+        success: true,
+        invoiceId: invoice.id,
+        invoiceUrl: invoice.invoice_url
+      });
+    } catch (error) {
+      console.error("Error creating test NOWPayments invoice:", error);
+      res.status(500).json({ 
+        error: "Failed to create test payment invoice",
+        details: error.message
+      });
+    }
+  });
 
   // Public payment status check endpoint (no authentication required)
   app.get("/api/public/payments/:paymentId/status", async (req, res) => {
