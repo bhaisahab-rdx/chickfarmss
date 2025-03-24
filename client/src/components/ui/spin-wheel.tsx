@@ -240,11 +240,11 @@ export function SpinWheel({ onSpin, rewards, isSpinning, spinType }: SpinWheelPr
 
       {/* Current Reward Display */}
       {currentReward && (
-        <Card className="mt-6 p-6 text-center bg-gradient-to-b from-amber-50 to-amber-100/50 border-amber-200 shadow-lg animate-in fade-in-0 duration-500">
+        <Card className="mt-6 mb-4 p-6 text-center bg-gradient-to-b from-amber-50 to-amber-100/50 border-amber-200 shadow-lg animate-in fade-in-0 duration-500 w-full max-w-md mx-auto">
           <p className="text-lg font-semibold text-amber-900">
             Congratulations! You won:
           </p>
-          <p className="text-2xl font-bold mt-2 text-amber-700">
+          <p className="text-2xl font-bold mt-2 text-amber-700 break-words">
             {currentReward.type === "usdt" ? `$${currentReward.amount} USDT` :
              currentReward.type === "chicken" ? `1 ${currentReward.chickenType} Chicken` :
              `${currentReward.amount} ${currentReward.type}`}

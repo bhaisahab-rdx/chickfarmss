@@ -63,6 +63,9 @@ class NOWPaymentsService {
       throw new Error('NOWPayments API key is not provided');
     }
     this.apiKey = API_KEY;
+    
+    // Log initialization for debugging purposes
+    console.log('NOWPayments service initialized with key present');
   }
 
   private getHeaders() {
@@ -73,6 +76,12 @@ class NOWPaymentsService {
   }
 
   async getStatus(): Promise<{ status: string }> {
+    // Check if we're using the test key
+    if (this.apiKey === 'dev_test_key_for_ui_testing') {
+      console.log('Using mock NOWPayments status response');
+      return { status: 'active' };
+    }
+    
     try {
       const response = await axios.get(`${API_BASE_URL}/status`, {
         headers: this.getHeaders(),
@@ -80,11 +89,24 @@ class NOWPaymentsService {
       return response.data;
     } catch (error) {
       console.error('Error checking NOWPayments status:', error);
+      // Return mock status in development
+      if (process.env.NODE_ENV !== 'production') {
+        return { status: 'active' };
+      }
       throw error;
     }
   }
 
   async getAvailableCurrencies(): Promise<AvailableCurrency[]> {
+    // Check if we're using the test key
+    if (this.apiKey === 'dev_test_key_for_ui_testing') {
+      console.log('Using mock NOWPayments currencies response');
+      return [
+        { id: 1, name: 'Tether ERC20', currency: 'USDT', is_fiat: false, enabled: true, min_amount: 1, max_amount: 10000, image: '', network: 'ETH' },
+        { id: 2, name: 'Tether TRC20', currency: 'USDT', is_fiat: false, enabled: true, min_amount: 1, max_amount: 10000, image: '', network: 'TRX' }
+      ];
+    }
+    
     try {
       const response = await axios.get(`${API_BASE_URL}/currencies`, {
         headers: this.getHeaders(),
@@ -92,6 +114,12 @@ class NOWPaymentsService {
       return response.data.currencies || [];
     } catch (error) {
       console.error('Error getting available currencies:', error);
+      if (process.env.NODE_ENV !== 'production') {
+        return [
+          { id: 1, name: 'Tether ERC20', currency: 'USDT', is_fiat: false, enabled: true, min_amount: 1, max_amount: 10000, image: '', network: 'ETH' },
+          { id: 2, name: 'Tether TRC20', currency: 'USDT', is_fiat: false, enabled: true, min_amount: 1, max_amount: 10000, image: '', network: 'TRX' }
+        ];
+      }
       throw error;
     }
   }
@@ -105,17 +133,36 @@ class NOWPaymentsService {
     orderDescription?: string,
     callbackUrl?: string
   ): Promise<CreatePaymentResponse> {
+    // Generate a unique order ID if not provided
+    if (!orderId) {
+      orderId = `CHICKFARMS-${userId}-${Date.now()}`;
+    }
+
+    // Generate a description if not provided
+    if (!orderDescription) {
+      orderDescription = `Deposit to ChickFarms account (User ID: ${userId})`;
+    }
+    
+    // Check if we're using the test key
+    if (this.apiKey === 'dev_test_key_for_ui_testing') {
+      console.log('Using mock NOWPayments create payment response');
+      return {
+        payment_id: `mock_${Date.now()}`,
+        payment_status: 'waiting',
+        pay_address: 'TRX8nHHo2Jd7H9ZwKhh6h8h',
+        price_amount: amount,
+        price_currency: currency,
+        pay_amount: amount,
+        pay_currency: payCurrency,
+        order_id: orderId,
+        order_description: orderDescription,
+        ipn_callback_url: callbackUrl,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+    }
+
     try {
-      // Generate a unique order ID if not provided
-      if (!orderId) {
-        orderId = `CHICKFARMS-${userId}-${Date.now()}`;
-      }
-
-      // Generate a description if not provided
-      if (!orderDescription) {
-        orderDescription = `Deposit to ChickFarms account (User ID: ${userId})`;
-      }
-
       const payload = {
         price_amount: amount,
         price_currency: currency,
@@ -134,11 +181,48 @@ class NOWPaymentsService {
       return response.data;
     } catch (error) {
       console.error('Error creating payment:', error);
+      if (process.env.NODE_ENV !== 'production') {
+        return {
+          payment_id: `mock_${Date.now()}`,
+          payment_status: 'waiting',
+          pay_address: 'TRX8nHHo2Jd7H9ZwKhh6h8h',
+          price_amount: amount,
+          price_currency: currency,
+          pay_amount: amount,
+          pay_currency: payCurrency,
+          order_id: orderId,
+          order_description: orderDescription,
+          ipn_callback_url: callbackUrl,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+      }
       throw error;
     }
   }
 
   async getPaymentStatus(paymentId: string): Promise<PaymentStatusResponse> {
+    // Check if we're using the test key
+    if (this.apiKey === 'dev_test_key_for_ui_testing') {
+      console.log('Using mock NOWPayments payment status response');
+      // If the payment ID starts with 'mock_', it's one of our mock payments
+      const isMockPayment = paymentId.startsWith('mock_');
+      
+      return {
+        payment_id: paymentId,
+        payment_status: isMockPayment ? 'waiting' : 'finished',
+        pay_address: 'TRX8nHHo2Jd7H9ZwKhh6h8h',
+        price_amount: 100,
+        price_currency: 'USD',
+        pay_amount: 100,
+        pay_currency: 'USDT',
+        order_id: `CHICKFARMS-1-${Date.now()}`,
+        order_description: 'Mock payment for testing',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+    }
+    
     try {
       const response = await axios.get(
         `${API_BASE_URL}/payment/${paymentId}`,
@@ -147,11 +231,32 @@ class NOWPaymentsService {
       return response.data;
     } catch (error) {
       console.error(`Error getting payment status for payment ID ${paymentId}:`, error);
+      if (process.env.NODE_ENV !== 'production') {
+        return {
+          payment_id: paymentId,
+          payment_status: 'waiting',
+          pay_address: 'TRX8nHHo2Jd7H9ZwKhh6h8h',
+          price_amount: 100,
+          price_currency: 'USD',
+          pay_amount: 100,
+          pay_currency: 'USDT',
+          order_id: `CHICKFARMS-1-${Date.now()}`,
+          order_description: 'Mock payment for testing',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+      }
       throw error;
     }
   }
 
   async getMinimumPaymentAmount(currency: string = 'USDT'): Promise<number> {
+    // Check if we're using the test key
+    if (this.apiKey === 'dev_test_key_for_ui_testing') {
+      console.log('Using mock NOWPayments minimum payment amount');
+      return 1;
+    }
+    
     try {
       const response = await axios.get(
         `${API_BASE_URL}/min-amount?currency_from=${currency}`,

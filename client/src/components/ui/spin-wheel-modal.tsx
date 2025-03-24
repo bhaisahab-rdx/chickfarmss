@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { SpinWheel } from "@/components/ui/spin-wheel";
@@ -58,7 +58,7 @@ export function SpinWheelModal({
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent 
-        className="sm:max-w-[800px] p-0 bg-gradient-to-b from-amber-50 to-orange-100 border-amber-300"
+        className="sm:max-w-[800px] p-0 bg-gradient-to-b from-amber-50 to-orange-100 border-amber-300 max-h-[90vh] overflow-y-auto overscroll-contain"
         aria-describedby="spin-wheel-description"
       >
         <div className="relative pt-10 pb-6 px-6">
@@ -66,10 +66,12 @@ export function SpinWheelModal({
             <DialogTitle>Spin Wheel Game</DialogTitle>
           </VisuallyHidden>
           
+          {/* Close button - now fixed to ensure it's always visible */}
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 rounded-full h-8 w-8 inline-flex items-center justify-center border border-amber-200 bg-white/80 hover:bg-amber-100 transition-colors"
+            className="fixed top-4 right-4 rounded-full h-8 w-8 inline-flex items-center justify-center border border-amber-200 bg-white/80 hover:bg-amber-100 transition-colors z-[60]"
             disabled={isSpinning}
+            style={{ position: 'fixed' }}
           >
             <X className="h-4 w-4 text-amber-900" />
             <span className="sr-only">Close</span>
@@ -87,12 +89,14 @@ export function SpinWheelModal({
           </div>
 
           {showWheel && (
-            <SpinWheel
-              onSpin={onSpin}
-              rewards={rewards}
-              isSpinning={isSpinning}
-              spinType={spinType}
-            />
+            <div className="overflow-visible">
+              <SpinWheel
+                onSpin={onSpin}
+                rewards={rewards}
+                isSpinning={isSpinning}
+                spinType={spinType}
+              />
+            </div>
           )}
         </div>
       </DialogContent>

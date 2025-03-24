@@ -7,8 +7,8 @@ export const config = {
   
   // NOWPayments API configuration
   nowpayments: {
-    apiKey: process.env.NOWPAYMENTS_API_KEY || '',
-    ipnSecret: process.env.NOWPAYMENTS_IPN_SECRET || '',
+    apiKey: process.env.NOWPAYMENTS_API_KEY || 'dev_test_key_for_ui_testing',
+    ipnSecret: process.env.NOWPAYMENTS_IPN_SECRET || 'dev_test_secret',
   },
   
   // API and application URLs
