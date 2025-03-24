@@ -22,7 +22,7 @@ interface CreatePaymentResponse {
   payment_extra_id?: string;
 }
 
-interface PaymentStatusResponse {
+export interface PaymentStatusResponse {
   payment_id: string;
   payment_status: string;
   pay_address: string;
