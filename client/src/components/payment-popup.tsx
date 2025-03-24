@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -37,8 +37,8 @@ export function PaymentPopup({ isOpen, onClose, onSuccess }: PaymentPopupProps) 
   // Function to check the NOWPayments service status
   const checkPaymentServiceStatus = async () => {
     try {
-      const response = await fetch('/api/public/payments/service-status');
-      const data = await response.json();
+      // Using apiRequest so we get logging and error handling
+      const data = await apiRequest('GET', '/api/public/payments/service-status');
       setServiceStatus(data);
       
       if (!data.apiConfigured) {
@@ -176,6 +176,28 @@ export function PaymentPopup({ isOpen, onClose, onSuccess }: PaymentPopupProps) 
                 disabled={isLoading}
               />
             </div>
+            
+            {/* Payment service status indicator */}
+            {serviceStatus && (
+              <div className={`text-xs px-3 py-2 rounded-md ${
+                serviceStatus.apiConfigured && serviceStatus.serviceStatus === 'ok' 
+                  ? 'bg-green-50 text-green-700'
+                  : 'bg-amber-50 text-amber-700'
+              }`}>
+                <div className="flex items-center">
+                  <div className={`w-2 h-2 rounded-full mr-2 ${
+                    serviceStatus.apiConfigured && serviceStatus.serviceStatus === 'ok'
+                      ? 'bg-green-500'
+                      : 'bg-amber-500'
+                  }`}></div>
+                  <span>
+                    {serviceStatus.apiConfigured && serviceStatus.serviceStatus === 'ok'
+                      ? 'Payment service connected and ready'
+                      : 'Payment service status: ' + (serviceStatus.serviceStatus || 'unknown')}
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           <div className="py-4 text-center">
@@ -196,9 +218,14 @@ export function PaymentPopup({ isOpen, onClose, onSuccess }: PaymentPopupProps) 
 
         <DialogFooter>
           {!invoiceUrl ? (
-            <Button onClick={createInvoice} disabled={isLoading || amount <= 0}>
+            <Button 
+              onClick={createInvoice} 
+              disabled={isLoading || amount <= 0 || (serviceStatus && !serviceStatus.apiConfigured)}
+            >
               {isLoading ? <Loader size="sm" className="mr-2" /> : null}
-              Pay with Crypto
+              {serviceStatus && !serviceStatus.apiConfigured 
+                ? 'Payment Service Unavailable' 
+                : 'Pay with Crypto'}
             </Button>
           ) : (
             <Button variant="outline" onClick={closePaymentWindow}>
