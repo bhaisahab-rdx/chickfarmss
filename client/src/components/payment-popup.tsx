@@ -19,8 +19,40 @@ export function PaymentPopup({ isOpen, onClose, onSuccess }: PaymentPopupProps) 
   const [isLoading, setIsLoading] = useState(false);
   const [invoiceUrl, setInvoiceUrl] = useState<string | null>(null);
   const [paymentWindow, setPaymentWindow] = useState<Window | null>(null);
+  const [serviceStatus, setServiceStatus] = useState<{
+    apiConfigured: boolean;
+    ipnConfigured: boolean;
+    serviceStatus: string;
+  } | null>(null);
   const { toast } = useToast();
   const auth = useAuth();
+  
+  // Check NOWPayments service status when the component is opened
+  useEffect(() => {
+    if (isOpen) {
+      checkPaymentServiceStatus();
+    }
+  }, [isOpen]);
+  
+  // Function to check the NOWPayments service status
+  const checkPaymentServiceStatus = async () => {
+    try {
+      const response = await fetch('/api/public/payments/service-status');
+      const data = await response.json();
+      setServiceStatus(data);
+      
+      if (!data.apiConfigured) {
+        toast({
+          title: 'Payment Service Error',
+          description: 'Payment service is not fully configured. Please try again later or contact support.',
+          variant: 'destructive'
+        });
+      }
+    } catch (error) {
+      console.error('Error checking payment service status:', error);
+      setServiceStatus(null);
+    }
+  };
 
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseFloat(e.target.value);
@@ -40,9 +72,10 @@ export function PaymentPopup({ isOpen, onClose, onSuccess }: PaymentPopupProps) 
     setIsLoading(true);
 
     try {
-      const response = await apiRequest('/api/payments/create-invoice', {
-        method: 'POST',
-        body: JSON.stringify({ amount, currency: 'USD' }),
+      // Use the proper method to ensure authentication headers are included
+      const response = await apiRequest('POST', '/api/payments/create-invoice', {
+        amount, 
+        currency: 'USD'
       });
 
       if (response.success && response.invoiceUrl) {
@@ -93,7 +126,7 @@ export function PaymentPopup({ isOpen, onClose, onSuccess }: PaymentPopupProps) 
       console.error('Error creating payment invoice:', error);
       toast({
         title: 'Payment Error',
-        description: 'Failed to create payment. Please try again later.',
+        description: error instanceof Error ? error.message : 'Failed to create payment. Please try again later.',
         variant: 'destructive'
       });
     } finally {

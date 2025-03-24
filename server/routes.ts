@@ -19,10 +19,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/payments/status", async (req, res) => {
     try {
       const status = await nowPaymentsService.getStatus();
-      res.json(status);
+      res.json({ status, apiKeyConfigured: !!config.nowpayments.apiKey });
     } catch (error) {
       console.error("Error checking NOWPayments status:", error);
       res.status(500).json({ error: "Failed to check payment service status" });
+    }
+  });
+  
+  // Endpoint to verify API key and connectivity for debugging
+  app.get("/api/payments/verify-config", isAuthenticated, async (req, res) => {
+    try {
+      const apiKeyConfigured = !!config.nowpayments.apiKey;
+      const ipnSecretConfigured = !!config.nowpayments.ipnSecret;
+      
+      let apiStatus = "unknown";
+      let minAmount = null;
+      
+      if (apiKeyConfigured) {
+        try {
+          const status = await nowPaymentsService.getStatus();
+          apiStatus = status.status || "unknown";
+          
+          // Try to get minimum amount
+          try {
+            minAmount = await nowPaymentsService.getMinimumPaymentAmount("USDT");
+          } catch (minAmountError) {
+            console.error("Failed to get minimum amount:", minAmountError);
+          }
+        } catch (statusError) {
+          apiStatus = "error";
+          console.error("Failed to get NOWPayments status:", statusError);
+        }
+      }
+      
+      res.json({
+        apiKeyConfigured,
+        ipnSecretConfigured,
+        apiStatus,
+        minAmount,
+        config: {
+          callbackUrl: `${config.urls.api}/api/payments/callback`,
+          successUrl: `${config.urls.app}/wallet?payment=success`,
+          cancelUrl: `${config.urls.app}/wallet?payment=cancelled`
+        }
+      });
+    } catch (error) {
+      console.error("Error verifying NOWPayments config:", error);
+      res.status(500).json({ error: "Failed to verify payment configuration" });
     }
   });
   
@@ -334,6 +377,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Public endpoint to verify NOWPayments service status (no authentication required)
+  app.get("/api/public/payments/service-status", async (req, res) => {
+    try {
+      const apiKeyPresent = !!config.nowpayments.apiKey;
+      const ipnSecretPresent = !!config.nowpayments.ipnSecret;
+      
+      let serviceStatus = "unknown";
+      
+      if (apiKeyPresent) {
+        try {
+          const status = await nowPaymentsService.getStatus();
+          serviceStatus = status.status || "unknown";
+        } catch (error) {
+          serviceStatus = "error";
+          console.error("Error checking NOWPayments service status:", error);
+        }
+      }
+      
+      res.json({
+        apiConfigured: apiKeyPresent,
+        ipnConfigured: ipnSecretPresent,
+        serviceStatus,
+        timeStamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Error checking service status:", error);
+      res.status(500).json({ error: "Failed to check service status" });
+    }
+  });
+
   // Public payment status check endpoint (no authentication required)
   app.get("/api/public/payments/:paymentId/status", async (req, res) => {
     try {
