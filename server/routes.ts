@@ -241,7 +241,89 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Payment status check endpoint
+  // Public payment status check endpoint (no authentication required)
+  app.get("/api/public/payments/:paymentId/status", async (req, res) => {
+    try {
+      const paymentId = req.params.paymentId;
+      
+      // Check if this is our transaction
+      const transaction = await storage.getTransactionByTransactionId(paymentId);
+      if (!transaction) {
+        return res.status(404).json({ error: "Transaction not found" });
+      }
+      
+      // Initialize default payment status
+      let paymentStatus = {
+        payment_id: paymentId,
+        payment_status: transaction.status === 'pending' ? 'waiting' : transaction.status,
+        pay_address: '',
+        price_amount: parseFloat(transaction.amount),
+        price_currency: 'USDT',
+        pay_amount: parseFloat(transaction.amount),
+        pay_currency: 'USDT',
+        created_at: transaction.createdAt,
+        actually_paid: null,
+        actually_paid_at: null,
+        updated_at: null
+      };
+      
+      try {
+        // Check if this is a manual payment (starts with 'M')
+        if (paymentId.startsWith('M')) {
+          // For manual payments, just use the default status from our DB
+          if (typeof transaction.bankDetails === 'string') {
+            try {
+              const details = JSON.parse(transaction.bankDetails);
+              if (details.paymentAddress) {
+                paymentStatus.pay_address = details.paymentAddress;
+              }
+            } catch (e) {
+              console.error('[Payment Status] Error parsing bankDetails:', e);
+            }
+          }
+          console.log(`[Payment Status] Manual payment ${paymentId} status: ${paymentStatus.payment_status}`);
+        } else {
+          // For NOWPayments payments, check the status via API
+          try {
+            const apiPaymentStatus = await nowPaymentsService.getPaymentStatus(paymentId);
+            // Update our status object with API response
+            paymentStatus = apiPaymentStatus;
+          } catch (apiError) {
+            console.error(`[NOWPayments] API error getting payment status:`, apiError);
+            // Continue with the default status
+          }
+        }
+        
+        // Return payment status (this endpoint doesn't process any updates)
+        res.json({
+          transaction: {
+            id: transaction.id,
+            status: transaction.status,
+            amount: transaction.amount,
+            createdAt: transaction.createdAt
+          },
+          payment: {
+            paymentId: paymentStatus.payment_id,
+            status: paymentStatus.payment_status,
+            payAddress: paymentStatus.pay_address,
+            amount: paymentStatus.pay_amount,
+            currency: paymentStatus.pay_currency,
+            actuallyPaid: paymentStatus.actually_paid,
+            actuallyPaidAt: paymentStatus.actually_paid_at,
+            updatedAt: paymentStatus.updated_at
+          }
+        });
+      } catch (error) {
+        console.error(`[NOWPayments] Error checking public payment status:`, error);
+        res.status(500).json({ error: "Failed to check payment status" });
+      }
+    } catch (error) {
+      console.error(`[NOWPayments] Error in public payment status:`, error);
+      res.status(500).json({ error: "Failed to process payment status" });
+    }
+  });
+
+  // Authenticated payment status check endpoint
   app.get("/api/payments/:paymentId/status", isAuthenticated, async (req, res) => {
     try {
       const paymentId = req.params.paymentId;

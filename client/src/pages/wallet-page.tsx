@@ -130,7 +130,7 @@ export default function WalletPage() {
             setCheckingPayment(true);
             const statusResponse = await apiRequest(
               "GET", 
-              `/api/payments/${response.payment.paymentId}/status`
+              `/api/public/payments/${response.payment.paymentId}/status`
             );
             
             if (statusResponse?.payment?.status === 'finished') {
