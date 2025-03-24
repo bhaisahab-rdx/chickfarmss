@@ -4,7 +4,7 @@ import { setupAuth, isAuthenticated } from "./auth";
 import { storage, mysteryBoxTypes } from "./storage";
 import { z } from "zod";
 import { dailySpinRewards, superJackpotRewards } from "@shared/schema";
-import { nowPaymentsService } from "./nowpayments";
+import { nowPaymentsService, PaymentStatusResponse } from "./nowpayments";
 import { config } from "./config";
 
 export async function registerRoutes(app: Express): Promise<Server> {
