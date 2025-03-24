@@ -38,8 +38,11 @@ export function PaymentPopup({ isOpen, onClose, onSuccess }: PaymentPopupProps) 
   const checkPaymentServiceStatus = async () => {
     try {
       // Using apiRequest so we get logging and error handling
+      // This endpoint is now public and doesn't require authentication
       const data = await apiRequest('GET', '/api/public/payments/service-status');
       setServiceStatus(data);
+      
+      console.log('Payment service status:', data);
       
       if (!data.apiConfigured) {
         toast({
@@ -51,6 +54,12 @@ export function PaymentPopup({ isOpen, onClose, onSuccess }: PaymentPopupProps) 
     } catch (error) {
       console.error('Error checking payment service status:', error);
       setServiceStatus(undefined);
+      
+      toast({
+        title: 'Error',
+        description: 'Unable to check payment service status. Please try again later.',
+        variant: 'destructive'
+      });
     }
   };
 
@@ -72,12 +81,24 @@ export function PaymentPopup({ isOpen, onClose, onSuccess }: PaymentPopupProps) 
     setIsLoading(true);
 
     try {
-      // Use the proper method to ensure authentication headers are included
-      const response = await apiRequest('POST', '/api/payments/create-invoice', {
-        amount, 
-        currency: 'USD'
-      });
+      let response;
+      
+      // Check if the user is authenticated
+      if (auth.user) {
+        // Authenticated user - use the regular endpoint
+        console.log('Creating invoice for authenticated user:', auth.user.id);
+        response = await apiRequest('POST', '/api/payments/create-invoice', {
+          amount, 
+          currency: 'USD'
+        });
+      } else {
+        // Use the public test endpoint for debugging or when not authenticated
+        console.log('Using test invoice endpoint (not authenticated)');
+        response = await apiRequest('POST', '/api/public/payments/test-invoice');
+      }
 
+      console.log('Invoice creation response:', response);
+      
       if (response.success && response.invoiceUrl) {
         setInvoiceUrl(response.invoiceUrl);
         
@@ -96,20 +117,30 @@ export function PaymentPopup({ isOpen, onClose, onSuccess }: PaymentPopupProps) 
             if (payWindow.closed) {
               clearInterval(checkWindowClosed);
               
-              // Fetch the latest user data to update the balance
-              auth.loginMutation.mutate({ 
-                username: auth.user?.username || '', 
-                password: '' // Password isn't needed for refresh
-              }, {
-                onSuccess: () => {
-                  if (onSuccess) onSuccess();
-                  toast({
-                    title: 'Payment Processed',
-                    description: 'Your payment has been processed. If your balance has not updated yet, it will be updated shortly.',
-                  });
-                  resetForm();
-                }
-              });
+              // Only refresh user data if authenticated
+              if (auth.user) {
+                // Fetch the latest user data to update the balance
+                auth.loginMutation.mutate({ 
+                  username: auth.user.username || '', 
+                  password: '' // Password isn't needed for refresh
+                }, {
+                  onSuccess: () => {
+                    if (onSuccess) onSuccess();
+                    toast({
+                      title: 'Payment Processed',
+                      description: 'Your payment has been processed. If your balance has not updated yet, it will be updated shortly.',
+                    });
+                    resetForm();
+                  }
+                });
+              } else {
+                // For test payments or anonymous users
+                toast({
+                  title: 'Payment Window Closed',
+                  description: 'The payment window has been closed. If you completed the payment, your account will be updated shortly.',
+                });
+                resetForm();
+              }
             }
           }, 1000);
         } else {
