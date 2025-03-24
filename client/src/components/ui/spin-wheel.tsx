@@ -111,12 +111,18 @@ export function SpinWheel({ onSpin, rewards, isSpinning, spinType }: SpinWheelPr
       </button>
       
       {showConfetti && (
-        <div className="fixed inset-0 z-50 pointer-events-none">
+        <div className="fixed inset-0 z-50 pointer-events-none overflow-hidden">
           <Confetti
             width={window.innerWidth}
             height={window.innerHeight}
             recycle={false}
             numberOfPieces={200}
+            confettiSource={{
+              x: window.innerWidth / 2,
+              y: window.innerHeight / 3,
+              w: 0,
+              h: 0
+            }}
           />
         </div>
       )}
@@ -240,11 +246,11 @@ export function SpinWheel({ onSpin, rewards, isSpinning, spinType }: SpinWheelPr
 
       {/* Current Reward Display */}
       {currentReward && (
-        <Card className="mt-6 mb-4 p-6 text-center bg-gradient-to-b from-amber-50 to-amber-100/50 border-amber-200 shadow-lg animate-in fade-in-0 duration-500 w-full max-w-md mx-auto">
+        <Card className="mt-6 mb-4 p-6 text-center bg-gradient-to-b from-amber-50 to-amber-100/50 border-amber-200 shadow-lg animate-in fade-in-0 duration-500 w-full max-w-[90%] mx-auto overflow-hidden">
           <p className="text-lg font-semibold text-amber-900">
             Congratulations! You won:
           </p>
-          <p className="text-2xl font-bold mt-2 text-amber-700 break-words">
+          <p className="text-2xl font-bold mt-2 text-amber-700 break-words overflow-x-auto">
             {currentReward.type === "usdt" ? `$${currentReward.amount} USDT` :
              currentReward.type === "chicken" ? `1 ${currentReward.chickenType} Chicken` :
              `${currentReward.amount} ${currentReward.type}`}

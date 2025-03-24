@@ -40,6 +40,21 @@
     overscroll-behavior: contain;
   }
   
+  /* Fix for modals and dialogs scrolling */
+  .modal-content, 
+  [role="dialog"] {
+    max-height: 85vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+  
+  /* Ensure fixed elements stay visible */
+  .fixed-close-button {
+    position: fixed;
+    z-index: 60;
+  }
+  
   /* Fix for double-tap zoom on mobile */
   a, button, [role="button"] {
     touch-action: manipulation;

@@ -69,7 +69,7 @@ export function SpinWheelModal({
           {/* Close button - fixed to viewport to ensure it's always accessible */}
           <button
             onClick={onClose}
-            className="fixed top-4 right-4 rounded-full h-8 w-8 inline-flex items-center justify-center border border-amber-200 bg-white/90 hover:bg-amber-100 transition-colors z-[60] shadow-md"
+            className="fixed-close-button top-4 right-4 rounded-full h-8 w-8 inline-flex items-center justify-center border border-amber-200 bg-white/90 hover:bg-amber-100 transition-colors shadow-md"
             disabled={isSpinning}
           >
             <X className="h-4 w-4 text-amber-900" />
