@@ -25,6 +25,99 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "Failed to check payment service status" });
     }
   });
+  
+  // Create a NOWPayments invoice for popup checkout
+  app.post("/api/payments/create-invoice", isAuthenticated, async (req, res) => {
+    try {
+      const schema = z.object({
+        amount: z.number().positive(),
+        currency: z.string().optional()
+      });
+      
+      const result = schema.safeParse(req.body);
+      if (!result.success) {
+        return res.status(400).json({ error: "Invalid request parameters", details: result.error });
+      }
+
+      const { amount, currency = 'USD' } = result.data;
+      const user = req.user as any;
+      
+      // Generate success and cancel URLs with the app URL
+      const successUrl = `${config.urls.app}/wallet?payment=success`;
+      const cancelUrl = `${config.urls.app}/wallet?payment=cancelled`;
+      
+      // Set up callback URL for NOWPayments IPN webhook
+      const callbackUrl = `${config.urls.api}/api/payments/callback`;
+      
+      console.log(`Creating NOWPayments invoice for user ${user.id}, amount: ${amount} ${currency}`);
+      
+      // Create the invoice using NOWPayments API
+      const invoice = await nowPaymentsService.createInvoice(
+        amount,
+        user.id,
+        currency,
+        successUrl,
+        cancelUrl,
+        undefined, // Generate a unique order ID
+        `ChickFarms deposit - ${amount} ${currency}`,
+        callbackUrl
+      );
+      
+      // Create a transaction record in pending state
+      await storage.createTransaction(
+        user.id,
+        'recharge',
+        amount,
+        invoice.id, // Use the invoice ID as the transaction ID
+        undefined,
+        JSON.stringify({ method: 'nowpayments_popup', invoiceId: invoice.id })
+      );
+      
+      console.log(`Created invoice with ID ${invoice.id}, popup URL: ${invoice.invoice_url}`);
+      
+      // Return the NOWPayments invoice URL to open in a popup/iframe
+      res.json({
+        success: true,
+        invoiceId: invoice.id,
+        invoiceUrl: invoice.invoice_url
+      });
+    } catch (error) {
+      console.error("Error creating NOWPayments invoice:", error);
+      res.status(500).json({ error: "Failed to create payment invoice" });
+    }
+  });
+  
+  // Check the status of a NOWPayments invoice
+  app.get("/api/payments/invoice-status/:invoiceId", isAuthenticated, async (req, res) => {
+    try {
+      const { invoiceId } = req.params;
+      const user = req.user as any;
+      
+      // Find the transaction with the given invoice ID
+      const transaction = await storage.getTransactionByTransactionId(invoiceId);
+      
+      if (!transaction) {
+        return res.status(404).json({ error: "Transaction not found" });
+      }
+      
+      // Check if the transaction belongs to the current user
+      if (transaction.userId !== user.id && !user.isAdmin) {
+        return res.status(403).json({ error: "Not authorized to view this transaction" });
+      }
+      
+      // Get payment status from the transaction
+      res.json({
+        success: true,
+        status: transaction.status,
+        amount: transaction.amount,
+        transactionId: transaction.transactionId,
+        createdAt: transaction.createdAt
+      });
+    } catch (error) {
+      console.error("Error checking invoice status:", error);
+      res.status(500).json({ error: "Failed to check invoice status" });
+    }
+  });
 
   app.get("/api/payments/currencies", async (req, res) => {
     try {

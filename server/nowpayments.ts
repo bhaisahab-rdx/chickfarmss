@@ -3,6 +3,7 @@ import { Transaction } from '../shared/schema';
 import { config } from './config';
 
 const API_BASE_URL = 'https://api.nowpayments.io/v1';
+const CHECKOUT_API_BASE_URL = 'https://nowpayments.io';
 const API_KEY = config.nowpayments.apiKey;
 
 interface CreatePaymentResponse {
@@ -41,6 +42,14 @@ export interface PaymentStatusResponse {
   actually_paid_at?: string;
   outcome_amount?: number;
   outcome_currency?: string;
+}
+
+export interface CreateInvoiceResponse {
+  id: string;
+  token_id: string;
+  invoice_url: string;
+  success: boolean;
+  status: string;
 }
 
 interface AvailableCurrency {
@@ -267,6 +276,97 @@ class NOWPaymentsService {
       console.error(`Error getting minimum payment amount for ${currency}:`, error);
       // Return a default value if the API call fails
       return 1;
+    }
+  }
+  
+  /**
+   * Creates an invoice using NOWPayments checkout form
+   * This generates a URL that opens the NOWPayments popup checkout
+   */
+  async createInvoice(
+    amount: number,
+    userId: number,
+    currency: string = 'USD',
+    successUrl?: string,
+    cancelUrl?: string,
+    orderId?: string,
+    orderDescription?: string,
+    callbackUrl?: string
+  ): Promise<CreateInvoiceResponse> {
+    // Generate a unique order ID if not provided
+    if (!orderId) {
+      orderId = `CHICKFARMS-${userId}-${Date.now()}`;
+    }
+
+    // Generate a description if not provided
+    if (!orderDescription) {
+      orderDescription = `Deposit to ChickFarms account (User ID: ${userId})`;
+    }
+    
+    // Set success URL if not provided
+    if (!successUrl) {
+      successUrl = `${config.urls.app}/wallet?payment=success`;
+    }
+    
+    // Set cancel URL if not provided
+    if (!cancelUrl) {
+      cancelUrl = `${config.urls.app}/wallet?payment=cancelled`;
+    }
+    
+    // Set callback URL if not provided - this is where NOWPayments sends payment updates
+    if (!callbackUrl) {
+      callbackUrl = `${config.urls.api}/api/payments/callback`;
+    }
+    
+    // Check if we're using the test key
+    if (this.apiKey === 'dev_test_key_for_ui_testing') {
+      console.log('Using mock NOWPayments create invoice response');
+      const mockToken = `mock_invoice_${Date.now()}`;
+      return {
+        id: mockToken,
+        token_id: mockToken,
+        invoice_url: `${CHECKOUT_API_BASE_URL}/payment-invoice/${mockToken}`,
+        success: true,
+        status: 'active'
+      };
+    }
+
+    try {
+      // Using the NOWPayments /v1/invoice endpoint
+      const payload = {
+        price_amount: amount,
+        price_currency: currency,
+        order_id: orderId,
+        order_description: orderDescription,
+        ipn_callback_url: callbackUrl,
+        success_url: successUrl,
+        cancel_url: cancelUrl,
+        is_fee_paid_by_user: true, // Having the user pay the network fee
+        is_urgent: false
+      };
+
+      const response = await axios.post(
+        `${API_BASE_URL}/invoice`,
+        payload,
+        { headers: this.getHeaders() }
+      );
+
+      console.log('Created NOWPayments invoice:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('Error creating NOWPayments invoice:', error);
+      if (process.env.NODE_ENV !== 'production') {
+        // Mock response for development
+        const mockToken = `mock_invoice_${Date.now()}`;
+        return {
+          id: mockToken,
+          token_id: mockToken,
+          invoice_url: `${CHECKOUT_API_BASE_URL}/payment-invoice/${mockToken}`,
+          success: true,
+          status: 'active'
+        };
+      }
+      throw error;
     }
   }
 
