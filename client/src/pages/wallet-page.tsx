@@ -108,8 +108,11 @@ export default function WalletPage() {
   // State for the payment popup
   const [isPaymentPopupOpen, setIsPaymentPopupOpen] = useState(false);
   
+  // Define the payment method types
+  type PaymentMethodType = "popup" | "auto" | "manual";
+  
   // Payment method is controlled from admin panel
-  const selectedPaymentMethod: "popup" | "auto" | "manual" = "popup"; // Using popup checkout by default
+  const selectedPaymentMethod: PaymentMethodType = "popup"; // Using popup checkout by default
 
   const rechargeMutation = useMutation({
     mutationFn: async (data: z.infer<typeof rechargeSchema>) => {
@@ -311,7 +314,7 @@ export default function WalletPage() {
                   <div className="space-y-3 sm:space-y-4">
                     <div className="bg-primary/10 p-2 sm:p-4 rounded-lg text-center space-y-1 sm:space-y-2">
                       {paymentDetails ? (
-                        selectedPaymentMethod === "auto" || selectedPaymentMethod === "popup" ? (
+                        (selectedPaymentMethod === "auto" || selectedPaymentMethod === "popup") ? (
                           <>
                             <QRCodeSVG
                               value={qrCodeData}
@@ -373,7 +376,7 @@ export default function WalletPage() {
                         <p className="text-xs sm:text-sm text-muted-foreground">
                           {checkingPayment 
                             ? "Checking payment status..." 
-                            : selectedPaymentMethod === "auto" || selectedPaymentMethod === "popup"
+                            : (selectedPaymentMethod === "auto" || selectedPaymentMethod === "popup")
                               ? "Scan the QR code or copy the address below to complete payment"
                               : "Please send USDT to the address below to complete payment"
                           }
@@ -429,13 +432,13 @@ export default function WalletPage() {
                   ) : (
                     <Form {...rechargeForm}>
                       <form
-                        onSubmit={rechargeForm.handleSubmit((data) => 
-                          rechargeMutation.mutate({
-                            amount: data.amount,
-                            currency: data.currency,
-                            payCurrency: data.payCurrency
-                          })
-                        )}
+                        onSubmit={rechargeForm.handleSubmit((data) => {
+                          // Set initial amount in payment popup
+                          setIsPaymentPopupOpen(true);
+                          
+                          // Track in analytics that a payment was initiated
+                          console.log('Payment initiated:', data.amount, data.currency);
+                        })}
                         className="space-y-3 sm:space-y-4"
                       >
                         <FormField
