@@ -257,56 +257,99 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ error: "Unauthorized access to transaction" });
       }
       
-      // Get status from NOWPayments
-      const paymentStatus = await nowPaymentsService.getPaymentStatus(paymentId);
+      // Initialize default payment status
+      let paymentStatus = {
+        payment_id: paymentId,
+        payment_status: transaction.status === 'pending' ? 'waiting' : transaction.status,
+        pay_address: '',
+        price_amount: parseFloat(transaction.amount),
+        price_currency: 'USDT',
+        pay_amount: parseFloat(transaction.amount),
+        pay_currency: 'USDT',
+        created_at: transaction.createdAt,
+        actually_paid: null,
+        actually_paid_at: null,
+        updated_at: null
+      };
       
-      // If payment is completed but our transaction is still pending, update it
-      if (paymentStatus.payment_status === 'finished' && transaction.status === 'pending') {
-        console.log(`[NOWPayments] Payment ${paymentId} is completed, updating transaction status`);
-        
-        // Update transaction status
-        await storage.updateTransactionStatus(paymentId, "completed");
-        
-        // Update user balance
-        await storage.updateUserBalance(req.user!.id, parseFloat(transaction.amount));
-        
-        // Process referral commissions if applicable
-        const user = await storage.getUser(req.user!.id);
-        if (user && user.referredBy) {
-          try {
-            // Find the referrer
-            const referrer = await storage.getUserByReferralCode(user.referredBy);
-            if (referrer) {
-              console.log(`[NOWPayments] Processing referral commission for payment ${paymentId}`);
-              
-              // Calculate level 1 commission (10% of deposit)
-              const level1Amount = parseFloat(transaction.amount) * 0.1;
-              
-              // Update referrer's earnings
-              await storage.updateUserBalance(referrer.id, level1Amount);
-              await storage.updateUserReferralEarnings(referrer.id, level1Amount);
-              await storage.updateUserTeamEarnings(referrer.id, level1Amount);
-              
-              // Record the referral earning
-              await storage.createReferralEarning({
-                userId: referrer.id,
-                referredUserId: req.user!.id,
-                level: 1,
-                amount: level1Amount.toFixed(2),
-                claimed: false
-              });
-              
-              // Process higher level referrals as well (levels 2-6)
-              // Follow the same pattern as in the existing referral processing
+      try {
+        // Check if this is a manual payment (starts with 'M')
+        if (paymentId.startsWith('M')) {
+          // For manual payments, just use the default status from our DB
+          if (typeof transaction.bankDetails === 'string') {
+            try {
+              const details = JSON.parse(transaction.bankDetails);
+              if (details.paymentAddress) {
+                paymentStatus.pay_address = details.paymentAddress;
+              }
+            } catch (e) {
+              console.error('[Payment Status] Error parsing bankDetails:', e);
             }
-          } catch (referralError) {
-            console.error(`[NOWPayments] Error processing referral for payment ${paymentId}:`, referralError);
-            // Continue execution - don't fail the payment update because of referral issues
+          }
+          console.log(`[Payment Status] Manual payment ${paymentId} status: ${paymentStatus.payment_status}`);
+        } else {
+          // For NOWPayments payments, check the status via API
+          try {
+            const apiPaymentStatus = await nowPaymentsService.getPaymentStatus(paymentId);
+            // Update our status object with API response
+            paymentStatus = apiPaymentStatus;
+          } catch (apiError) {
+            console.error(`[NOWPayments] API error getting payment status:`, apiError);
+            // Continue with the default status
           }
         }
+      
+        // If payment is completed but our transaction is still pending, update it
+        if (paymentStatus.payment_status === 'finished' && transaction.status === 'pending') {
+          console.log(`[NOWPayments] Payment ${paymentId} is completed, updating transaction status`);
+          
+          // Update transaction status
+          await storage.updateTransactionStatus(paymentId, "completed");
+          
+          // Update user balance
+          await storage.updateUserBalance(req.user!.id, parseFloat(transaction.amount));
+          
+          // Process referral commissions if applicable
+          const user = await storage.getUser(req.user!.id);
+          if (user && user.referredBy) {
+            try {
+              // Find the referrer
+              const referrer = await storage.getUserByReferralCode(user.referredBy);
+              if (referrer) {
+                console.log(`[NOWPayments] Processing referral commission for payment ${paymentId}`);
+                
+                // Calculate level 1 commission (10% of deposit)
+                const level1Amount = parseFloat(transaction.amount) * 0.1;
+                
+                // Update referrer's earnings
+                await storage.updateUserBalance(referrer.id, level1Amount);
+                await storage.updateUserReferralEarnings(referrer.id, level1Amount);
+                await storage.updateUserTeamEarnings(referrer.id, level1Amount);
+                
+                // Record the referral earning
+                await storage.createReferralEarning({
+                  userId: referrer.id,
+                  referredUserId: req.user!.id,
+                  level: 1,
+                  amount: level1Amount.toFixed(2),
+                  claimed: false
+                });
+                
+                // Process higher level referrals as well (levels 2-6)
+                // Follow the same pattern as in the existing referral processing
+              }
+            } catch (referralError) {
+              console.error(`[NOWPayments] Error processing referral for payment ${paymentId}:`, referralError);
+              // Continue execution - don't fail the payment update because of referral issues
+            }
+          }
+        }
+      } catch (innerError) {
+        console.error(`[NOWPayments] Inner error checking payment status:`, innerError);
+        // Don't throw, just continue with default status
       }
       
-      // Return both our transaction status and the NOWPayments status
+      // Return both our transaction status and the payment status
       res.json({
         transaction: {
           id: transaction.id,
@@ -973,6 +1016,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`[NOWPayments] Callback URL: ${callbackUrl}`);
       console.log(`[NOWPayments] API Key exists: ${!!config.nowpayments.apiKey}`);
       
+      if (!config.nowpayments.apiKey) {
+        // If API key is missing, log warning and fall back to manual payment
+        console.warn("[NOWPayments] API Key is missing, falling back to manual payment");
+        throw new Error("NOWPayments API Key missing");
+      }
+      
       try {
         const payment = await nowPaymentsService.createPayment(
           result.data.amount,
@@ -1000,7 +1049,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         );
         
         // Return both the transaction and the payment details
-        res.json({
+        return res.json({
           transaction,
           payment: {
             paymentId: payment.payment_id,
@@ -1013,10 +1062,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       } catch (apiError) {
         console.error('[NOWPayments] API Error:', apiError);
-        
-        // Fall back to manual payment if NOWPayments API fails
-        console.log("[NOWPayments] Falling back to manual payment method due to API error");
-        
+        throw apiError; // Re-throw to be caught by the outer catch block
+      }
+    } catch (err) {
+      console.error("[Payment Error]", err);
+      
+      // Fall back to manual payment as a last resort
+      console.log("[NOWPayments] Falling back to manual payment method due to error");
+      
+      try {
         // Get the payment address for manual payments
         const gameSettings = await storage.getSettings();
         const paymentAddress = gameSettings?.paymentAddress || "TRX8nHHo2Jd7H9ZwKhh6h8h"; // default address as fallback
@@ -1038,7 +1092,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         );
         
         // Return both the transaction and the payment details
-        res.json({
+        return res.json({
           transaction,
           payment: {
             paymentId: manualTransactionId,
@@ -1049,52 +1103,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
             createdAt: new Date().toISOString(),
           }
         });
-      }
-    } catch (err) {
-      console.error("[Payment Error]", err);
-      if (err instanceof Error) {
-        res.status(400).send(err.message);
-      } else {
-        res.status(400).send("Failed to process recharge");
+      } catch (fallbackError) {
+        console.error("[Payment Fallback Error]", fallbackError);
+        if (fallbackError instanceof Error) {
+          return res.status(500).send(fallbackError.message);
+        } else {
+          return res.status(500).send("Failed to process payment");
+        }
       }
     }
-      
-      /* Manual payment method code - replaced with NOWPayments API integration
-      // Get the payment address for manual payments
-      const gameSettings = await storage.getSettings();
-      const paymentAddress = gameSettings?.paymentAddress || "TRX8nHHo2Jd7H9ZwKhh6h8h"; // default address as fallback
-      
-      // Generate a unique transaction ID for tracking
-      const manualTransactionId = `M${Date.now()}${Math.floor(Math.random() * 1000)}`;
-      
-      // Always use manual payment method (admin controlled)
-      console.log(`[Manual Payment] Creating payment for $${result.data.amount} from user ${req.user!.id}`);
-      
-      // Create a pending transaction in our database
-      const transaction = await storage.createTransaction(
-        req.user!.id,
-        "recharge",
-        result.data.amount,
-        manualTransactionId,
-        undefined,
-        JSON.stringify({ 
-          paymentMethod: "manual" 
-        })
-      );
-      
-      // Return both the transaction and the payment details
-      res.json({
-        transaction,
-        payment: {
-          paymentId: manualTransactionId,
-          status: "waiting",
-          address: paymentAddress,
-          amount: result.data.amount,
-          currency: "USDT",
-          createdAt: new Date().toISOString(),
-        }
-      });
-      */
   });
 
   app.post("/api/wallet/withdraw", isAuthenticated, async (req, res) => {
