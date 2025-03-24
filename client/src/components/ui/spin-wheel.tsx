@@ -83,9 +83,22 @@ export function SpinWheel({ onSpin, rewards, isSpinning, spinType }: SpinWheelPr
       
       // Play win sound and show confetti after spin completes
       setTimeout(() => {
-        winSound.play();
+        if (!isMuted) {
+          winSound.play();
+        }
         setShowConfetti(true);
         setIsSpinningLocal(false);
+        
+        // Ensure the reward card is visible by scrolling to it
+        setTimeout(() => {
+          const rewardCard = document.getElementById('reward-card');
+          if (rewardCard) {
+            rewardCard.scrollIntoView({ 
+              behavior: 'smooth', 
+              block: 'nearest'
+            });
+          }
+        }, 300);
       }, 3000);
 
       // Hide confetti after 5 seconds
@@ -246,15 +259,23 @@ export function SpinWheel({ onSpin, rewards, isSpinning, spinType }: SpinWheelPr
 
       {/* Current Reward Display */}
       {currentReward && (
-        <Card className="mt-6 mb-4 p-6 text-center bg-gradient-to-b from-amber-50 to-amber-100/50 border-amber-200 shadow-lg animate-in fade-in-0 duration-500 w-full max-w-[90%] mx-auto overflow-hidden">
-          <p className="text-lg font-semibold text-amber-900">
-            Congratulations! You won:
-          </p>
-          <p className="text-2xl font-bold mt-2 text-amber-700 break-words overflow-x-auto">
-            {currentReward.type === "usdt" ? `$${currentReward.amount} USDT` :
-             currentReward.type === "chicken" ? `1 ${currentReward.chickenType} Chicken` :
-             `${currentReward.amount} ${currentReward.type}`}
-          </p>
+        <Card 
+          className="reward-card mt-6 mb-4 p-6 text-center bg-gradient-to-b from-amber-50 to-amber-100/50 border-amber-200 shadow-lg animate-in fade-in-0 duration-500 w-full max-w-[90%] mx-auto overflow-hidden"
+          id="reward-card"
+        >
+          <div className="p-2">
+            <p className="text-lg font-semibold text-amber-900">
+              Congratulations! You won:
+            </p>
+            <p className="text-2xl font-bold mt-2 text-amber-700 break-words overflow-x-auto">
+              {currentReward.type === "usdt" ? `$${currentReward.amount} USDT` :
+               currentReward.type === "chicken" ? `1 ${currentReward.chickenType} Chicken` :
+               `${currentReward.amount} ${currentReward.type}`}
+            </p>
+            <p className="text-sm mt-4 text-amber-600">
+              Your reward has been added to your account.
+            </p>
+          </div>
         </Card>
       )}
     </div>

@@ -53,12 +53,29 @@ export function SpinWheelModal({
   useEffect(() => {
     // Notify UI context when spin wheel modal opens or closes
     setSpinWheelOpen(isOpen);
+    
+    // Cleanup function to ensure body scrolling is restored when component unmounts
+    return () => {
+      document.body.style.overflow = '';
+    };
   }, [isOpen, setSpinWheelOpen]);
+  
+  // Handle escape key press to close modal even if focus is trapped
+  useEffect(() => {
+    const handleEscapeKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen && !isSpinning) {
+        onClose();
+      }
+    };
+    
+    window.addEventListener('keydown', handleEscapeKey);
+    return () => window.removeEventListener('keydown', handleEscapeKey);
+  }, [isOpen, onClose, isSpinning]);
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent 
-        className="sm:max-w-[800px] p-0 bg-gradient-to-b from-amber-50 to-orange-100 border-amber-300 max-h-[85vh] overflow-y-auto overscroll-contain"
+        className="sm:max-w-[800px] p-0 bg-gradient-to-b from-amber-50 to-orange-100 border-amber-300 max-h-[85vh] overflow-y-auto overscroll-contain modal-content"
         aria-describedby="spin-wheel-description"
       >
         <div className="relative pt-10 pb-6 px-6 overflow-y-auto">
