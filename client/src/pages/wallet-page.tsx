@@ -30,6 +30,7 @@ import { QrCode, Copy } from "lucide-react";
 import { QRCodeSVG } from 'qrcode.react';
 import { useState, useEffect } from 'react';
 import BalanceBar from "@/components/balance-bar";
+import { PaymentPopup } from "@/components/payment-popup";
 
 const rechargeSchema = z.object({
   amount: z.number().positive("Amount must be positive"),
@@ -104,8 +105,11 @@ export default function WalletPage() {
   // Add state to track payment status
   const [checkingPayment, setCheckingPayment] = useState(false);
   
+  // State for the payment popup
+  const [isPaymentPopupOpen, setIsPaymentPopupOpen] = useState(false);
+  
   // Payment method is controlled from admin panel
-  const selectedPaymentMethod = "auto"; // Set to auto by default for UI display
+  const selectedPaymentMethod: "popup" | "auto" | "manual" = "popup"; // Using popup checkout by default
 
   const rechargeMutation = useMutation({
     mutationFn: async (data: z.infer<typeof rechargeSchema>) => {
@@ -245,6 +249,19 @@ export default function WalletPage() {
   return (
     <div className="flex flex-col min-h-screen bg-gradient-to-b from-amber-50/50 to-white">
       <BalanceBar />
+      
+      {/* Payment Popup */}
+      <PaymentPopup 
+        isOpen={isPaymentPopupOpen}
+        onClose={() => setIsPaymentPopupOpen(false)}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+          toast({
+            title: "Payment Successful",
+            description: "Your payment has been processed and your balance has been updated.",
+          });
+        }}
+      />
 
       <div className="flex-grow space-y-4 sm:space-y-6 px-3 sm:px-4 max-w-4xl mx-auto pb-20 md:pb-16 overflow-x-hidden">
         <div className="flex justify-between items-center pt-4">
@@ -442,13 +459,23 @@ export default function WalletPage() {
                           )}
                         />
                         
-                        <Button
-                          type="submit"
-                          className="w-full h-8 sm:h-10 text-xs sm:text-sm mt-2"
-                          disabled={rechargeMutation.isPending}
-                        >
-                          Create Payment
-                        </Button>
+                        {selectedPaymentMethod === "popup" ? (
+                          <Button
+                            type="button"
+                            className="w-full h-8 sm:h-10 text-xs sm:text-sm mt-2"
+                            onClick={() => setIsPaymentPopupOpen(true)}
+                          >
+                            Pay with Crypto
+                          </Button>
+                        ) : (
+                          <Button
+                            type="submit"
+                            className="w-full h-8 sm:h-10 text-xs sm:text-sm mt-2"
+                            disabled={rechargeMutation.isPending}
+                          >
+                            Create Payment
+                          </Button>
+                        )}
                         
                         <p className="text-xs text-center text-muted-foreground">
                           Powered by NOWPayments - Secure Cryptocurrency Payment Processing
