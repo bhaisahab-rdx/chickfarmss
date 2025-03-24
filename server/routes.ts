@@ -15,6 +15,88 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ status: "ok" });
   });
   
+  // Public test endpoints for payment testing - No authentication required
+  app.get("/api/public/payments/service-status", async (req, res) => {
+    try {
+      const apiConfigured = !!config.nowpayments.apiKey;
+      const ipnConfigured = !!config.nowpayments.ipnSecret;
+      let serviceStatus = "unknown";
+      
+      if (apiConfigured) {
+        try {
+          const statusResponse = await nowPaymentsService.getStatus();
+          serviceStatus = statusResponse.status;
+        } catch (err) {
+          serviceStatus = "error";
+          console.error("Error checking NOWPayments service status:", err);
+        }
+      }
+      
+      res.json({
+        apiConfigured,
+        ipnConfigured,
+        serviceStatus,
+        timeStamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Error in service status endpoint:", error);
+      res.status(500).json({ error: "Failed to check payment service status" });
+    }
+  });
+  
+  app.post("/api/public/payments/test-invoice", async (req, res) => {
+    try {
+      if (!config.nowpayments.apiKey) {
+        return res.status(400).json({ 
+          success: false, 
+          error: "NOWPayments API is not configured" 
+        });
+      }
+      
+      // Fixed test amount, use a small amount for testing
+      const amount = 5.00; // $5.00 USD
+      const currency = 'USD';
+      const testUserId = 99999; // Use a test user ID
+      
+      // Generate success and cancel URLs
+      const successUrl = `${config.urls.app}/payment-test?status=success`;
+      const cancelUrl = `${config.urls.app}/payment-test?status=cancelled`;
+      
+      // Set up callback URL for NOWPayments IPN webhook
+      const callbackUrl = `${config.urls.api}/api/payments/callback`;
+      
+      console.log(`[TEST] Creating NOWPayments test invoice, amount: ${amount} ${currency}`);
+      
+      // Create the invoice using NOWPayments API
+      const invoice = await nowPaymentsService.createInvoice(
+        amount,
+        testUserId,
+        currency,
+        successUrl,
+        cancelUrl,
+        "test-order-" + Date.now(), // Generate a unique test order ID
+        `ChickFarms Test Payment - ${amount} ${currency}`,
+        callbackUrl
+      );
+      
+      console.log(`[TEST] Created test invoice with ID ${invoice.id}, popup URL: ${invoice.invoice_url}`);
+      
+      // Return the NOWPayments invoice URL to open in a popup/iframe
+      res.json({
+        success: true,
+        invoiceId: invoice.id,
+        invoiceUrl: invoice.invoice_url
+      });
+    } catch (error) {
+      console.error("[TEST] Error creating test NOWPayments invoice:", error);
+      res.status(500).json({ 
+        success: false,
+        error: "Failed to create test payment invoice",
+        message: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+  
   // NOWPayments API endpoints
   app.get("/api/payments/status", async (req, res) => {
     try {

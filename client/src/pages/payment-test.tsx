@@ -12,11 +12,11 @@ export default function PaymentTestPage() {
     ipnConfigured: boolean;
     serviceStatus: string;
     timeStamp: string;
-  } | null>(null);
+  } | undefined>(undefined);
   
   const [isLoading, setIsLoading] = useState(false);
-  const [invoiceUrl, setInvoiceUrl] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [invoiceUrl, setInvoiceUrl] = useState<string | undefined>(undefined);
+  const [error, setError] = useState<string | undefined>(undefined);
   const { toast } = useToast();
   
   useEffect(() => {
@@ -26,7 +26,7 @@ export default function PaymentTestPage() {
   const checkServiceStatus = async () => {
     try {
       setIsLoading(true);
-      setError(null);
+      setError(undefined);
       
       const data = await apiRequest('GET', '/api/public/payments/service-status');
       setServiceStatus(data);
@@ -36,8 +36,8 @@ export default function PaymentTestPage() {
       if (!data.apiConfigured) {
         setError('NOWPayments API is not configured. Please add the API key to your environment variables.');
       }
-    } catch (err) {
-      console.error('Error checking service status:', err);
+    } catch (error) {
+      console.error('Error checking service status:', error);
       setError('Failed to check payment service status');
     } finally {
       setIsLoading(false);
@@ -47,7 +47,7 @@ export default function PaymentTestPage() {
   const createTestInvoice = async () => {
     try {
       setIsLoading(true);
-      setError(null);
+      setError(undefined);
       
       const result = await apiRequest('POST', '/api/public/payments/test-invoice');
       
@@ -66,12 +66,12 @@ export default function PaymentTestPage() {
       } else {
         throw new Error('Failed to create test invoice');
       }
-    } catch (err) {
-      console.error('Error creating test invoice:', err);
+    } catch (error: any) {
+      console.error('Error creating test invoice:', error);
       setError('Failed to create test invoice');
       toast({
         title: 'Error',
-        description: err.message || 'Failed to create test invoice',
+        description: error.message || 'Failed to create test invoice',
         variant: 'destructive',
       });
     } finally {

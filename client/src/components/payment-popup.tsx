@@ -17,13 +17,13 @@ interface PaymentPopupProps {
 export function PaymentPopup({ isOpen, onClose, onSuccess }: PaymentPopupProps) {
   const [amount, setAmount] = useState<number>(90); // Default amount is 90 USDT
   const [isLoading, setIsLoading] = useState(false);
-  const [invoiceUrl, setInvoiceUrl] = useState<string | null>(null);
-  const [paymentWindow, setPaymentWindow] = useState<Window | null>(null);
+  const [invoiceUrl, setInvoiceUrl] = useState<string | undefined>(undefined);
+  const [paymentWindow, setPaymentWindow] = useState<Window | undefined>(undefined);
   const [serviceStatus, setServiceStatus] = useState<{
     apiConfigured: boolean;
     ipnConfigured: boolean;
     serviceStatus: string;
-  } | null>(null);
+  } | undefined>(undefined);
   const { toast } = useToast();
   const auth = useAuth();
   
@@ -50,7 +50,7 @@ export function PaymentPopup({ isOpen, onClose, onSuccess }: PaymentPopupProps) 
       }
     } catch (error) {
       console.error('Error checking payment service status:', error);
-      setServiceStatus(null);
+      setServiceStatus(undefined);
     }
   };
 
@@ -135,8 +135,8 @@ export function PaymentPopup({ isOpen, onClose, onSuccess }: PaymentPopupProps) 
   };
 
   const resetForm = () => {
-    setInvoiceUrl(null);
-    setPaymentWindow(null);
+    setInvoiceUrl(undefined);
+    setPaymentWindow(undefined);
     onClose();
   };
 
