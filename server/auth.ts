@@ -176,7 +176,8 @@ export function setupAuth(app: Express) {
       lastDailyRewardAt: user.lastDailyRewardAt,
       currentStreak: user.currentStreak,
       lastSpinAt: user.lastSpinAt,
-      extraSpinsAvailable: user.extraSpinsAvailable
+      extraSpinsAvailable: user.extraSpinsAvailable,
+      referralCount: user.referralCount || 0
     });
   });
 
@@ -240,7 +241,8 @@ export function setupAuth(app: Express) {
             lastDailyRewardAt: user.lastDailyRewardAt,
             currentStreak: user.currentStreak,
             lastSpinAt: user.lastSpinAt,
-            extraSpinsAvailable: user.extraSpinsAvailable
+            extraSpinsAvailable: user.extraSpinsAvailable,
+            referralCount: user.referralCount || 0
           });
         });
       });
