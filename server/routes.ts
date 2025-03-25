@@ -34,6 +34,157 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Public service status endpoint for payment popup
+  app.get("/api/public/payments/service-status", async (req, res) => {
+    try {
+      let serviceStatus = "unknown";
+      const apiConfigured = isNOWPaymentsConfigured();
+      const ipnConfigured = isIPNSecretConfigured();
+      
+      if (apiConfigured) {
+        try {
+          const status = await nowPaymentsService.getStatus();
+          serviceStatus = status.status || "unknown";
+        } catch (error) {
+          console.error("Error checking payment service status:", error);
+          serviceStatus = "error";
+        }
+      }
+      
+      res.json({ 
+        apiConfigured, 
+        ipnConfigured, 
+        serviceStatus 
+      });
+    } catch (error) {
+      console.error("Error checking payment service status:", error);
+      res.status(500).json({ error: "Failed to check payment service status" });
+    }
+  });
+  
+  // Test invoice endpoint for non-authenticated users (used in payment popup component)
+  app.post("/api/public/payments/test-invoice", async (req, res) => {
+    try {
+      const schema = z.object({
+        amount: z.number().positive(),
+        currency: z.string().optional()
+      });
+      
+      const result = schema.safeParse(req.body);
+      if (!result.success) {
+        return res.status(400).json({ error: "Invalid request parameters", details: result.error });
+      }
+
+      const { amount, currency = 'USD' } = result.data;
+      
+      // Generate success and cancel URLs with the app URL
+      const successUrl = `${config.urls.app}/wallet?payment=success`;
+      const cancelUrl = `${config.urls.app}/wallet?payment=cancelled`;
+      
+      // Set up callback URL for NOWPayments IPN webhook
+      const callbackUrl = `${config.urls.api}/api/payments/callback`;
+      
+      console.log(`Creating test NOWPayments invoice for anonymous user, amount: ${amount} ${currency}`);
+      
+      // Create the invoice using NOWPayments API
+      const invoice = await nowPaymentsService.createInvoice(
+        amount,
+        0, // Use 0 as user ID for test invoices
+        currency,
+        'USDT', // Default payment currency
+        successUrl,
+        cancelUrl,
+        `TEST-${Date.now()}`, // Generate a unique order ID
+        `ChickFarms test payment - ${amount} ${currency}`,
+        callbackUrl
+      );
+      
+      console.log(`Created test invoice with ID ${invoice.id}, popup URL: ${invoice.invoice_url}`);
+      
+      // Return the NOWPayments invoice URL to open in a popup/iframe
+      res.json({
+        success: true,
+        invoiceId: invoice.id,
+        invoiceUrl: invoice.invoice_url
+      });
+    } catch (error) {
+      console.error("Error creating test NOWPayments invoice:", error);
+      res.status(500).json({ error: "Failed to create test payment invoice" });
+    }
+  });
+  
+  // Development endpoint to simulate a successful payment
+  // This is only active when running in dev/mock mode
+  app.get("/api/dev/simulate-payment/:invoiceId", async (req, res) => {
+    try {
+      // First, check if we're running in mock mode
+      if (!nowPaymentsService.isMockMode) {
+        return res.status(403).json({ 
+          error: "Forbidden",
+          message: "This endpoint is only available in development mode" 
+        });
+      }
+      
+      const { invoiceId } = req.params;
+      if (!invoiceId) {
+        return res.status(400).json({ error: "Missing invoice ID" });
+      }
+      
+      console.log(`[DEV] Simulating successful payment for invoice: ${invoiceId}`);
+      
+      // For development testing, we'll create a transaction record directly
+      // This simulates what would happen when NOWPayments sends an IPN callback
+      
+      // Check if this is a user payment or a test payment
+      const isTestPayment = invoiceId.startsWith('TEST-') || invoiceId.startsWith('DEV-');
+      
+      // If it's a test payment (not associated with a user), just return success
+      if (isTestPayment) {
+        console.log(`[DEV] Test payment completed successfully: ${invoiceId}`);
+        return res.json({ 
+          success: true, 
+          message: "Test payment simulated successfully",
+          invoiceId
+        });
+      }
+      
+      // For real user payments, find the transaction and update it
+      const transaction = await storage.getTransactionByTransactionId(invoiceId);
+      
+      if (!transaction) {
+        return res.status(404).json({ error: "Transaction not found" });
+      }
+      
+      console.log(`[DEV] Found transaction ID ${transaction.id} for user ${transaction.userId}`);
+      
+      // Update transaction status to completed
+      await storage.updateTransactionStatus(invoiceId, "completed");
+      
+      // Get the user
+      const user = await storage.getUser(transaction.userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      console.log(`[DEV] Updating balance for user ${user.id}, adding ${transaction.amount}`);
+      
+      // Update user's balance
+      await storage.updateUserBalance(user.id, parseFloat(transaction.amount));
+      
+      // Return success response
+      res.json({
+        success: true,
+        message: "Payment simulated successfully",
+        invoiceId,
+        userId: user.id,
+        amount: transaction.amount
+      });
+    } catch (error) {
+      console.error("Error simulating payment:", error);
+      res.status(500).json({ error: "Failed to simulate payment" });
+    }
+  });
+  
   // Endpoint to verify API key and connectivity for debugging
   app.get("/api/payments/verify-config", isAuthenticated, async (req, res) => {
     try {
@@ -1301,9 +1452,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`[NOWPayments] Using invoice: ${result.data.useInvoice}`);
       
       if (!config.nowpayments.apiKey) {
-        // If API key is missing, log warning and fall back to manual payment
-        console.warn("[NOWPayments] API Key is missing, falling back to manual payment");
-        throw new Error("NOWPayments API Key missing");
+        // If API key is missing, log warning but still use the mock mode of nowPaymentsService
+        console.warn("[NOWPayments] API Key is missing, using mock NOWPayments mode");
+        // Don't throw here - continue with the mock mode implementation
       }
       
       try {
@@ -1400,49 +1551,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (err) {
       console.error("[Payment Error]", err);
       
-      // Fall back to manual payment as a last resort
-      console.log("[NOWPayments] Falling back to manual payment method due to error");
-      
-      try {
-        // Get the payment address for manual payments
-        const gameSettings = await storage.getSettings();
-        const paymentAddress = gameSettings?.paymentAddress || "TRX8nHHo2Jd7H9ZwKhh6h8h"; // default address as fallback
-        
-        // Generate a unique transaction ID for tracking
-        const manualTransactionId = `M${Date.now()}${Math.floor(Math.random() * 1000)}`;
-        
-        // Create a pending transaction in our database
-        const transaction = await storage.createTransaction(
-          req.user!.id,
-          "recharge",
-          result.data.amount,
-          manualTransactionId,
-          undefined,
-          JSON.stringify({ 
-            paymentMethod: "manual",
-            fallbackReason: "NOWPayments API failure"
-          })
-        );
-        
-        // Return both the transaction and the payment details
-        return res.json({
-          transaction,
-          payment: {
-            paymentId: manualTransactionId,
-            status: "waiting",
-            address: paymentAddress,
-            amount: result.data.amount,
-            currency: "USDT",
-            createdAt: new Date().toISOString(),
-          }
+      // Return a clear error message about the NOWPayments API being needed
+      if (!config.nowpayments.apiKey) {
+        return res.status(503).json({
+          error: "NOWPayments API Key Required",
+          message: "The payment system requires a NOWPayments API key to be configured. Please contact support to enable cryptocurrency payments."
         });
-      } catch (fallbackError) {
-        console.error("[Payment Fallback Error]", fallbackError);
-        if (fallbackError instanceof Error) {
-          return res.status(500).send(fallbackError.message);
-        } else {
-          return res.status(500).send("Failed to process payment");
-        }
+      } else {
+        // Some other error occurred with the configured NOWPayments API
+        return res.status(500).json({
+          error: "Payment Processing Error",
+          message: "There was an error processing your payment request. Please try again later or contact support."
+        });
       }
     }
   });

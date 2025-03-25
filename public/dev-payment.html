@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ChickFarms - Development Payment Gateway</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f9fafb;
+      color: #1f2937;
+      line-height: 1.5;
+    }
+    header {
+      background-color: #ff9800;
+      color: white;
+      padding: 1rem;
+      text-align: center;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    .container {
+      max-width: 500px;
+      margin: 2rem auto;
+      padding: 1.5rem;
+      background-color: white;
+      border-radius: 0.5rem;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    h1 {
+      font-size: 1.5rem;
+      margin: 0 0 0.5rem 0;
+    }
+    .amount {
+      font-size: 2rem;
+      font-weight: bold;
+      margin: 1rem 0;
+      text-align: center;
+    }
+    .address {
+      background-color: #f3f4f6;
+      padding: 1rem;
+      border-radius: 0.25rem;
+      font-family: monospace;
+      word-break: break-all;
+      margin: 1rem 0;
+      text-align: center;
+    }
+    .qr-code {
+      display: flex;
+      justify-content: center;
+      margin: 1.5rem 0;
+    }
+    .qr-code img {
+      width: 150px;
+      height: 150px;
+      border: 1px solid #e5e7eb;
+      padding: 0.5rem;
+      background-color: white;
+    }
+    .instructions {
+      margin: 1rem 0;
+      font-size: 0.9rem;
+    }
+    .timer {
+      text-align: center;
+      font-weight: bold;
+      font-size: 1.25rem;
+      margin: 1rem 0;
+    }
+    .buttons {
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+      margin-top: 1.5rem;
+    }
+    .button {
+      padding: 0.75rem 1.5rem;
+      border-radius: 0.25rem;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+      transition: background-color 0.2s;
+      font-size: 1rem;
+    }
+    .button-primary {
+      background-color: #0caa41;
+      color: white;
+    }
+    .button-primary:hover {
+      background-color: #0d8d3a;
+    }
+    .button-secondary {
+      background-color: #e5e7eb;
+      color: #4b5563;
+    }
+    .button-secondary:hover {
+      background-color: #d1d5db;
+    }
+    .notice {
+      font-size: 0.85rem;
+      text-align: center;
+      padding: 0.75rem;
+      margin: 1rem 0 0 0;
+      background-color: #f3f4f6;
+      border-radius: 0.25rem;
+      color: #6b7280;
+    }
+    .fake-txid {
+      font-family: monospace;
+      font-size: 0.85rem;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>ChickFarms Development Payment</h1>
+  </header>
+  
+  <div class="container">
+    <h2>Pay with Cryptocurrency</h2>
+    <p>Please send the following amount to the address below:</p>
+    
+    <div class="amount" id="amount">0.00 USDT</div>
+    
+    <div class="address" id="address">TRC20wallet123456789developmenttokenpayment</div>
+    
+    <div class="qr-code">
+      <!-- Generate a data URI QR code for testing -->
+      <img 
+        src="data:image/png;base64,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" 
+        alt="QR Code"
+      />
+    </div>
+    
+    <div class="timer" id="timer">14:59</div>
+    
+    <div class="instructions">
+      <p>This is a development payment page. In production, you would send funds to the address shown.</p>
+      <p>For testing, you can simulate:</p>
+      <ol>
+        <li>A successful payment by clicking "Simulate Success"</li>
+        <li>A cancelled payment by clicking "Cancel Payment"</li>
+      </ol>
+    </div>
+    
+    <div class="buttons">
+      <button id="successBtn" class="button button-primary">Simulate Success</button>
+      <button id="cancelBtn" class="button button-secondary">Cancel Payment</button>
+    </div>
+    
+    <div class="notice">
+      <p>Dev Mode | TxID: <span class="fake-txid" id="txid">0x0000000000000000000000</span></p>
+    </div>
+  </div>
+  
+  <script>
+    // Extract URL parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    const invoiceId = urlParams.get('invoice') || 'DEV-INVOICE';
+    const amount = urlParams.get('amount') || '10.00';
+    const currency = urlParams.get('currency') || 'USD';
+    const successUrl = urlParams.get('success') || '/wallet?payment=success';
+    const cancelUrl = urlParams.get('cancel') || '/wallet?payment=cancelled';
+    
+    // Set the values in the UI
+    document.getElementById('amount').textContent = `${amount} ${currency}`;
+    
+    // Generate a random transaction ID for testing
+    const randomTxId = 'tx_' + Math.random().toString(36).substring(2, 15);
+    document.getElementById('txid').textContent = randomTxId;
+    
+    // Handle the countdown timer
+    let timeLeft = 15 * 60; // 15 minutes in seconds
+    const timerElement = document.getElementById('timer');
+    
+    function updateTimer() {
+      const minutes = Math.floor(timeLeft / 60);
+      const seconds = timeLeft % 60;
+      timerElement.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+      
+      if (timeLeft <= 0) {
+        clearInterval(timerInterval);
+        window.location.href = cancelUrl;
+      }
+      
+      timeLeft--;
+    }
+    
+    // Update timer immediately and then every second
+    updateTimer();
+    const timerInterval = setInterval(updateTimer, 1000);
+    
+    // Button event handlers
+    document.getElementById('successBtn').addEventListener('click', function() {
+      clearInterval(timerInterval);
+      
+      // Call the simulate payment endpoint
+      fetch(`/api/dev/simulate-payment/${invoiceId}`)
+        .then(response => response.json())
+        .then(data => {
+          console.log('Payment simulation response:', data);
+          // Redirect to success URL
+          window.location.href = successUrl;
+        })
+        .catch(error => {
+          console.error('Error simulating payment:', error);
+          // Still redirect to success URL even if the API call fails
+          window.location.href = successUrl;
+        });
+    });
+    
+    document.getElementById('cancelBtn').addEventListener('click', function() {
+      clearInterval(timerInterval);
+      window.location.href = cancelUrl;
+    });
+  </script>
+</body>
+</html>

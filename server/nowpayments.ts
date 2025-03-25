@@ -134,19 +134,18 @@ interface AvailableCurrency {
 
 class NOWPaymentsService {
   private apiKey: string;
-  private readonly isMockMode: boolean;
+  readonly isMockMode: boolean; // Make this public so we can check it from routes
 
   constructor() {
     if (!API_KEY) {
-      throw new Error('NOWPayments API key is not provided');
+      console.warn('NOWPayments API key is not provided - using restricted dev mode');
+      this.apiKey = '';
+      this.isMockMode = true;
+    } else {
+      this.apiKey = API_KEY;
+      this.isMockMode = false;
+      console.log('NOWPayments service initialized with production API key');
     }
-    this.apiKey = API_KEY;
-    
-    // Always use production mode
-    this.isMockMode = false;
-    
-    // Log initialization for debugging purposes
-    console.log('NOWPayments service initialized with production API key');
   }
 
   private getHeaders() {
@@ -157,6 +156,11 @@ class NOWPaymentsService {
   }
 
   async getStatus(): Promise<{ status: string }> {
+    if (this.isMockMode) {
+      console.log('Using mock mode for payment status check');
+      return { status: 'DEV_MODE' };
+    }
+    
     try {
       // Connect to real NOWPayments API
       const response = await axios.get(`${API_BASE_URL}/status`, {
@@ -171,6 +175,46 @@ class NOWPaymentsService {
   }
 
   async getAvailableCurrencies(): Promise<AvailableCurrency[]> {
+    // If in mock mode, return mock currencies
+    if (this.isMockMode) {
+      console.log('Using mock mode for available currencies');
+      return [
+        {
+          id: 1,
+          name: 'Tether',
+          currency: 'USDT',
+          is_fiat: false,
+          enabled: true,
+          min_amount: 10,
+          max_amount: 100000,
+          image: 'https://nowpayments.io/images/coins/usdt.svg',
+          network: 'TRC20'
+        },
+        {
+          id: 2,
+          name: 'Bitcoin',
+          currency: 'BTC',
+          is_fiat: false,
+          enabled: true,
+          min_amount: 0.001,
+          max_amount: 10,
+          image: 'https://nowpayments.io/images/coins/btc.svg',
+          network: 'BTC'
+        },
+        {
+          id: 3,
+          name: 'Ethereum',
+          currency: 'ETH',
+          is_fiat: false,
+          enabled: true,
+          min_amount: 0.01,
+          max_amount: 100,
+          image: 'https://nowpayments.io/images/coins/eth.svg',
+          network: 'ETH'
+        }
+      ];
+    }
+    
     try {
       console.log('Fetching available currencies from NOWPayments API');
       const response = await axios.get(`${API_BASE_URL}/currencies`, {
@@ -181,18 +225,18 @@ class NOWPaymentsService {
       console.log(`Retrieved ${currencies.length} currencies from NOWPayments API`);
       
       // Log the enabled currencies for debugging
-      const enabledCurrencies = currencies.filter(c => c.enabled);
+      const enabledCurrencies = currencies.filter((c: any) => c.enabled);
       console.log(`Found ${enabledCurrencies.length} enabled currencies`);
       
       if (enabledCurrencies.length > 0) {
         console.log('Available currencies:');
-        enabledCurrencies.forEach(currency => {
+        enabledCurrencies.forEach((currency: any) => {
           console.log(`- ${currency.currency} (${currency.network || 'default network'})`);
         });
       }
       
       return currencies;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error getting available currencies:', error);
       
       // Log more detailed error information
@@ -328,6 +372,34 @@ class NOWPaymentsService {
   }
 
   async getPaymentStatus(paymentId: string): Promise<PaymentStatusResponse> {
+    // In mock mode, return a mocked payment status
+    if (this.isMockMode) {
+      console.log(`Using mock mode for payment status check for payment ID: ${paymentId}`);
+      
+      // If this is a DEV- payment ID, it's from our mock invoice
+      if (paymentId.startsWith('DEV-')) {
+        return {
+          payment_id: paymentId,
+          payment_status: 'waiting',
+          pay_address: '0xMockCryptoAddress123456789',
+          price_amount: 100,
+          price_currency: 'USD',
+          pay_amount: 100,
+          pay_currency: 'USDT',
+          order_id: `ORDER-${paymentId}`,
+          order_description: 'Mock payment for development',
+          ipn_callback_url: `${config.urls.api}/api/payments/callback`,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          purchase_id: 'mock-purchase',
+          payment_extra_id: 'mock-extra'
+        };
+      }
+      
+      // For other payment IDs in mock mode, simulate a "not found" scenario
+      throw new Error(`Payment with ID ${paymentId} not found in mock mode`);
+    }
+    
     try {
       console.log(`Checking status for payment ID: ${paymentId}`);
       
@@ -359,6 +431,22 @@ class NOWPaymentsService {
   }
 
   async getMinimumPaymentAmount(currency: string = 'USDT'): Promise<number> {
+    // In mock mode, return mock minimum amounts for different currencies
+    if (this.isMockMode) {
+      console.log(`Using mock mode for minimum payment amount for currency: ${currency}`);
+      
+      const mockMinAmounts: Record<string, number> = {
+        'USDT': 10,
+        'BTC': 0.001,
+        'ETH': 0.01,
+        'DOGE': 50,
+        'LTC': 0.1,
+        'BNB': 0.1
+      };
+      
+      return mockMinAmounts[currency.toUpperCase()] || 1;
+    }
+    
     try {
       console.log(`Getting minimum payment amount for currency: ${currency}`);
       
@@ -427,6 +515,26 @@ class NOWPaymentsService {
     // Set callback URL if not provided - this is where NOWPayments sends payment updates
     if (!callbackUrl) {
       callbackUrl = `${config.urls.api}/api/payments/callback`;
+    }
+
+    // If in mock mode, return a development invoice URL
+    if (this.isMockMode) {
+      console.log('Using mock mode for payment invoice creation');
+      
+      // Create a mock invoice ID
+      const mockInvoiceId = `DEV-${userId}-${Date.now()}`;
+      
+      // Create a mock invoice URL that will simulate a payment flow
+      // Using a special HTML page that simulates a payment popup
+      const mockInvoiceUrl = `${config.urls.app}/dev-payment.html?invoice=${mockInvoiceId}&amount=${amount}&currency=${currency}&success=${encodeURIComponent(successUrl)}&cancel=${encodeURIComponent(cancelUrl)}`;
+      
+      return {
+        id: mockInvoiceId,
+        token_id: 'mock-token',
+        invoice_url: mockInvoiceUrl,
+        success: true,
+        status: 'dev_mode'
+      };
     }
 
     try {

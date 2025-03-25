@@ -110,11 +110,7 @@ export default function WalletPage() {
   // State for the payment popup
   const [isPaymentPopupOpen, setIsPaymentPopupOpen] = useState(false);
   
-  // Define the payment method types
-  type PaymentMethodType = "popup" | "auto" | "manual";
-  
-  // Always use NOWPayments portal/invoice for all payments
-  const selectedPaymentMethod: PaymentMethodType = "popup"; // Force redirect to NOWPayments portal
+  // Only use NOWPayments portal/invoice for all payments
 
   const rechargeMutation = useMutation({
     mutationFn: async (data: z.infer<typeof rechargeSchema>) => {
@@ -333,36 +329,17 @@ export default function WalletPage() {
                   <div className="space-y-3 sm:space-y-4">
                     <div className="bg-primary/10 p-2 sm:p-4 rounded-lg text-center space-y-1 sm:space-y-2">
                       {paymentDetails ? (
-                        (selectedPaymentMethod !== "manual") ? (
-                          <>
-                            <QRCodeSVG
-                              value={qrCodeData}
-                              size={150}
-                              className="mx-auto bg-white p-2 rounded-md"
-                            />
-                            <p className="text-xs sm:text-sm font-medium">Scan QR to pay with {paymentDetails.currency}</p>
-                            <p className="text-xs text-muted-foreground">
-                              Send exactly {paymentDetails.amount} {paymentDetails.currency} to complete your payment
-                            </p>
-                          </>
-                        ) : (
-                          <>
-                            <div className="mx-auto w-[150px] h-[150px] flex items-center justify-center bg-white p-2 rounded-md">
-                              <div className="flex flex-col items-center justify-center">
-                                <img 
-                                  src="/assets/tether-usdt-logo.png" 
-                                  alt="USDT" 
-                                  className="w-20 h-20 mb-2"
-                                />
-                                <p className="text-xs font-medium">Manual USDT Payment</p>
-                              </div>
-                            </div>
-                            <p className="text-xs sm:text-sm font-medium">Send USDT to the address below</p>
-                            <p className="text-xs text-muted-foreground">
-                              Copy the payment address from the payment details section
-                            </p>
-                          </>
-                        )
+                        <>
+                          <QRCodeSVG
+                            value={qrCodeData}
+                            size={150}
+                            className="mx-auto bg-white p-2 rounded-md"
+                          />
+                          <p className="text-xs sm:text-sm font-medium">Scan QR to pay with {paymentDetails.currency}</p>
+                          <p className="text-xs text-muted-foreground">
+                            Send exactly {paymentDetails.amount} {paymentDetails.currency} to complete your payment
+                          </p>
+                        </>
                       ) : (
                         <>
                           <div className="relative mx-auto w-[150px] h-[150px] flex items-center justify-center bg-white/70 p-2 rounded-md">
@@ -395,9 +372,7 @@ export default function WalletPage() {
                         <p className="text-xs sm:text-sm text-muted-foreground">
                           {checkingPayment 
                             ? "Checking payment status..." 
-                            : (selectedPaymentMethod !== "manual")
-                              ? "Scan the QR code or copy the address below to complete payment"
-                              : "Please send USDT to the address below to complete payment"
+                            : "Scan the QR code or copy the address below to complete payment"
                           }
                         </p>
                       </div>
