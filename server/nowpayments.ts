@@ -6,15 +6,13 @@ const API_BASE_URL = 'https://api.nowpayments.io/v1';
 const CHECKOUT_API_BASE_URL = 'https://nowpayments.io';
 const API_KEY = config.nowpayments.apiKey;
 
-// Function to check if NOWPayments API key is configured
 export const isNOWPaymentsConfigured = (): boolean => {
-  return !!API_KEY; // Simply check if the API key exists
+  return !!API_KEY;
 };
 
-// Function to check if NOWPayments IPN secret is configured
 export const isIPNSecretConfigured = (): boolean => {
   const ipnSecret = config.nowpayments.ipnSecret;
-  return !!ipnSecret; // Simply check if the IPN secret exists
+  return !!ipnSecret;
 };
 
 interface CreatePaymentResponse {
@@ -55,7 +53,6 @@ export interface PaymentStatusResponse {
   outcome_currency?: string;
 }
 
-// A standardized payment status interface for internal use
 export interface StandardizedPaymentStatus {
   payment_id: string;
   payment_status: string;
@@ -64,13 +61,11 @@ export interface StandardizedPaymentStatus {
   price_currency: string;
   pay_amount: number;
   pay_currency: string;
-  created_at: string; // Always string in ISO format
-  actually_paid: number | null; // Always number or null, never undefined
-  actually_paid_at: string | null; // Always string or null, never undefined
-  updated_at: string | null; // Always string or null, never undefined
+  created_at: string;
+  actually_paid: number | null;
+  actually_paid_at: string | null;
+  updated_at: string | null;
 }
-
-// Moved this function to be a method of NOWPaymentsService class
 
 export interface CreateInvoiceResponse {
   id: string;
@@ -486,55 +481,26 @@ class NOWPaymentsService {
     }
   }
   
-  /**
-   * Creates an invoice using NOWPayments checkout form
-   * This generates a URL that opens the NOWPayments popup checkout
-   */
   async createInvoice(
     amount: number,
     userId: number,
     currency: string = 'USD',
-    payCurrency: string = 'USDTTRC20', // Default pay currency is USDT on Tron network
+    payCurrency: string = 'USDTTRC20',
     successUrl?: string,
     cancelUrl?: string,
     orderId?: string,
     orderDescription?: string,
     callbackUrl?: string
   ): Promise<CreateInvoiceResponse> {
-    // Generate a unique order ID if not provided
-    if (!orderId) {
-      orderId = `CHICKFARMS-${userId}-${Date.now()}`;
-    }
+    orderId = orderId || `CHICKFARMS-${userId}-${Date.now()}`;
+    orderDescription = orderDescription || `Deposit to ChickFarms account (User ID: ${userId})`;
+    successUrl = successUrl || `${config.urls.app}/wallet?payment=success`;
+    cancelUrl = cancelUrl || `${config.urls.app}/wallet?payment=cancelled`;
+    callbackUrl = callbackUrl || `${config.urls.api}/api/payments/callback`;
 
-    // Generate a description if not provided
-    if (!orderDescription) {
-      orderDescription = `Deposit to ChickFarms account (User ID: ${userId})`;
-    }
-    
-    // Set success URL if not provided
-    if (!successUrl) {
-      successUrl = `${config.urls.app}/wallet?payment=success`;
-    }
-    
-    // Set cancel URL if not provided
-    if (!cancelUrl) {
-      cancelUrl = `${config.urls.app}/wallet?payment=cancelled`;
-    }
-    
-    // Set callback URL if not provided - this is where NOWPayments sends payment updates
-    if (!callbackUrl) {
-      callbackUrl = `${config.urls.api}/api/payments/callback`;
-    }
-
-    // If in mock mode, return a development invoice URL
     if (this.isMockMode) {
       console.log('Using mock mode for payment invoice creation');
-      
-      // Create a mock invoice ID
       const mockInvoiceId = `DEV-${userId}-${Date.now()}`;
-      
-      // Create a mock invoice URL that will simulate a payment flow
-      // Using a special HTML page that simulates a payment popup
       const mockInvoiceUrl = `${config.urls.app}/dev-payment.html?invoice=${mockInvoiceId}&amount=${amount}&currency=${currency}&success=${encodeURIComponent(successUrl)}&cancel=${encodeURIComponent(cancelUrl)}`;
       
       return {
@@ -547,7 +513,6 @@ class NOWPaymentsService {
     }
 
     try {
-      // Find an available payment currency - first checking if the requested one is available
       console.log(`Checking if ${payCurrency} is available for payments...`);
       const availablePayCurrency = await this.findAvailablePaymentCurrency(payCurrency);
       
@@ -555,22 +520,21 @@ class NOWPaymentsService {
         console.log(`Requested currency ${payCurrency} is not available, using ${availablePayCurrency} instead`);
       }
       
-      // Using the NOWPayments /v1/invoice endpoint
       const payload = {
         price_amount: amount,
         price_currency: currency,
-        pay_currency: availablePayCurrency, // Use the available currency instead of hardcoded USDT
+        pay_currency: availablePayCurrency,
         order_id: orderId,
         order_description: orderDescription,
         ipn_callback_url: callbackUrl,
         success_url: successUrl,
         cancel_url: cancelUrl,
-        is_fee_paid_by_user: true // Having the user pay the network fee
+        is_fee_paid_by_user: true
       };
 
       console.log('Creating NOWPayments invoice with payload:', {
         ...payload,
-        api_key: '[REDACTED]' // Don't log the actual API key
+        api_key: '[REDACTED]'
       });
 
       const response = await axios.post(
@@ -589,7 +553,6 @@ class NOWPaymentsService {
     } catch (error: any) {
       console.error('Error creating NOWPayments invoice:', error);
       
-      // Log more detailed error information to help with debugging
       if (error.response) {
         console.error('Error response from NOWPayments API:', {
           status: error.response.status,
@@ -598,7 +561,6 @@ class NOWPaymentsService {
         });
       }
       
-      // In production, throw the error to be handled by the calling code
       throw error;
     }
   }

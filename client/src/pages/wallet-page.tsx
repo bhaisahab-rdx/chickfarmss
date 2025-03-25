@@ -97,6 +97,19 @@ export default function WalletPage() {
 
   // State for the payment popup
   const [isPaymentPopupOpen, setIsPaymentPopupOpen] = useState(false);
+  
+  // Function to open payment popup with current amount
+  const openPaymentPopup = () => {
+    if (rechargeForm.getValues().amount <= 0) {
+      toast({
+        title: "Invalid Amount",
+        description: "Please enter an amount greater than 0 USDT",
+        variant: "destructive"
+      });
+      return;
+    }
+    setIsPaymentPopupOpen(true);
+  };
 
   // Handle recharge through NOWPayments
   const rechargeMutation = useMutation({
@@ -178,6 +191,7 @@ export default function WalletPage() {
       <PaymentPopup 
         isOpen={isPaymentPopupOpen}
         onClose={() => setIsPaymentPopupOpen(false)}
+        initialAmount={rechargeForm.getValues().amount}
         onSuccess={() => {
           queryClient.invalidateQueries({ queryKey: ["/api/user"] });
           toast({
@@ -253,14 +267,6 @@ export default function WalletPage() {
                       
                       <Form {...rechargeForm}>
                         <form
-                          onSubmit={rechargeForm.handleSubmit((data) => {
-                            rechargeMutation.mutate({
-                              amount: data.amount,
-                              currency: data.currency || 'USDT',
-                              payCurrency: data.payCurrency || 'USDTTRC20', // Explicitly use USDT on Tron network
-                              useInvoice: true
-                            });
-                          })}
                           className="space-y-3 sm:space-y-4 max-w-sm mx-auto"
                         >
                           <FormField
@@ -285,11 +291,11 @@ export default function WalletPage() {
                           />
                           
                           <Button
-                            type="submit"
+                            type="button"
                             className="w-full h-10 text-sm sm:text-base"
-                            disabled={rechargeMutation.isPending}
+                            onClick={openPaymentPopup}
                           >
-                            {rechargeMutation.isPending ? "Creating Payment..." : "Pay with Any Cryptocurrency"}
+                            Pay with Any Cryptocurrency
                           </Button>
                           
                           <p className="text-xs text-center text-muted-foreground">

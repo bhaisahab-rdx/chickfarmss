@@ -12,10 +12,11 @@ interface PaymentPopupProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: () => void;
+  initialAmount?: number;
 }
 
-export function PaymentPopup({ isOpen, onClose, onSuccess }: PaymentPopupProps) {
-  const [amount, setAmount] = useState<number>(90); // Default amount is 90 USDT
+export function PaymentPopup({ isOpen, onClose, onSuccess, initialAmount = 10 }: PaymentPopupProps) {
+  const [amount, setAmount] = useState<number>(initialAmount);
   const [isLoading, setIsLoading] = useState(false);
   const [invoiceUrl, setInvoiceUrl] = useState<string | undefined>(undefined);
   const [invoiceId, setInvoiceId] = useState<string | undefined>(undefined);
@@ -32,6 +33,8 @@ export function PaymentPopup({ isOpen, onClose, onSuccess }: PaymentPopupProps) 
   useEffect(() => {
     if (isOpen) {
       checkPaymentServiceStatus();
+      // Update amount when popup opens (to sync with parent component)
+      setAmount(initialAmount);
     }
     
     // Clean up payment window if component unmounts
@@ -40,7 +43,7 @@ export function PaymentPopup({ isOpen, onClose, onSuccess }: PaymentPopupProps) 
         paymentWindow.close();
       }
     };
-  }, [isOpen]);
+  }, [isOpen, initialAmount]);
   
   // Function to check the NOWPayments service status
   const checkPaymentServiceStatus = async () => {
@@ -155,106 +158,45 @@ export function PaymentPopup({ isOpen, onClose, onSuccess }: PaymentPopupProps) 
     }
     
     try {
-      // First, try to handle the popup opening more user-friendly
-      // Create a temporary button element
-      const tempButton = document.createElement('button');
-      tempButton.style.display = 'none';
-      document.body.appendChild(tempButton);
+      // Open in _blank to ensure a new window/tab and not inside iframe
+      const newWindow = window.open(
+        url, 
+        '_blank', 
+        'noopener,noreferrer,width=450,height=600,scrollbars=yes'
+      );
       
-      // Now setup an onclick handler - browsers are more likely to allow
-      // popups that are triggered directly by user action (click events)
-      tempButton.onclick = () => {
-        // Open in _blank to ensure a new window/tab and not inside iframe
-        // Use window features that are more likely to be allowed by browsers
-        const newWindow = window.open(
-          url, 
-          '_blank', 
-          'noopener,noreferrer,width=450,height=600,scrollbars=yes'
-        );
-        
-        // Handle popup blocked case
-        if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
-          // If blocked, show helpful message with clear instructions
-          toast({
-            title: 'Popup Blocked',
-            description: 'Your browser blocked the payment window. Click "Open Payment Link" below or check your browser settings to allow popups from this site.',
-            variant: 'destructive'
-          });
-          
-          // Ensure we still have the invoice URL available for manual opening
-          setInvoiceUrl(url);
-          return;
-        }
-        
-        // Focus the window to bring it to the front
-        try {
-          newWindow.focus();
-        } catch (focusError) {
-          console.log('Unable to focus payment window - this is normal in some browsers');
-        }
-        
-        // Successfully opened the window
-        setPaymentWindow(newWindow);
-        
-        // Set up an interval to check if the payment window is closed
-        const checkWindowClosed = setInterval(() => {
-          if (newWindow.closed) {
-            clearInterval(checkWindowClosed);
-            handlePaymentWindowClosed();
-          }
-        }, 1000);
-      };
-      
-      // Simulate a click event to trigger the window.open
-      tempButton.click();
-      
-      // Clean up the temporary button
-      document.body.removeChild(tempButton);
-    } catch (error) {
-      console.error('Error opening payment window:', error);
-      
-      // Fallback to direct method if the simulated click approach fails
-      try {
-        // Use the same window settings for consistency
-        const newWindow = window.open(
-          url, 
-          '_blank', 
-          'noopener,noreferrer,width=450,height=600,scrollbars=yes'
-        );
-        
-        if (!newWindow) {
-          toast({
-            title: 'Popup Blocked',
-            description: 'Please allow popups for this site or click "Open Payment Link" below.',
-            variant: 'destructive'
-          });
-          return;
-        }
-        
-        // Try to focus the window
-        try {
-          newWindow.focus();
-        } catch (focusError) {
-          console.log('Unable to focus fallback payment window');
-        }
-        
-        setPaymentWindow(newWindow);
-        
-        // Monitor the window state
-        const checkWindowClosed = setInterval(() => {
-          if (newWindow.closed) {
-            clearInterval(checkWindowClosed);
-            handlePaymentWindowClosed();
-          }
-        }, 1000);
-      } catch (secondError) {
-        console.error('Fallback window opening failed:', secondError);
+      // Handle popup blocked case
+      if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
         toast({
-          title: 'Browser Error',
-          description: 'Unable to open payment window. Please click "Open Payment Link" button below.',
+          title: 'Popup Blocked',
+          description: 'Your browser blocked the payment window. Click "Open Payment Gateway" below.',
           variant: 'destructive'
         });
+        return;
       }
+      
+      // Try to focus the window
+      try {
+        newWindow.focus();
+      } catch (focusError) {
+        console.log('Unable to focus payment window');
+      }
+      
+      // Store reference and monitor window state
+      setPaymentWindow(newWindow);
+      const checkWindowClosed = setInterval(() => {
+        if (newWindow.closed) {
+          clearInterval(checkWindowClosed);
+          handlePaymentWindowClosed();
+        }
+      }, 1000);
+    } catch (error) {
+      console.error('Error opening payment window:', error);
+      toast({
+        title: 'Browser Error',
+        description: 'Unable to open payment window. Please use the "Open Payment Gateway" button below.',
+        variant: 'destructive'
+      });
     }
   };
   
