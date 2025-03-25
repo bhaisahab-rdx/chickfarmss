@@ -11,6 +11,12 @@ export const isNOWPaymentsConfigured = (): boolean => {
   return !!API_KEY && API_KEY !== 'dev_test_key_for_ui_testing';
 };
 
+// Function to check if NOWPayments IPN secret is configured
+export const isIPNSecretConfigured = (): boolean => {
+  const ipnSecret = config.nowpayments.ipnSecret;
+  return !!ipnSecret && ipnSecret !== 'dev_test_secret';
+};
+
 interface CreatePaymentResponse {
   payment_id: string;
   payment_status: string;

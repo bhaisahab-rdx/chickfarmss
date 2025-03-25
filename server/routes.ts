@@ -4,7 +4,7 @@ import { setupAuth, isAuthenticated } from "./auth";
 import { storage, mysteryBoxTypes } from "./storage";
 import { z } from "zod";
 import { dailySpinRewards, superJackpotRewards } from "@shared/schema";
-import { nowPaymentsService, PaymentStatusResponse, StandardizedPaymentStatus } from "./nowpayments";
+import { nowPaymentsService, PaymentStatusResponse, StandardizedPaymentStatus, isNOWPaymentsConfigured, isIPNSecretConfigured } from "./nowpayments";
 import { config } from "./config";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -18,8 +18,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Public test endpoints for payment testing - No authentication required
   app.get("/api/public/payments/service-status", async (req, res) => {
     try {
-      const apiConfigured = !!config.nowpayments.apiKey;
-      const ipnConfigured = !!config.nowpayments.ipnSecret;
+      const apiConfigured = isNOWPaymentsConfigured();
+      const ipnConfigured = isIPNSecretConfigured();
       let serviceStatus = "unknown";
       
       if (apiConfigured) {
@@ -46,7 +46,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.post("/api/public/payments/test-invoice", async (req, res) => {
     try {
-      if (!config.nowpayments.apiKey) {
+      if (!isNOWPaymentsConfigured()) {
         return res.status(400).json({ 
           success: false, 
           error: "NOWPayments API is not configured" 
@@ -101,7 +101,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/payments/status", async (req, res) => {
     try {
       const status = await nowPaymentsService.getStatus();
-      res.json({ status, apiKeyConfigured: !!config.nowpayments.apiKey });
+      res.json({ 
+        status, 
+        apiKeyConfigured: isNOWPaymentsConfigured(),
+        ipnSecretConfigured: isIPNSecretConfigured()
+      });
     } catch (error) {
       console.error("Error checking NOWPayments status:", error);
       res.status(500).json({ error: "Failed to check payment service status" });
@@ -111,8 +115,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Endpoint to verify API key and connectivity for debugging
   app.get("/api/payments/verify-config", isAuthenticated, async (req, res) => {
     try {
-      const apiKeyConfigured = !!config.nowpayments.apiKey;
-      const ipnSecretConfigured = !!config.nowpayments.ipnSecret;
+      const apiKeyConfigured = isNOWPaymentsConfigured();
+      const ipnSecretConfigured = isIPNSecretConfigured();
       
       let apiStatus = "unknown";
       let minAmount = null;
@@ -275,20 +279,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Verify the IPN signature if NOWPayments IPN secret is provided
       const ipnSecret = config.nowpayments.ipnSecret;
+      const isIpnConfigured = isIPNSecretConfigured();
       
-      if (ipnSecret) {
+      console.log("[NOWPayments Callback] IPN Secret configured:", isIpnConfigured ? "YES" : "NO");
+      
+      if (ipnSecret && isIpnConfigured) {
         // Get the signature from headers
         const ipnSignature = req.headers['x-nowpayments-sig'];
         
         if (!ipnSignature) {
           console.error("[NOWPayments Callback] Missing signature in IPN headers");
+          console.error("[NOWPayments Callback] Headers received:", JSON.stringify(req.headers));
           return res.status(400).json({ error: "Missing signature" });
         }
         
         // Verify the signature
         const crypto = require('crypto');
         const hmac = crypto.createHmac('sha512', ipnSecret);
-        const computedSignature = hmac.update(JSON.stringify(ipnData)).digest('hex');
+        const rawBody = typeof ipnData === 'string' ? ipnData : JSON.stringify(ipnData);
+        const computedSignature = hmac.update(rawBody).digest('hex');
+        
+        console.log("[NOWPayments Callback] Signature verification:");
+        console.log("Received signature:", ipnSignature);
+        console.log("Computed signature:", computedSignature);
         
         // Check if signatures match
         if (computedSignature !== ipnSignature) {
@@ -298,7 +311,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         console.log("[NOWPayments Callback] IPN signature verified successfully");
       } else {
-        console.warn("[NOWPayments Callback] IPN secret not configured, skipping signature verification");
+        console.warn("[NOWPayments Callback] IPN secret not configured or invalid, skipping signature verification");
       }
       
       if (!ipnData.payment_id) {
