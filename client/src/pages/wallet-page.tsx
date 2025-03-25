@@ -333,7 +333,7 @@ export default function WalletPage() {
                   <div className="space-y-3 sm:space-y-4">
                     <div className="bg-primary/10 p-2 sm:p-4 rounded-lg text-center space-y-1 sm:space-y-2">
                       {paymentDetails ? (
-                        (selectedPaymentMethod === "auto" || selectedPaymentMethod === "popup") ? (
+                        (selectedPaymentMethod !== "manual") ? (
                           <>
                             <QRCodeSVG
                               value={qrCodeData}
@@ -395,7 +395,7 @@ export default function WalletPage() {
                         <p className="text-xs sm:text-sm text-muted-foreground">
                           {checkingPayment 
                             ? "Checking payment status..." 
-                            : (selectedPaymentMethod === "auto" || selectedPaymentMethod === "popup")
+                            : (selectedPaymentMethod !== "manual")
                               ? "Scan the QR code or copy the address below to complete payment"
                               : "Please send USDT to the address below to complete payment"
                           }
