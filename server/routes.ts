@@ -1278,7 +1278,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       amount: z.number().positive(),
       currency: z.string().optional().default("USDT"),
       payCurrency: z.string().optional().default("USDT"),
-      useInvoice: z.boolean().optional().default(false)
+      useInvoice: z.boolean().optional().default(true) // Default to true for consistent portal-based payments
     });
 
     const result = schema.safeParse(req.body);
