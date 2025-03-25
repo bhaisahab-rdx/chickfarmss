@@ -112,7 +112,7 @@ export default function WalletPage() {
   type PaymentMethodType = "popup" | "auto" | "manual";
   
   // Payment method is controlled from admin panel
-  const selectedPaymentMethod: PaymentMethodType = "popup"; // Using popup checkout by default
+  const selectedPaymentMethod: PaymentMethodType = "auto"; // Use direct payment method instead of popup
 
   const rechargeMutation = useMutation({
     mutationFn: async (data: z.infer<typeof rechargeSchema>) => {
@@ -433,11 +433,15 @@ export default function WalletPage() {
                     <Form {...rechargeForm}>
                       <form
                         onSubmit={rechargeForm.handleSubmit((data) => {
-                          // Set initial amount in payment popup
-                          setIsPaymentPopupOpen(true);
+                          // Use the direct payment mutation instead of popup
+                          rechargeMutation.mutate({
+                            amount: data.amount,
+                            currency: data.currency || 'USDT', 
+                            payCurrency: 'USDT' // Explicitly set payCurrency to USDT
+                          });
                           
                           // Track in analytics that a payment was initiated
-                          console.log('Payment initiated:', data.amount, data.currency);
+                          console.log('Direct payment initiated:', data.amount, data.currency);
                         })}
                         className="space-y-3 sm:space-y-4"
                       >
@@ -462,7 +466,7 @@ export default function WalletPage() {
                           )}
                         />
                         
-                        {selectedPaymentMethod === "popup" ? (
+                        {false ? ( // We're now using auto/direct payments, not popup
                           <Button
                             type="button"
                             className="w-full h-8 sm:h-10 text-xs sm:text-sm mt-2"
