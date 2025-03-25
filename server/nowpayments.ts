@@ -172,13 +172,95 @@ class NOWPaymentsService {
 
   async getAvailableCurrencies(): Promise<AvailableCurrency[]> {
     try {
+      console.log('Fetching available currencies from NOWPayments API');
       const response = await axios.get(`${API_BASE_URL}/currencies`, {
         headers: this.getHeaders(),
       });
-      return response.data.currencies || [];
+      
+      const currencies = response.data.currencies || [];
+      console.log(`Retrieved ${currencies.length} currencies from NOWPayments API`);
+      
+      // Log the enabled currencies for debugging
+      const enabledCurrencies = currencies.filter(c => c.enabled);
+      console.log(`Found ${enabledCurrencies.length} enabled currencies`);
+      
+      if (enabledCurrencies.length > 0) {
+        console.log('Available currencies:');
+        enabledCurrencies.forEach(currency => {
+          console.log(`- ${currency.currency} (${currency.network || 'default network'})`);
+        });
+      }
+      
+      return currencies;
     } catch (error) {
       console.error('Error getting available currencies:', error);
+      
+      // Log more detailed error information
+      if (error.response) {
+        console.error('Error response from NOWPayments API:', {
+          status: error.response.status,
+          statusText: error.response.statusText,
+          data: error.response.data
+        });
+      }
+      
       throw error;
+    }
+  }
+  
+  /**
+   * Checks if USDT is available for payments
+   * If not, finds an alternative currency
+   */
+  async findAvailablePaymentCurrency(preferredCurrency: string = 'USDT'): Promise<string> {
+    try {
+      const currencies = await this.getAvailableCurrencies();
+      
+      // Filter to enabled currencies only
+      const enabledCurrencies = currencies.filter(c => c.enabled);
+      
+      // First check if preferred currency is available
+      const isPreferredAvailable = enabledCurrencies.some(
+        c => c.currency.toUpperCase() === preferredCurrency.toUpperCase()
+      );
+      
+      if (isPreferredAvailable) {
+        console.log(`Preferred currency ${preferredCurrency} is available`);
+        return preferredCurrency;
+      }
+      
+      // If preferred currency is not available, pick another common one
+      console.log(`Preferred currency ${preferredCurrency} is not available, looking for alternatives`);
+      
+      // List of fallback currencies in order of preference
+      const fallbackCurrencies = ['BTC', 'ETH', 'DOGE', 'LTC', 'BNB'];
+      
+      for (const fallback of fallbackCurrencies) {
+        const isAvailable = enabledCurrencies.some(
+          c => c.currency.toUpperCase() === fallback.toUpperCase()
+        );
+        
+        if (isAvailable) {
+          console.log(`Found alternative currency: ${fallback}`);
+          return fallback;
+        }
+      }
+      
+      // If none of our preferred options are available, just pick the first enabled one
+      if (enabledCurrencies.length > 0) {
+        const fallbackCurrency = enabledCurrencies[0].currency;
+        console.log(`Using fallback currency: ${fallbackCurrency}`);
+        return fallbackCurrency;
+      }
+      
+      // If no currencies are available at all, return the original preference
+      // This will likely fail but is better than returning null/undefined
+      console.warn('No enabled currencies found, returning original preference');
+      return preferredCurrency;
+    } catch (error) {
+      console.error('Error finding available payment currency:', error);
+      // In case of error, return the original preference
+      return preferredCurrency;
     }
   }
 
@@ -315,6 +397,7 @@ class NOWPaymentsService {
     amount: number,
     userId: number,
     currency: string = 'USD',
+    payCurrency: string = 'USDT', // Default pay currency, will be checked for availability
     successUrl?: string,
     cancelUrl?: string,
     orderId?: string,
@@ -347,10 +430,19 @@ class NOWPaymentsService {
     }
 
     try {
+      // Find an available payment currency - first checking if the requested one is available
+      console.log(`Checking if ${payCurrency} is available for payments...`);
+      const availablePayCurrency = await this.findAvailablePaymentCurrency(payCurrency);
+      
+      if (availablePayCurrency !== payCurrency) {
+        console.log(`Requested currency ${payCurrency} is not available, using ${availablePayCurrency} instead`);
+      }
+      
       // Using the NOWPayments /v1/invoice endpoint
       const payload = {
         price_amount: amount,
         price_currency: currency,
+        pay_currency: availablePayCurrency, // Use the available currency instead of hardcoded USDT
         order_id: orderId,
         order_description: orderDescription,
         ipn_callback_url: callbackUrl,

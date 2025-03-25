@@ -1311,10 +1311,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (result.data.useInvoice) {
           console.log(`[NOWPayments] Creating invoice for redirection to NOWPayments portal`);
           
+          // Get the preferred payment currency from the request (default to USDT if not specified)
+          const preferredPayCurrency = result.data.payCurrency || 'USDT';
+          
           const invoice = await nowPaymentsService.createInvoice(
             result.data.amount,
             req.user!.id,
             result.data.currency,
+            preferredPayCurrency, // Pass the preferred pay currency to be checked for availability
             successUrl,
             cancelUrl,
             undefined, // orderId will be auto-generated
