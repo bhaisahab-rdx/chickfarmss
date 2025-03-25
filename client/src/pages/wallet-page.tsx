@@ -36,6 +36,7 @@ const rechargeSchema = z.object({
   amount: z.number().positive("Amount must be positive"),
   currency: z.string().default("USDT"),
   payCurrency: z.string().default("USDT"),
+  useInvoice: z.boolean().optional().default(false),
 });
 
 const withdrawalSchema = z.object({
@@ -70,7 +71,8 @@ export default function WalletPage() {
     defaultValues: {
       amount: 0,
       currency: "USDT",
-      payCurrency: "USDT"
+      payCurrency: "USDT",
+      useInvoice: true // Set to true by default to use NOWPayments portal
     },
   });
 
@@ -433,15 +435,16 @@ export default function WalletPage() {
                     <Form {...rechargeForm}>
                       <form
                         onSubmit={rechargeForm.handleSubmit((data) => {
-                          // Use the direct payment mutation instead of popup
+                          // Use invoice payment method to redirect to NOWPayments portal
                           rechargeMutation.mutate({
                             amount: data.amount,
-                            currency: data.currency || 'USDT', 
-                            payCurrency: 'USDT' // Explicitly set payCurrency to USDT
+                            currency: data.currency || 'USDT',
+                            payCurrency: 'USDT', // Explicitly set payCurrency to USDT
+                            useInvoice: true // Flag to use invoice method instead of direct payment
                           });
                           
                           // Track in analytics that a payment was initiated
-                          console.log('Direct payment initiated:', data.amount, data.currency);
+                          console.log('NOWPayments invoice payment initiated:', data.amount, data.currency);
                         })}
                         className="space-y-3 sm:space-y-4"
                       >
