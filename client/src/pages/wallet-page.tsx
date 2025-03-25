@@ -100,7 +100,11 @@ export default function WalletPage() {
   
   // Function to open payment popup with current amount
   const openPaymentPopup = () => {
-    if (rechargeForm.getValues().amount <= 0) {
+    // Get the amount from the form
+    const currentAmount = rechargeForm.getValues().amount;
+    
+    // Validate amount
+    if (!currentAmount || currentAmount <= 0) {
       toast({
         title: "Invalid Amount",
         description: "Please enter an amount greater than 0 USDT",
@@ -108,6 +112,10 @@ export default function WalletPage() {
       });
       return;
     }
+    
+    console.log("Opening payment popup with amount:", currentAmount);
+    
+    // Open the popup
     setIsPaymentPopupOpen(true);
   };
 
@@ -294,6 +302,7 @@ export default function WalletPage() {
                             type="button"
                             className="w-full h-10 text-sm sm:text-base"
                             onClick={openPaymentPopup}
+                            disabled={rechargeForm.getValues().amount <= 0}
                           >
                             Pay with Any Cryptocurrency
                           </Button>

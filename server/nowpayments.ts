@@ -110,22 +110,43 @@ class NOWPaymentsService {
     };
   }
 
-  async getStatus(): Promise<{ status: string }> {
+  async getStatus(): Promise<{ status: string, message?: string }> {
     if (this.isMockMode) {
       console.log('Using mock mode for payment status check');
       return { status: 'DEV_MODE' };
     }
     
     try {
-      // Connect to real NOWPayments API
+      console.log('[NOWPayments] Checking API status with key:', this.apiKey ? `${this.apiKey.substring(0, 4)}...` : 'NOT_SET');
+      
+      // Connect to real NOWPayments API with timeout to prevent hanging
       const response = await axios.get(`${API_BASE_URL}/status`, {
         headers: this.getHeaders(),
+        timeout: 5000 // 5 second timeout to prevent long waits
       });
+      
+      console.log('[NOWPayments] API Status check response:', response.data);
       return response.data;
-    } catch (error) {
-      console.error('Error checking NOWPayments status:', error);
-      // In production mode, throw the real error
-      throw error;
+    } catch (error: any) {
+      // Enhanced error logging with more details
+      if (error.response) {
+        // The request was made and the server responded with a status code
+        // that falls out of the range of 2xx
+        console.error('[NOWPayments] API Error Response:', {
+          status: error.response.status,
+          data: error.response.data,
+          headers: error.response.headers
+        });
+      } else if (error.request) {
+        // The request was made but no response was received
+        console.error('[NOWPayments] No response received:', error.request);
+      } else {
+        // Something happened in setting up the request that triggered an Error
+        console.error('[NOWPayments] Request setup error:', error.message);
+      }
+      
+      // Return a status that indicates the error instead of throwing
+      return { status: 'error', message: error.message };
     }
   }
 

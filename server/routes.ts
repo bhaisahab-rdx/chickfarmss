@@ -40,25 +40,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let serviceStatus = "unknown";
       const apiConfigured = isNOWPaymentsConfigured();
       const ipnConfigured = isIPNSecretConfigured();
+      let errorMessage = null;
+      
+      console.log("[Payment Service Status] Checking NOWPayments configuration...");
+      console.log("[Payment Service Status] API key configured:", apiConfigured ? "YES" : "NO");
+      console.log("[Payment Service Status] IPN secret configured:", ipnConfigured ? "YES" : "NO");
       
       if (apiConfigured) {
         try {
+          console.log("[Payment Service Status] Calling NOWPayments status API...");
           const status = await nowPaymentsService.getStatus();
-          serviceStatus = status.status || "unknown";
+          
+          // Even with the changes to nowpayments.ts, we need to check for error status
+          if (status.status === 'error') {
+            serviceStatus = "error";
+            errorMessage = status.message || "Error connecting to payment service";
+            console.error("[Payment Service Status] Error from status check:", errorMessage);
+          } else {
+            serviceStatus = status.status || "unknown";
+            console.log("[Payment Service Status] Service status:", serviceStatus);
+          }
         } catch (error) {
-          console.error("Error checking payment service status:", error);
+          console.error("[Payment Service Status] Exception checking payment service:", error);
           serviceStatus = "error";
+          errorMessage = error instanceof Error ? error.message : "Unknown error";
         }
+      } else {
+        console.log("[Payment Service Status] API key not configured, skipping status check");
       }
       
+      // Return a more detailed response to the client
       res.json({ 
         apiConfigured, 
         ipnConfigured, 
-        serviceStatus 
+        serviceStatus,
+        error: errorMessage,
+        ready: apiConfigured && ipnConfigured && serviceStatus !== "error" && serviceStatus !== "unknown"
       });
     } catch (error) {
-      console.error("Error checking payment service status:", error);
-      res.status(500).json({ error: "Failed to check payment service status" });
+      console.error("[Payment Service Status] Unexpected error:", error);
+      res.status(500).json({ 
+        error: "Failed to check payment service status",
+        apiConfigured: isNOWPaymentsConfigured(),
+        ipnConfigured: isIPNSecretConfigured(),
+        serviceStatus: "error",
+        ready: false
+      });
     }
   });
   
@@ -319,6 +346,116 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error checking invoice status:", error);
       res.status(500).json({ error: "Failed to check invoice status" });
+    }
+  });
+
+  // Endpoint to check payment status by payment ID
+  // This combines DB status and NOWPayments API status
+  app.get("/api/payments/status/:paymentId", isAuthenticated, async (req, res) => {
+    try {
+      const { paymentId } = req.params;
+      const user = req.user as any;
+      
+      if (!paymentId) {
+        return res.status(400).json({ error: "Missing payment ID" });
+      }
+      
+      console.log(`[Payment Status] Checking status for payment ID ${paymentId}`);
+      
+      // Get transaction from our database first
+      const transaction = await storage.getTransactionByTransactionId(paymentId);
+      
+      if (!transaction) {
+        console.error(`[Payment Status] Transaction not found for payment ID ${paymentId}`);
+        return res.status(404).json({ error: "Transaction not found" });
+      }
+      
+      // Check if the transaction belongs to the current user
+      if (transaction.userId !== user.id && !user.isAdmin) {
+        return res.status(403).json({ error: "Not authorized to check this payment" });
+      }
+      
+      console.log(`[Payment Status] Found transaction in DB with status: ${transaction.status}`);
+      
+      // If transaction is already marked as completed in our database, return that status
+      if (transaction.status === "completed") {
+        return res.json({ 
+          status: "completed",
+          amount: transaction.amount,
+          createdAt: transaction.createdAt
+        });
+      }
+      
+      // For pending transactions, check with NOWPayments for the latest status
+      // if the transaction ID is a valid NOWPayments ID (not a manual payment that starts with 'M')
+      if (!paymentId.startsWith('M') && isNOWPaymentsConfigured()) {
+        try {
+          const paymentStatus = await nowPaymentsService.getPaymentStatus(paymentId);
+          const mappedStatus = nowPaymentsService.mapPaymentStatusToTransactionStatus(paymentStatus.payment_status);
+          
+          console.log(`[Payment Status] NOWPayments reports status: ${paymentStatus.payment_status} (mapped to ${mappedStatus})`);
+          
+          // If payment is now completed but our DB still has it as pending, update it
+          if (mappedStatus === "completed" && transaction.status !== "completed") {
+            console.log(`[Payment Status] Updating transaction ${paymentId} to completed`);
+            
+            // Update transaction status
+            await storage.updateTransactionStatus(paymentId, "completed");
+            
+            // Update user balance
+            await storage.updateUserBalance(transaction.userId, parseFloat(transaction.amount));
+            
+            // Process referral commissions if applicable
+            // This code is similar to what's in the IPN callback
+            const user = await storage.getUser(transaction.userId);
+            if (user && user.referredBy) {
+              // Find the referrer
+              const referrer = await storage.getUserByReferralCode(user.referredBy);
+              if (referrer) {
+                console.log(`[Payment Status] Processing referral commission for payment ${paymentId}`);
+                
+                // Calculate level 1 commission (10% of deposit)
+                const level1Amount = parseFloat(transaction.amount) * 0.1;
+                
+                // Update referrer's earnings
+                await storage.updateUserBalance(referrer.id, level1Amount);
+                await storage.updateUserReferralEarnings(referrer.id, level1Amount);
+                await storage.updateUserTeamEarnings(referrer.id, level1Amount);
+                
+                // Record the referral earning
+                await storage.createReferralEarning({
+                  userId: referrer.id,
+                  referredUserId: transaction.userId,
+                  level: 1,
+                  amount: level1Amount.toFixed(2),
+                  claimed: false
+                });
+              }
+            }
+          }
+          
+          return res.json({
+            status: mappedStatus,
+            nowPaymentsStatus: paymentStatus.payment_status,
+            amount: transaction.amount,
+            createdAt: transaction.createdAt,
+            lastChecked: new Date().toISOString()
+          });
+        } catch (apiError) {
+          console.error(`[Payment Status] Error checking status with NOWPayments API:`, apiError);
+          // If we couldn't get the status from NOWPayments, return the status from our DB
+        }
+      }
+      
+      // Default to returning the status from our database
+      return res.json({
+        status: transaction.status,
+        amount: transaction.amount,
+        createdAt: transaction.createdAt
+      });
+    } catch (error) {
+      console.error("Error checking payment status:", error);
+      res.status(500).json({ error: "Failed to check payment status" });
     }
   });
 
