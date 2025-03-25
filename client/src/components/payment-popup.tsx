@@ -161,20 +161,32 @@ export function PaymentPopup({ isOpen, onClose, onSuccess }: PaymentPopupProps) 
       // popups that are triggered directly by user action (click events)
       tempButton.onclick = () => {
         // Open in _blank to ensure a new window/tab and not inside iframe
-        const newWindow = window.open(url, '_blank', 'noopener,noreferrer');
+        // Use window features that are more likely to be allowed by browsers
+        const newWindow = window.open(
+          url, 
+          '_blank', 
+          'noopener,noreferrer,width=450,height=600,scrollbars=yes'
+        );
         
         // Handle popup blocked case
         if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
-          // If blocked, show helpful message
+          // If blocked, show helpful message with clear instructions
           toast({
             title: 'Popup Blocked',
-            description: 'Your browser blocked the payment window. Please click "Open Payment Link" below to proceed.',
+            description: 'Your browser blocked the payment window. Click "Open Payment Link" below or check your browser settings to allow popups from this site.',
             variant: 'destructive'
           });
           
           // Ensure we still have the invoice URL available for manual opening
           setInvoiceUrl(url);
           return;
+        }
+        
+        // Focus the window to bring it to the front
+        try {
+          newWindow.focus();
+        } catch (focusError) {
+          console.log('Unable to focus payment window - this is normal in some browsers');
         }
         
         // Successfully opened the window
@@ -199,7 +211,12 @@ export function PaymentPopup({ isOpen, onClose, onSuccess }: PaymentPopupProps) 
       
       // Fallback to direct method if the simulated click approach fails
       try {
-        const newWindow = window.open(url, '_blank');
+        // Use the same window settings for consistency
+        const newWindow = window.open(
+          url, 
+          '_blank', 
+          'noopener,noreferrer,width=450,height=600,scrollbars=yes'
+        );
         
         if (!newWindow) {
           toast({
@@ -208,6 +225,13 @@ export function PaymentPopup({ isOpen, onClose, onSuccess }: PaymentPopupProps) 
             variant: 'destructive'
           });
           return;
+        }
+        
+        // Try to focus the window
+        try {
+          newWindow.focus();
+        } catch (focusError) {
+          console.log('Unable to focus fallback payment window');
         }
         
         setPaymentWindow(newWindow);
