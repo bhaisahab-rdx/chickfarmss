@@ -72,7 +72,7 @@ export default function WalletPage() {
       amount: 0,
       currency: "USDT",
       payCurrency: "USDT",
-      useInvoice: true // Set to true by default to use NOWPayments portal
+      useInvoice: true // Always use NOWPayments portal for all payments
     },
   });
 
@@ -113,8 +113,8 @@ export default function WalletPage() {
   // Define the payment method types
   type PaymentMethodType = "popup" | "auto" | "manual";
   
-  // Payment method is controlled from admin panel
-  const selectedPaymentMethod: PaymentMethodType = "auto"; // Use direct payment method instead of popup
+  // Always use NOWPayments portal/invoice for all payments
+  const selectedPaymentMethod: PaymentMethodType = "popup"; // Force redirect to NOWPayments portal
 
   const rechargeMutation = useMutation({
     mutationFn: async (data: z.infer<typeof rechargeSchema>) => {
@@ -452,16 +452,17 @@ export default function WalletPage() {
                     <Form {...rechargeForm}>
                       <form
                         onSubmit={rechargeForm.handleSubmit((data) => {
-                          // Use invoice payment method to redirect to NOWPayments portal
+                          // ALWAYS use invoice payment method to redirect to NOWPayments portal
+                          // This ensures users are always redirected to NOWPayments to complete their payment
                           rechargeMutation.mutate({
                             amount: data.amount,
                             currency: data.currency || 'USDT',
-                            payCurrency: 'USDT', // Explicitly set payCurrency to USDT
-                            useInvoice: true // Flag to use invoice method instead of direct payment
+                            payCurrency: data.payCurrency || 'USDT', // Use preferred payment currency
+                            useInvoice: true // Always use invoice method for NOWPayments portal redirection
                           });
                           
                           // Track in analytics that a payment was initiated
-                          console.log('NOWPayments invoice payment initiated:', data.amount, data.currency);
+                          console.log('NOWPayments portal payment initiated:', data.amount, data.currency);
                         })}
                         className="space-y-3 sm:space-y-4"
                       >
