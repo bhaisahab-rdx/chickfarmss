@@ -142,15 +142,11 @@ class NOWPaymentsService {
     }
     this.apiKey = API_KEY;
     
-    // Check if we're in mock mode (dev testing key)
-    this.isMockMode = (this.apiKey === 'dev_test_key_for_ui_testing');
+    // Always use production mode
+    this.isMockMode = false;
     
     // Log initialization for debugging purposes
-    if (this.isMockMode) {
-      console.log('NOWPayments service initialized in MOCK MODE - payments will be simulated');
-    } else {
-      console.log('NOWPayments service initialized with real API key');
-    }
+    console.log('NOWPayments service initialized with production API key');
   }
 
   private getHeaders() {
@@ -162,39 +158,19 @@ class NOWPaymentsService {
 
   async getStatus(): Promise<{ status: string }> {
     try {
-      // Even in mock mode, try to connect - it allows better diagnostics
+      // Connect to real NOWPayments API
       const response = await axios.get(`${API_BASE_URL}/status`, {
         headers: this.getHeaders(),
       });
       return response.data;
     } catch (error) {
       console.error('Error checking NOWPayments status:', error);
-      
-      // If we're in mock mode or development, return a fake status
-      if (this.isMockMode || process.env.NODE_ENV !== 'production') {
-        console.log('Returning mock status due to API error or mock mode');
-        return { status: 'ok' };
-      }
-      
-      // In production with a real key, we should get a real error
+      // In production mode, throw the real error
       throw error;
     }
   }
 
   async getAvailableCurrencies(): Promise<AvailableCurrency[]> {
-    const mockCurrencies = [
-      { id: 1, name: 'Tether ERC20', currency: 'USDT', is_fiat: false, enabled: true, min_amount: 1, max_amount: 10000, image: '', network: 'ETH' },
-      { id: 2, name: 'Tether TRC20', currency: 'USDT', is_fiat: false, enabled: true, min_amount: 1, max_amount: 10000, image: '', network: 'TRX' },
-      { id: 3, name: 'Bitcoin', currency: 'BTC', is_fiat: false, enabled: true, min_amount: 0.001, max_amount: 5, image: '', network: 'BTC' },
-      { id: 4, name: 'Ethereum', currency: 'ETH', is_fiat: false, enabled: true, min_amount: 0.01, max_amount: 50, image: '', network: 'ETH' }
-    ];
-    
-    // If we're in mock mode, return mock currencies immediately
-    if (this.isMockMode) {
-      console.log('Using mock NOWPayments currencies response (mock mode)');
-      return mockCurrencies;
-    }
-    
     try {
       const response = await axios.get(`${API_BASE_URL}/currencies`, {
         headers: this.getHeaders(),
@@ -202,13 +178,6 @@ class NOWPaymentsService {
       return response.data.currencies || [];
     } catch (error) {
       console.error('Error getting available currencies:', error);
-      
-      // In development or if there's an API error, return mock currencies
-      if (process.env.NODE_ENV !== 'production') {
-        console.log('Returning mock currencies due to API error');
-        return mockCurrencies;
-      }
-      
       throw error;
     }
   }
@@ -230,25 +199,6 @@ class NOWPaymentsService {
     // Generate a description if not provided
     if (!orderDescription) {
       orderDescription = `Deposit to ChickFarms account (User ID: ${userId})`;
-    }
-    
-    // If we're in mock mode, return a mock payment
-    if (this.isMockMode) {
-      console.log('Using mock NOWPayments create payment response (mock mode)');
-      return {
-        payment_id: `mock_${Date.now()}`,
-        payment_status: 'waiting',
-        pay_address: 'TRX8nHHo2Jd7H9ZwKhh6h8h',
-        price_amount: amount,
-        price_currency: currency,
-        pay_amount: amount,
-        pay_currency: payCurrency,
-        order_id: orderId,
-        order_description: orderDescription,
-        ipn_callback_url: callbackUrl,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      };
     }
 
     try {
@@ -291,49 +241,11 @@ class NOWPaymentsService {
         });
       }
       
-      if (process.env.NODE_ENV !== 'production') {
-        console.log('Returning mock payment due to API error in development');
-        return {
-          payment_id: `mock_error_${Date.now()}`,
-          payment_status: 'waiting',
-          pay_address: 'TRX8nHHo2Jd7H9ZwKhh6h8h',
-          price_amount: amount,
-          price_currency: currency,
-          pay_amount: amount,
-          pay_currency: payCurrency,
-          order_id: orderId,
-          order_description: orderDescription,
-          ipn_callback_url: callbackUrl,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        };
-      }
       throw error;
     }
   }
 
   async getPaymentStatus(paymentId: string): Promise<PaymentStatusResponse> {
-    // If we're in mock mode, return a mock payment status
-    if (this.isMockMode) {
-      console.log('Using mock NOWPayments payment status response (mock mode)');
-      // If the payment ID starts with 'mock_', it's one of our mock payments
-      const isMockPayment = paymentId.startsWith('mock_');
-      
-      return {
-        payment_id: paymentId,
-        payment_status: isMockPayment ? 'waiting' : 'finished',
-        pay_address: 'TRX8nHHo2Jd7H9ZwKhh6h8h',
-        price_amount: 100,
-        price_currency: 'USD',
-        pay_amount: 100,
-        pay_currency: 'USDT',
-        order_id: `CHICKFARMS-1-${Date.now()}`,
-        order_description: 'Mock payment for testing',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      };
-    }
-    
     try {
       console.log(`Checking status for payment ID: ${paymentId}`);
       
@@ -360,33 +272,11 @@ class NOWPaymentsService {
         });
       }
       
-      if (process.env.NODE_ENV !== 'production') {
-        console.log('Returning mock payment status due to API error in development');
-        return {
-          payment_id: paymentId,
-          payment_status: 'waiting',
-          pay_address: 'TRX8nHHo2Jd7H9ZwKhh6h8h',
-          price_amount: 100,
-          price_currency: 'USD',
-          pay_amount: 100,
-          pay_currency: 'USDT',
-          order_id: `CHICKFARMS-1-${Date.now()}`,
-          order_description: 'Mock payment for testing',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        };
-      }
       throw error;
     }
   }
 
   async getMinimumPaymentAmount(currency: string = 'USDT'): Promise<number> {
-    // If we're in mock mode, return a mock minimum amount
-    if (this.isMockMode) {
-      console.log('Using mock NOWPayments minimum payment amount (mock mode)');
-      return 1;
-    }
-    
     try {
       console.log(`Getting minimum payment amount for currency: ${currency}`);
       
@@ -411,7 +301,8 @@ class NOWPaymentsService {
         });
       }
       
-      // Return a default value if the API call fails
+      // For this specific error, we can safely default to 1 as a reasonable minimum
+      // This is not a mock, but a fallback for production when the API doesn't respond
       return 1;
     }
   }
@@ -453,24 +344,6 @@ class NOWPaymentsService {
     // Set callback URL if not provided - this is where NOWPayments sends payment updates
     if (!callbackUrl) {
       callbackUrl = `${config.urls.api}/api/payments/callback`;
-    }
-    
-    // If we're in mock mode, return a mock invoice
-    if (this.isMockMode) {
-      console.log('Using mock NOWPayments create invoice response (mock mode)');
-      const mockToken = `mock_invoice_${Date.now()}`;
-      
-      // For testing purposes, create a URL that at least opens a test page
-      // In actual production, this would be a real NOWPayments URL
-      const testUrl = `${CHECKOUT_API_BASE_URL}/payment-invoice/${mockToken}`;
-      
-      return {
-        id: mockToken,
-        token_id: mockToken,
-        invoice_url: testUrl,
-        success: true,
-        status: 'active'
-      };
     }
 
     try {
@@ -514,23 +387,6 @@ class NOWPaymentsService {
           statusText: error.response.statusText,
           data: error.response.data
         });
-      }
-      
-      // In development, return a mock invoice for testing purposes
-      if (process.env.NODE_ENV !== 'production') {
-        console.log('Returning mock invoice due to API error in development');
-        const mockToken = `mock_error_${Date.now()}`;
-        
-        // Generate a URL to a demo payment page
-        const testUrl = `${CHECKOUT_API_BASE_URL}/payment-invoice/${mockToken}`;
-        
-        return {
-          id: mockToken,
-          token_id: mockToken,
-          invoice_url: testUrl,
-          success: true,
-          status: 'active'
-        };
       }
       
       // In production, throw the error to be handled by the calling code
