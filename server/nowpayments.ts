@@ -483,8 +483,7 @@ class NOWPaymentsService {
         ipn_callback_url: callbackUrl,
         success_url: successUrl,
         cancel_url: cancelUrl,
-        is_fee_paid_by_user: true, // Having the user pay the network fee
-        is_urgent: false
+        is_fee_paid_by_user: true // Having the user pay the network fee
       };
 
       console.log('Creating NOWPayments invoice with payload:', {
