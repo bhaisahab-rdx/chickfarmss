@@ -1324,7 +1324,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const schema = z.object({
       amount: z.number().positive(),
       currency: z.string().optional().default("USDT"),
-      payCurrency: z.string().optional().default("USDT")
+      payCurrency: z.string().optional().default("USDT"),
+      useInvoice: z.boolean().optional().default(false)
     });
 
     const result = schema.safeParse(req.body);
@@ -1337,10 +1338,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Create payment via NOWPayments API for automatic payments
       const apiUrl = config.urls.api || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:5000');
       const callbackUrl = `${apiUrl}/api/payments/callback`;
+      const appUrl = config.urls.app || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:5000');
+      const successUrl = `${appUrl}/wallet?payment=success`;
+      const cancelUrl = `${appUrl}/wallet?payment=cancelled`;
       
       console.log(`[NOWPayments] Creating payment for $${result.data.amount} from user ${req.user!.id}`);
       console.log(`[NOWPayments] Callback URL: ${callbackUrl}`);
       console.log(`[NOWPayments] API Key exists: ${!!config.nowpayments.apiKey}`);
+      console.log(`[NOWPayments] Using invoice: ${result.data.useInvoice}`);
       
       if (!config.nowpayments.apiKey) {
         // If API key is missing, log warning and fall back to manual payment
@@ -1349,43 +1354,88 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       try {
-        const payment = await nowPaymentsService.createPayment(
-          result.data.amount,
-          req.user!.id,
-          result.data.currency,
-          result.data.payCurrency,
-          undefined,
-          undefined,
-          callbackUrl
-        );
-        
-        console.log(`[NOWPayments] Payment created: ${payment.payment_id}`);
-        
-        // Create a pending transaction in our database
-        const transaction = await storage.createTransaction(
-          req.user!.id,
-          "recharge",
-          result.data.amount,
-          payment.payment_id, // Use NOWPayments payment ID as our transaction ID
-          undefined,
-          JSON.stringify({ 
-            paymentDetails: payment,
-            paymentMethod: "nowpayments" 
-          })
-        );
-        
-        // Return both the transaction and the payment details
-        return res.json({
-          transaction,
-          payment: {
-            paymentId: payment.payment_id,
-            status: payment.payment_status,
-            address: payment.pay_address,
-            amount: payment.pay_amount,
-            currency: payment.pay_currency,
-            createdAt: payment.created_at,
-          }
-        });
+        // If useInvoice is true, use invoice system with redirection
+        if (result.data.useInvoice) {
+          console.log(`[NOWPayments] Creating invoice for redirection to NOWPayments portal`);
+          
+          const invoice = await nowPaymentsService.createInvoice(
+            result.data.amount,
+            req.user!.id,
+            result.data.currency,
+            successUrl,
+            cancelUrl,
+            undefined, // orderId will be auto-generated
+            `ChickFarms deposit - User ID: ${req.user!.id}`,
+            callbackUrl
+          );
+          
+          console.log(`[NOWPayments] Invoice created: ${invoice.id}`);
+          
+          // Create a pending transaction in our database
+          const transaction = await storage.createTransaction(
+            req.user!.id,
+            "recharge",
+            result.data.amount,
+            invoice.id, // Use NOWPayments invoice ID as our transaction ID
+            undefined,
+            JSON.stringify({ 
+              invoiceDetails: invoice,
+              paymentMethod: "nowpayments_invoice" 
+            })
+          );
+          
+          // Return both the transaction and the invoice details for redirection
+          return res.json({
+            transaction,
+            invoice: {
+              id: invoice.id,
+              status: invoice.status,
+              invoiceUrl: invoice.invoice_url,
+              amount: result.data.amount,
+              currency: result.data.currency,
+              createdAt: new Date().toISOString(),
+            }
+          });
+        } else {
+          // Use direct payment method (original implementation)
+          const payment = await nowPaymentsService.createPayment(
+            result.data.amount,
+            req.user!.id,
+            result.data.currency,
+            result.data.payCurrency,
+            undefined,
+            undefined,
+            callbackUrl
+          );
+          
+          console.log(`[NOWPayments] Payment created: ${payment.payment_id}`);
+          
+          // Create a pending transaction in our database
+          const transaction = await storage.createTransaction(
+            req.user!.id,
+            "recharge",
+            result.data.amount,
+            payment.payment_id, // Use NOWPayments payment ID as our transaction ID
+            undefined,
+            JSON.stringify({ 
+              paymentDetails: payment,
+              paymentMethod: "nowpayments" 
+            })
+          );
+          
+          // Return both the transaction and the payment details
+          return res.json({
+            transaction,
+            payment: {
+              paymentId: payment.payment_id,
+              status: payment.payment_status,
+              address: payment.pay_address,
+              amount: payment.pay_amount,
+              currency: payment.pay_currency,
+              createdAt: payment.created_at,
+            }
+          });
+        }
       } catch (apiError) {
         console.error('[NOWPayments] API Error:', apiError);
         throw apiError; // Re-throw to be caught by the outer catch block
