@@ -6,6 +6,11 @@ const API_BASE_URL = 'https://api.nowpayments.io/v1';
 const CHECKOUT_API_BASE_URL = 'https://nowpayments.io';
 const API_KEY = config.nowpayments.apiKey;
 
+// Function to check if NOWPayments API key is configured
+export const isNOWPaymentsConfigured = (): boolean => {
+  return !!API_KEY && API_KEY !== 'dev_test_key_for_ui_testing';
+};
+
 interface CreatePaymentResponse {
   payment_id: string;
   payment_status: string;

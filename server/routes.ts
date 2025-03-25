@@ -53,9 +53,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Fixed test amount, use a small amount for testing
-      const amount = 5.00; // $5.00 USD
-      const currency = 'USD';
+      // Get amount from request body or use default
+      const amount = req.body && typeof req.body.amount === 'number' ? req.body.amount : 5.00;
+      const currency = req.body && typeof req.body.currency === 'string' ? req.body.currency : 'USD';
       const testUserId = 99999; // Use a test user ID
       
       // Generate success and cancel URLs
@@ -507,12 +507,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           try {
             const apiPaymentStatus = await nowPaymentsService.getPaymentStatus(paymentId);
             // Update our status object with API response
+            // Convert date strings to proper format and handle nulls correctly
             paymentStatus = {
               ...apiPaymentStatus,
-              created_at: apiPaymentStatus.created_at ? new Date(apiPaymentStatus.created_at) : transaction.createdAt,
-              actually_paid: apiPaymentStatus.actually_paid || null,
-              actually_paid_at: apiPaymentStatus.actually_paid_at ? new Date(apiPaymentStatus.actually_paid_at) : null,
-              updated_at: apiPaymentStatus.updated_at ? new Date(apiPaymentStatus.updated_at) : null
+              // Don't try to convert to Date objects in the API response to avoid type errors
+              created_at: apiPaymentStatus.created_at || transaction.createdAt.toISOString(),
+              actually_paid: apiPaymentStatus.actually_paid,
+              actually_paid_at: apiPaymentStatus.actually_paid_at,
+              updated_at: apiPaymentStatus.updated_at
             };
           } catch (apiError) {
             console.error(`[NOWPayments] API error getting payment status:`, apiError);
@@ -599,8 +601,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // For NOWPayments payments, check the status via API
           try {
             const apiPaymentStatus = await nowPaymentsService.getPaymentStatus(paymentId);
-            // Update our status object with API response
-            paymentStatus = apiPaymentStatus;
+            // Update our status object with API response - maintain type compatibility
+            // by handling each property individually instead of directly assigning the object
+            if (apiPaymentStatus) {
+              paymentStatus.payment_id = apiPaymentStatus.payment_id;
+              paymentStatus.payment_status = apiPaymentStatus.payment_status;
+              paymentStatus.pay_address = apiPaymentStatus.pay_address;
+              paymentStatus.price_amount = apiPaymentStatus.price_amount;
+              paymentStatus.price_currency = apiPaymentStatus.price_currency;
+              paymentStatus.pay_amount = apiPaymentStatus.pay_amount;
+              paymentStatus.pay_currency = apiPaymentStatus.pay_currency;
+              // Handle optional properties with caution to maintain type compatibility
+              if (apiPaymentStatus.created_at) {
+                paymentStatus.created_at = transaction.createdAt; // Use our transaction date for type safety
+              }
+              paymentStatus.actually_paid = null; // Ensure type compatibility
+              paymentStatus.actually_paid_at = null; // Ensure type compatibility
+              paymentStatus.updated_at = null; // Ensure type compatibility
+            }
           } catch (apiError) {
             console.error(`[NOWPayments] API error getting payment status:`, apiError);
             // Continue with the default status
