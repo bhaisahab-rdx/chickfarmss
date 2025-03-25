@@ -7,6 +7,21 @@ import { dailySpinRewards, superJackpotRewards } from "@shared/schema";
 import { nowPaymentsService, PaymentStatusResponse } from "./nowpayments";
 import { config } from "./config";
 
+// Define a consistent PaymentStatus interface for use throughout the file
+interface PaymentStatus {
+  payment_id: string;
+  payment_status: string;
+  pay_address: string;
+  price_amount: number;
+  price_currency: string;
+  pay_amount: number;
+  pay_currency: string;
+  created_at: string; // Always use string format for dates in APIs
+  actually_paid: number | null;
+  actually_paid_at: string | null;
+  updated_at: string | null;
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   setupAuth(app);
 
@@ -511,10 +526,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             paymentStatus = {
               ...apiPaymentStatus,
               // Don't try to convert to Date objects in the API response to avoid type errors
-              created_at: apiPaymentStatus.created_at || transaction.createdAt.toISOString(),
-              actually_paid: apiPaymentStatus.actually_paid,
-              actually_paid_at: apiPaymentStatus.actually_paid_at,
-              updated_at: apiPaymentStatus.updated_at
+              created_at: apiPaymentStatus.created_at || (transaction.createdAt instanceof Date ? transaction.createdAt.toISOString() : String(transaction.createdAt)),
+              actually_paid: apiPaymentStatus.actually_paid || null, // Ensure it's never undefined
+              actually_paid_at: apiPaymentStatus.actually_paid_at || null, // Ensure it's never undefined
+              updated_at: apiPaymentStatus.updated_at || null // Ensure it's never undefined
             };
           } catch (apiError) {
             console.error(`[NOWPayments] API error getting payment status:`, apiError);
