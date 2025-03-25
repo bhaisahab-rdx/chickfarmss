@@ -1095,6 +1095,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     }
   });
+  
+  // Admin endpoint to update referral counts for all users
+  app.post("/api/admin/update-referral-counts", async (req, res) => {
+    try {
+      console.log('[Admin Route] Updating referral counts for all users');
+      await storage.updateReferralCounts();
+      res.json({ success: true, message: 'Referral counts updated successfully' });
+    } catch (err) {
+      if (err instanceof Error) {
+        res.status(500).send(err.message);
+      } else {
+        res.status(500).send("Failed to update referral counts");
+      }
+    }
+  });
 
   // Chickens
   app.get("/api/chickens", isAuthenticated, async (req, res) => {
