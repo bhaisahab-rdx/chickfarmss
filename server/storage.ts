@@ -247,6 +247,34 @@ export class DatabaseStorage implements IStorage {
     const [user] = await db.select().from(users).where(eq(users.id, id));
     return user;
   }
+  
+  // New method to update referral counts for users
+  async updateReferralCounts(): Promise<void> {
+    try {
+      // Get all users
+      const allUsers = await db.select().from(users);
+      
+      // For each user, count their referrals and update the count
+      for (const user of allUsers) {
+        // Get referrals for this user
+        const referrals = await db.select()
+          .from(users)
+          .where(eq(users.referredBy, user.referralCode));
+        
+        // Update the referral count
+        await db.update(users)
+          .set({ referralCount: referrals.length })
+          .where(eq(users.id, user.id));
+        
+        console.log(`Updated referral count for user ${user.id} to ${referrals.length}`);
+      }
+      
+      console.log("Successfully updated referral counts for all users");
+    } catch (error) {
+      console.error("Error updating referral counts:", error);
+      throw error;
+    }
+  }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.username, username));
@@ -259,23 +287,48 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const referralCode = randomBytes(4).toString('hex');
-    const [user] = await db.insert(users).values({
-      ...insertUser,
-      usdtBalance: "0",
-      referralCode,
-      isAdmin: false
-    }).returning();
+    try {
+      const referralCode = randomBytes(4).toString('hex');
+      const [user] = await db.insert(users).values({
+        ...insertUser,
+        usdtBalance: "0",
+        referralCode,
+        isAdmin: false
+      }).returning();
 
-    await db.insert(resources).values({
-      userId: user.id,
-      waterBuckets: 0,
-      wheatBags: 0,
-      eggs: 0,
-      mysteryBoxes: 0
-    });
+      await db.insert(resources).values({
+        userId: user.id,
+        waterBuckets: 0,
+        wheatBags: 0,
+        eggs: 0,
+        mysteryBoxes: 0
+      });
 
-    return user;
+      // If user was referred by someone, update the referrer's count
+      if (insertUser.referredBy) {
+        try {
+          const referrer = await this.getUserByReferralCode(insertUser.referredBy);
+          if (referrer) {
+            // Increment referrer's referral count
+            await db.update(users)
+              .set({ 
+                referralCount: sql`${users.referralCount} + 1`
+              })
+              .where(eq(users.id, referrer.id));
+            
+            console.log(`Updated referral count for user ${referrer.id}`);
+          }
+        } catch (referralError) {
+          console.error("Error updating referrer's referral count:", referralError);
+          // Continue execution - don't fail user creation because of referral count issues
+        }
+      }
+
+      return user;
+    } catch (error) {
+      console.error("Error creating user:", error);
+      throw error;
+    }
   }
 
   async updateUserBalance(userId: number, amount: number): Promise<void> {

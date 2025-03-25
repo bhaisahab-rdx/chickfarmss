@@ -154,7 +154,7 @@ export default function ReferralsPage() {
   const milestones: MilestoneReward[] = milestonesQuery.data || [];
   const unclaimedMilestones: MilestoneReward[] = unclaimedMilestonesQuery.data || [];
   const salaryPayments: any[] = salaryQuery.data || [];
-  const totalDirectReferrals = directReferrals.length;
+  const totalDirectReferrals = user?.referralCount || 0; // Use the new referralCount field
   const totalReferralEarnings = user?.totalReferralEarnings ? parseFloat(user.totalReferralEarnings.toString()) : 0;
   const totalTeamEarnings = user?.totalTeamEarnings ? parseFloat(user.totalTeamEarnings.toString()) : 0;
 
