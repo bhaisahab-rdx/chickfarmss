@@ -66,6 +66,7 @@ interface AvailableCurrency {
 
 class NOWPaymentsService {
   private apiKey: string;
+  private readonly isMockMode: boolean;
 
   constructor() {
     if (!API_KEY) {
@@ -73,8 +74,15 @@ class NOWPaymentsService {
     }
     this.apiKey = API_KEY;
     
+    // Check if we're in mock mode (dev testing key)
+    this.isMockMode = (this.apiKey === 'dev_test_key_for_ui_testing');
+    
     // Log initialization for debugging purposes
-    console.log('NOWPayments service initialized with key present');
+    if (this.isMockMode) {
+      console.log('NOWPayments service initialized in MOCK MODE - payments will be simulated');
+    } else {
+      console.log('NOWPayments service initialized with real API key');
+    }
   }
 
   private getHeaders() {
@@ -85,35 +93,38 @@ class NOWPaymentsService {
   }
 
   async getStatus(): Promise<{ status: string }> {
-    // Check if we're using the test key
-    if (this.apiKey === 'dev_test_key_for_ui_testing') {
-      console.log('Using mock NOWPayments status response');
-      return { status: 'active' };
-    }
-    
     try {
+      // Even in mock mode, try to connect - it allows better diagnostics
       const response = await axios.get(`${API_BASE_URL}/status`, {
         headers: this.getHeaders(),
       });
       return response.data;
     } catch (error) {
       console.error('Error checking NOWPayments status:', error);
-      // Return mock status in development
-      if (process.env.NODE_ENV !== 'production') {
-        return { status: 'active' };
+      
+      // If we're in mock mode or development, return a fake status
+      if (this.isMockMode || process.env.NODE_ENV !== 'production') {
+        console.log('Returning mock status due to API error or mock mode');
+        return { status: 'ok' };
       }
+      
+      // In production with a real key, we should get a real error
       throw error;
     }
   }
 
   async getAvailableCurrencies(): Promise<AvailableCurrency[]> {
-    // Check if we're using the test key
-    if (this.apiKey === 'dev_test_key_for_ui_testing') {
-      console.log('Using mock NOWPayments currencies response');
-      return [
-        { id: 1, name: 'Tether ERC20', currency: 'USDT', is_fiat: false, enabled: true, min_amount: 1, max_amount: 10000, image: '', network: 'ETH' },
-        { id: 2, name: 'Tether TRC20', currency: 'USDT', is_fiat: false, enabled: true, min_amount: 1, max_amount: 10000, image: '', network: 'TRX' }
-      ];
+    const mockCurrencies = [
+      { id: 1, name: 'Tether ERC20', currency: 'USDT', is_fiat: false, enabled: true, min_amount: 1, max_amount: 10000, image: '', network: 'ETH' },
+      { id: 2, name: 'Tether TRC20', currency: 'USDT', is_fiat: false, enabled: true, min_amount: 1, max_amount: 10000, image: '', network: 'TRX' },
+      { id: 3, name: 'Bitcoin', currency: 'BTC', is_fiat: false, enabled: true, min_amount: 0.001, max_amount: 5, image: '', network: 'BTC' },
+      { id: 4, name: 'Ethereum', currency: 'ETH', is_fiat: false, enabled: true, min_amount: 0.01, max_amount: 50, image: '', network: 'ETH' }
+    ];
+    
+    // If we're in mock mode, return mock currencies immediately
+    if (this.isMockMode) {
+      console.log('Using mock NOWPayments currencies response (mock mode)');
+      return mockCurrencies;
     }
     
     try {
@@ -123,12 +134,13 @@ class NOWPaymentsService {
       return response.data.currencies || [];
     } catch (error) {
       console.error('Error getting available currencies:', error);
+      
+      // In development or if there's an API error, return mock currencies
       if (process.env.NODE_ENV !== 'production') {
-        return [
-          { id: 1, name: 'Tether ERC20', currency: 'USDT', is_fiat: false, enabled: true, min_amount: 1, max_amount: 10000, image: '', network: 'ETH' },
-          { id: 2, name: 'Tether TRC20', currency: 'USDT', is_fiat: false, enabled: true, min_amount: 1, max_amount: 10000, image: '', network: 'TRX' }
-        ];
+        console.log('Returning mock currencies due to API error');
+        return mockCurrencies;
       }
+      
       throw error;
     }
   }
@@ -152,9 +164,9 @@ class NOWPaymentsService {
       orderDescription = `Deposit to ChickFarms account (User ID: ${userId})`;
     }
     
-    // Check if we're using the test key
-    if (this.apiKey === 'dev_test_key_for_ui_testing') {
-      console.log('Using mock NOWPayments create payment response');
+    // If we're in mock mode, return a mock payment
+    if (this.isMockMode) {
+      console.log('Using mock NOWPayments create payment response (mock mode)');
       return {
         payment_id: `mock_${Date.now()}`,
         payment_status: 'waiting',
@@ -181,18 +193,40 @@ class NOWPaymentsService {
         ipn_callback_url: callbackUrl,
       };
 
+      console.log('Creating NOWPayments payment with payload:', {
+        ...payload,
+        api_key: '[REDACTED]' // Don't log the actual API key
+      });
+
       const response = await axios.post(
         `${API_BASE_URL}/payment`,
         payload,
         { headers: this.getHeaders() }
       );
 
+      console.log('Successfully created NOWPayments payment:', {
+        payment_id: response.data.payment_id,
+        payment_status: response.data.payment_status,
+        price_amount: response.data.price_amount
+      });
+
       return response.data;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating payment:', error);
+      
+      // Log more detailed error information
+      if (error.response) {
+        console.error('Error response from NOWPayments API:', {
+          status: error.response.status,
+          statusText: error.response.statusText,
+          data: error.response.data
+        });
+      }
+      
       if (process.env.NODE_ENV !== 'production') {
+        console.log('Returning mock payment due to API error in development');
         return {
-          payment_id: `mock_${Date.now()}`,
+          payment_id: `mock_error_${Date.now()}`,
           payment_status: 'waiting',
           pay_address: 'TRX8nHHo2Jd7H9ZwKhh6h8h',
           price_amount: amount,
@@ -211,9 +245,9 @@ class NOWPaymentsService {
   }
 
   async getPaymentStatus(paymentId: string): Promise<PaymentStatusResponse> {
-    // Check if we're using the test key
-    if (this.apiKey === 'dev_test_key_for_ui_testing') {
-      console.log('Using mock NOWPayments payment status response');
+    // If we're in mock mode, return a mock payment status
+    if (this.isMockMode) {
+      console.log('Using mock NOWPayments payment status response (mock mode)');
       // If the payment ID starts with 'mock_', it's one of our mock payments
       const isMockPayment = paymentId.startsWith('mock_');
       
@@ -233,14 +267,33 @@ class NOWPaymentsService {
     }
     
     try {
+      console.log(`Checking status for payment ID: ${paymentId}`);
+      
       const response = await axios.get(
         `${API_BASE_URL}/payment/${paymentId}`,
         { headers: this.getHeaders() }
       );
+      
+      console.log(`Payment status for ${paymentId}:`, {
+        status: response.data.payment_status,
+        updated_at: response.data.updated_at
+      });
+      
       return response.data;
-    } catch (error) {
+    } catch (error: any) {
       console.error(`Error getting payment status for payment ID ${paymentId}:`, error);
+      
+      // Log more detailed error information
+      if (error.response) {
+        console.error('Error response from NOWPayments API:', {
+          status: error.response.status,
+          statusText: error.response.statusText,
+          data: error.response.data
+        });
+      }
+      
       if (process.env.NODE_ENV !== 'production') {
+        console.log('Returning mock payment status due to API error in development');
         return {
           payment_id: paymentId,
           payment_status: 'waiting',
@@ -260,20 +313,36 @@ class NOWPaymentsService {
   }
 
   async getMinimumPaymentAmount(currency: string = 'USDT'): Promise<number> {
-    // Check if we're using the test key
-    if (this.apiKey === 'dev_test_key_for_ui_testing') {
-      console.log('Using mock NOWPayments minimum payment amount');
+    // If we're in mock mode, return a mock minimum amount
+    if (this.isMockMode) {
+      console.log('Using mock NOWPayments minimum payment amount (mock mode)');
       return 1;
     }
     
     try {
+      console.log(`Getting minimum payment amount for currency: ${currency}`);
+      
       const response = await axios.get(
         `${API_BASE_URL}/min-amount?currency_from=${currency}`,
         { headers: this.getHeaders() }
       );
-      return response.data.min_amount || 1;
-    } catch (error) {
+      
+      const minAmount = response.data.min_amount || 1;
+      console.log(`Minimum payment amount for ${currency}: ${minAmount}`);
+      
+      return minAmount;
+    } catch (error: any) {
       console.error(`Error getting minimum payment amount for ${currency}:`, error);
+      
+      // Log more detailed error information
+      if (error.response) {
+        console.error('Error response from NOWPayments API:', {
+          status: error.response.status,
+          statusText: error.response.statusText,
+          data: error.response.data
+        });
+      }
+      
       // Return a default value if the API call fails
       return 1;
     }
@@ -318,14 +387,19 @@ class NOWPaymentsService {
       callbackUrl = `${config.urls.api}/api/payments/callback`;
     }
     
-    // Check if we're using the test key
-    if (this.apiKey === 'dev_test_key_for_ui_testing') {
-      console.log('Using mock NOWPayments create invoice response');
+    // If we're in mock mode, return a mock invoice
+    if (this.isMockMode) {
+      console.log('Using mock NOWPayments create invoice response (mock mode)');
       const mockToken = `mock_invoice_${Date.now()}`;
+      
+      // For testing purposes, create a URL that at least opens a test page
+      // In actual production, this would be a real NOWPayments URL
+      const testUrl = `${CHECKOUT_API_BASE_URL}/payment-invoice/${mockToken}`;
+      
       return {
         id: mockToken,
         token_id: mockToken,
-        invoice_url: `${CHECKOUT_API_BASE_URL}/payment-invoice/${mockToken}`,
+        invoice_url: testUrl,
         success: true,
         status: 'active'
       };
@@ -345,27 +419,54 @@ class NOWPaymentsService {
         is_urgent: false
       };
 
+      console.log('Creating NOWPayments invoice with payload:', {
+        ...payload,
+        api_key: '[REDACTED]' // Don't log the actual API key
+      });
+
       const response = await axios.post(
         `${API_BASE_URL}/invoice`,
         payload,
         { headers: this.getHeaders() }
       );
 
-      console.log('Created NOWPayments invoice:', response.data);
+      console.log('Successfully created NOWPayments invoice:', {
+        id: response.data.id,
+        status: response.data.status,
+        invoice_url: response.data.invoice_url
+      });
+      
       return response.data;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating NOWPayments invoice:', error);
+      
+      // Log more detailed error information to help with debugging
+      if (error.response) {
+        console.error('Error response from NOWPayments API:', {
+          status: error.response.status,
+          statusText: error.response.statusText,
+          data: error.response.data
+        });
+      }
+      
+      // In development, return a mock invoice for testing purposes
       if (process.env.NODE_ENV !== 'production') {
-        // Mock response for development
-        const mockToken = `mock_invoice_${Date.now()}`;
+        console.log('Returning mock invoice due to API error in development');
+        const mockToken = `mock_error_${Date.now()}`;
+        
+        // Generate a URL to a demo payment page
+        const testUrl = `${CHECKOUT_API_BASE_URL}/payment-invoice/${mockToken}`;
+        
         return {
           id: mockToken,
           token_id: mockToken,
-          invoice_url: `${CHECKOUT_API_BASE_URL}/payment-invoice/${mockToken}`,
+          invoice_url: testUrl,
           success: true,
           status: 'active'
         };
       }
+      
+      // In production, throw the error to be handled by the calling code
       throw error;
     }
   }

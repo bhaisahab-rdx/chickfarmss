@@ -18,7 +18,8 @@ export function PaymentPopup({ isOpen, onClose, onSuccess }: PaymentPopupProps) 
   const [amount, setAmount] = useState<number>(90); // Default amount is 90 USDT
   const [isLoading, setIsLoading] = useState(false);
   const [invoiceUrl, setInvoiceUrl] = useState<string | undefined>(undefined);
-  const [paymentWindow, setPaymentWindow] = useState<Window | undefined>(undefined);
+  const [invoiceId, setInvoiceId] = useState<string | undefined>(undefined);
+  const [paymentWindow, setPaymentWindow] = useState<Window | null>(null);
   const [serviceStatus, setServiceStatus] = useState<{
     apiConfigured: boolean;
     ipnConfigured: boolean;
@@ -32,6 +33,13 @@ export function PaymentPopup({ isOpen, onClose, onSuccess }: PaymentPopupProps) 
     if (isOpen) {
       checkPaymentServiceStatus();
     }
+    
+    // Clean up payment window if component unmounts
+    return () => {
+      if (paymentWindow && !paymentWindow.closed) {
+        paymentWindow.close();
+      }
+    };
   }, [isOpen]);
   
   // Function to check the NOWPayments service status
@@ -101,55 +109,10 @@ export function PaymentPopup({ isOpen, onClose, onSuccess }: PaymentPopupProps) 
       
       if (response.success && response.invoiceUrl) {
         setInvoiceUrl(response.invoiceUrl);
+        setInvoiceId(response.invoiceId);
         
         // Open the NOWPayments checkout in a new window
-        const payWindow = window.open(
-          response.invoiceUrl,
-          'NOWPayments Checkout',
-          'width=600,height=800,top=100,left=100'
-        );
-        
-        if (payWindow) {
-          setPaymentWindow(payWindow);
-          
-          // Set up an interval to check if the popup is closed
-          const checkWindowClosed = setInterval(() => {
-            if (payWindow.closed) {
-              clearInterval(checkWindowClosed);
-              
-              // Only refresh user data if authenticated
-              if (auth.user) {
-                // Fetch the latest user data to update the balance
-                auth.loginMutation.mutate({ 
-                  username: auth.user.username || '', 
-                  password: '' // Password isn't needed for refresh
-                }, {
-                  onSuccess: () => {
-                    if (onSuccess) onSuccess();
-                    toast({
-                      title: 'Payment Processed',
-                      description: 'Your payment has been processed. If your balance has not updated yet, it will be updated shortly.',
-                    });
-                    resetForm();
-                  }
-                });
-              } else {
-                // For test payments or anonymous users
-                toast({
-                  title: 'Payment Window Closed',
-                  description: 'The payment window has been closed. If you completed the payment, your account will be updated shortly.',
-                });
-                resetForm();
-              }
-            }
-          }, 1000);
-        } else {
-          toast({
-            title: 'Popup Blocked',
-            description: 'Please allow popups for this site to complete your payment',
-            variant: 'destructive'
-          });
-        }
+        openPaymentWindow(response.invoiceUrl);
       } else {
         throw new Error('Failed to create payment invoice');
       }
@@ -165,9 +128,66 @@ export function PaymentPopup({ isOpen, onClose, onSuccess }: PaymentPopupProps) 
     }
   };
 
+  const openPaymentWindow = (url: string) => {
+    // Close previous window if exists
+    if (paymentWindow && !paymentWindow.closed) {
+      paymentWindow.close();
+    }
+    
+    // Directly open the payment link in a new tab instead of popup
+    // This works better across browsers and avoids popup blockers
+    const newWindow = window.open(url, '_blank');
+    
+    if (!newWindow) {
+      // If window.open returns null, it's likely blocked by popup blocker
+      toast({
+        title: 'Popup Blocked',
+        description: 'Please allow popups for this site to complete your payment. Alternatively, click the "Open Payment Link" button below.',
+        variant: 'destructive'
+      });
+      return;
+    }
+    
+    setPaymentWindow(newWindow);
+    
+    // Set up an interval to check if the payment window is closed
+    const checkWindowClosed = setInterval(() => {
+      if (newWindow.closed) {
+        clearInterval(checkWindowClosed);
+        handlePaymentWindowClosed();
+      }
+    }, 1000);
+  };
+  
+  const handlePaymentWindowClosed = () => {
+    // Only refresh user data if authenticated
+    if (auth.user) {
+      // Fetch the latest user data to update the balance
+      auth.loginMutation.mutate({ 
+        username: auth.user.username || '', 
+        password: '' // Password isn't needed for refresh
+      }, {
+        onSuccess: () => {
+          if (onSuccess) onSuccess();
+          toast({
+            title: 'Payment Window Closed',
+            description: 'If you completed the payment, your balance will be updated shortly.',
+          });
+        }
+      });
+    } else {
+      // For test payments or anonymous users
+      toast({
+        title: 'Payment Window Closed',
+        description: 'The payment window has been closed. If you completed the payment, your account will be updated shortly.',
+      });
+    }
+  };
+
   const resetForm = () => {
     setInvoiceUrl(undefined);
-    setPaymentWindow(undefined);
+    setInvoiceId(undefined);
+    setPaymentWindow(null);
     onClose();
   };
 
@@ -176,6 +196,14 @@ export function PaymentPopup({ isOpen, onClose, onSuccess }: PaymentPopupProps) 
       paymentWindow.close();
     }
     resetForm();
+  };
+
+  // Handle direct link opening (without popup)
+  const openPaymentLink = () => {
+    if (invoiceUrl) {
+      // Open the link in a new tab
+      window.open(invoiceUrl, '_blank');
+    }
   };
 
   return (
@@ -211,18 +239,14 @@ export function PaymentPopup({ isOpen, onClose, onSuccess }: PaymentPopupProps) 
             {/* Payment service status indicator */}
             {serviceStatus && (
               <div className={`text-xs px-3 py-2 rounded-md ${
-                serviceStatus.apiConfigured && serviceStatus.serviceStatus === 'ok' 
-                  ? 'bg-green-50 text-green-700'
-                  : 'bg-amber-50 text-amber-700'
+                serviceStatus.apiConfigured ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-700'
               }`}>
                 <div className="flex items-center">
                   <div className={`w-2 h-2 rounded-full mr-2 ${
-                    serviceStatus.apiConfigured && serviceStatus.serviceStatus === 'ok'
-                      ? 'bg-green-500'
-                      : 'bg-amber-500'
+                    serviceStatus.apiConfigured ? 'bg-green-500' : 'bg-amber-500'
                   }`}></div>
                   <span>
-                    {serviceStatus.apiConfigured && serviceStatus.serviceStatus === 'ok'
+                    {serviceStatus.apiConfigured
                       ? 'Payment service connected and ready'
                       : 'Payment service status: ' + (serviceStatus.serviceStatus || 'unknown')}
                   </span>
@@ -232,18 +256,21 @@ export function PaymentPopup({ isOpen, onClose, onSuccess }: PaymentPopupProps) 
           </div>
         ) : (
           <div className="py-4 text-center">
-            <p className="mb-2">Your payment is being processed.</p>
+            <p className="mb-2">Your payment link is ready.</p>
             <p className="mb-4 text-sm text-muted-foreground">
-              If the payment window doesn't open automatically, please click the button below.
+              If the payment page doesn't open automatically, please click the button below.
             </p>
             <Button 
-              onClick={() => {
-                window.open(invoiceUrl, 'NOWPayments Checkout', 'width=600,height=800,top=100,left=100');
-              }}
-              className="w-full"
+              onClick={openPaymentLink}
+              className="w-full mb-2"
             >
-              Open Payment Window
+              Open Payment Link
             </Button>
+            <div className="text-xs text-muted-foreground mt-2">
+              {invoiceId && (
+                <p>Transaction ID: {invoiceId}</p>
+              )}
+            </div>
           </div>
         )}
 
