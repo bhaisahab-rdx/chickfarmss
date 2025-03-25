@@ -592,16 +592,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // For NOWPayments payments, check the status via API
           try {
             const apiPaymentStatus = await nowPaymentsService.getPaymentStatus(paymentId);
-            // Update our status object with API response
-            // Convert date strings to proper format and handle nulls correctly
-            paymentStatus = {
-              ...apiPaymentStatus,
-              // Don't try to convert to Date objects in the API response to avoid type errors
-              created_at: apiPaymentStatus.created_at || (transaction.createdAt instanceof Date ? transaction.createdAt.toISOString() : String(transaction.createdAt)),
-              actually_paid: apiPaymentStatus.actually_paid || null, // Ensure it's never undefined
-              actually_paid_at: apiPaymentStatus.actually_paid_at || null, // Ensure it's never undefined
-              updated_at: apiPaymentStatus.updated_at || null // Ensure it's never undefined
-            };
+            // Use the standard helper to create a properly formatted payment status object
+            paymentStatus = nowPaymentsService.createStandardizedPaymentStatus(
+              transaction.id,
+              transaction.status,
+              transaction.transactionId || '',
+              parseFloat(transaction.amount.toString()),
+              'USDT',
+              parseFloat(transaction.amount.toString()),
+              'USDT',
+              apiPaymentStatus
+            );
           } catch (apiError) {
             console.error(`[NOWPayments] API error getting payment status:`, apiError);
             // Continue with the default status

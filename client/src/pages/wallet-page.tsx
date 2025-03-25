@@ -1,82 +1,93 @@
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import React, { useState, useEffect } from "react";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/hooks/use-auth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { useAuth } from "@/hooks/use-auth";
+import BalanceBar from "@/components/balance-bar";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { QrCode, Copy } from "lucide-react";
-import { QRCodeSVG } from 'qrcode.react';
-import { useState, useEffect } from 'react';
-import BalanceBar from "@/components/balance-bar";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useLocation } from "wouter";
+import { Copy, AlertTriangle } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 import { PaymentPopup } from "@/components/payment-popup";
 
 const rechargeSchema = z.object({
-  amount: z.number().positive("Amount must be positive"),
-  currency: z.string().default("USDT"),
-  payCurrency: z.string().default("USDT"),
-  useInvoice: z.boolean().optional().default(false),
+  amount: z.number().min(1, "Amount must be at least 1 USDT"),
+  currency: z.string().optional(),
+  payCurrency: z.string().optional(),
+  useInvoice: z.boolean().optional()
 });
 
 const withdrawalSchema = z.object({
-  amount: z.number().positive("Amount must be positive"),
-  usdtAddress: z.string().min(5, "USDT address is required").max(100, "USDT address too long"),
+  amount: z.number().min(10, "Minimum withdrawal is 10 USDT"),
+  usdtAddress: z.string().min(5, "Enter a valid USDT address"),
 });
 
-interface WalletAddress {
-  network: string;
-  address: string;
-}
-
 export default function WalletPage() {
+  // Get URL parameter for the active tab
+  const [_, setLocation] = useLocation();
+  const searchParams = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
+  const paymentStatus = searchParams.get('payment');
+  const defaultTab = searchParams.get('tab') === 'withdraw' ? 'withdraw' : 'recharge';
+
+  // Show payment success/failure message based on URL parameter
   const { toast } = useToast();
   const { user } = useAuth();
-  const [selectedNetwork, setSelectedNetwork] = useState("ethereum");
 
-  // Get tab from URL if present
-  const params = new URLSearchParams(window.location.search);
-  const defaultTab = params.get('tab') || 'recharge';
+  useEffect(() => {
+    // Check for payment status in the URL
+    if (paymentStatus === 'success') {
+      toast({
+        title: "Payment Completed",
+        description: "Your payment has been processed. Your balance will be updated shortly.",
+      });
+      // Remove the query parameter
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (paymentStatus === 'cancelled') {
+      toast({
+        title: "Payment Cancelled",
+        description: "Your payment was cancelled. No funds were transferred.",
+        variant: "destructive",
+      });
+      // Remove the query parameter
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, [paymentStatus]);
 
-  const walletAddressesQuery = useQuery<{
-    ethereumAddress: string;
-    tronAddress: string;
-    bnbAddress: string;
-  }>({
-    queryKey: ["/api/admin/wallet-addresses"],
+  // Get wallet addresses
+  const walletAddressesQuery = useQuery({
+    queryKey: ["/api/wallet/addresses"],
+    enabled: false, // We're using NOWPayments instead
   });
 
-  const rechargeForm = useForm({
+  // Form setup
+  const rechargeForm = useForm<z.infer<typeof rechargeSchema>>({
     resolver: zodResolver(rechargeSchema),
     defaultValues: {
-      amount: 0,
+      amount: 10,
       currency: "USDT",
       payCurrency: "USDT",
-      useInvoice: true // Always use NOWPayments portal for all payments
+      useInvoice: true,
     },
   });
 
-  const withdrawalForm = useForm({
+  const withdrawalForm = useForm<z.infer<typeof withdrawalSchema>>({
     resolver: zodResolver(withdrawalSchema),
     defaultValues: {
       amount: 0,
@@ -84,45 +95,26 @@ export default function WalletPage() {
     },
   });
 
-  const networkAddresses = {
-    ethereum: walletAddressesQuery.data?.ethereumAddress || "0x2468BD1f5B493683b6550Fe331DC39CC854513D2",
-    tron: walletAddressesQuery.data?.tronAddress || "TS59qaK6YfN7fvWwffLuvKzzpXDGTBh4dq",
-    bnb: walletAddressesQuery.data?.bnbAddress || "bnb1uljaarnxpaug9uvxhln6dyg6w0zeasctn4puvp",
-  };
-
-  const networkLabels = {
-    ethereum: "USDT (ERC20) - Ethereum",
-    tron: "USDT (TRC20) - Tron",
-    bnb: "USDT (BEP2) - BNB Beacon Chain",
-  };
-
-  // Add state to track payment information
-  const [paymentDetails, setPaymentDetails] = useState<{
-    paymentId: string;
-    address: string;
-    amount: number;
-    currency: string;
-  } | null>(null);
-  
-  // Add state to track payment status
-  const [checkingPayment, setCheckingPayment] = useState(false);
-  
   // State for the payment popup
   const [isPaymentPopupOpen, setIsPaymentPopupOpen] = useState(false);
-  
-  // Only use NOWPayments portal/invoice for all payments
 
+  // Handle recharge through NOWPayments
   const rechargeMutation = useMutation({
     mutationFn: async (data: z.infer<typeof rechargeSchema>) => {
-      // Log the request for debugging
+      // Always use the invoice-based payment with NOWPayments portal
       console.log("NOWPayments invoice payment initiated:", data.amount, data.currency);
-      return await apiRequest("POST", "/api/wallet/recharge", data);
+      return await apiRequest("POST", "/api/wallet/recharge", {
+        amount: data.amount,
+        currency: data.currency || "USDT",
+        payCurrency: data.payCurrency || "USDT",
+        useInvoice: true // Always use the invoice-based payment for consistency
+      });
     },
     onSuccess: (response) => {
       queryClient.invalidateQueries({ queryKey: ["/api/user"] });
       queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
 
-      // Handle invoice-based payment flow (NOWPayments portal redirect)
+      // Handle NOWPayments portal redirect
       if (response?.invoice?.invoiceUrl) {
         // Open the NOWPayments invoice URL in a new tab
         window.open(response.invoice.invoiceUrl, '_blank');
@@ -130,82 +122,18 @@ export default function WalletPage() {
         toast({
           title: "Payment Portal Opened",
           description: "Complete your payment in the newly opened tab. Your balance will update automatically.",
+          variant: "default"
         });
         
         // Reset the form
-        rechargeForm.reset();
+        rechargeForm.reset({ amount: 10, currency: "USDT", payCurrency: "USDT", useInvoice: true });
         return;
-      }
-      
-      // Handle direct payment flow (fallback for non-invoice payments)
-      if (response?.payment) {
-        setPaymentDetails({
-          paymentId: response.payment.paymentId,
-          address: response.payment.address,
-          amount: response.payment.amount,
-          currency: response.payment.currency,
+      } else {
+        toast({
+          title: "Payment Initiated",
+          description: "Please complete the payment to add funds to your account.",
         });
-        
-        // Set up payment status polling (every 15 seconds)
-        const checkPaymentStatus = async () => {
-          try {
-            setCheckingPayment(true);
-            const statusResponse = await apiRequest(
-              "GET", 
-              `/api/public/payments/${response.payment.paymentId}/status`
-            );
-            
-            if (statusResponse?.payment?.status === 'finished') {
-              queryClient.invalidateQueries({ queryKey: ["/api/user"] });
-              toast({
-                title: "Payment Completed",
-                description: "Your payment has been confirmed and your balance has been updated.",
-              });
-              setPaymentDetails(null);
-              rechargeForm.reset();
-              // Clear the polling interval
-              return true;
-            } else if (
-              statusResponse?.payment?.status === 'failed' || 
-              statusResponse?.payment?.status === 'expired'
-            ) {
-              toast({
-                title: "Payment Failed",
-                description: "Your payment could not be processed. Please try again.",
-                variant: "destructive",
-              });
-              setPaymentDetails(null);
-              // Clear the polling interval
-              return true;
-            }
-            setCheckingPayment(false);
-            return false;
-          } catch (error) {
-            console.error("Error checking payment status:", error);
-            setCheckingPayment(false);
-            return false;
-          }
-        };
-        
-        // Check immediately
-        checkPaymentStatus();
-        
-        // Then check every 15 seconds
-        const interval = setInterval(async () => {
-          const shouldClearInterval = await checkPaymentStatus();
-          if (shouldClearInterval) {
-            clearInterval(interval);
-          }
-        }, 15000);
-        
-        // Clear the interval when component unmounts
-        return () => clearInterval(interval);
       }
-
-      toast({
-        title: "Payment Initiated",
-        description: "Please complete the payment to add funds to your account.",
-      });
     },
     onError: (error: Error) => {
       toast({
@@ -236,28 +164,6 @@ export default function WalletPage() {
       });
     },
   });
-
-  // No longer needed with NOWPayments but keeping as a placeholder in case we need manual deposit option in the future
-  const handleCopyAddress = () => {
-    // This function is not used anymore since we're using NOWPayments
-    toast({
-      title: "Using NOWPayments",
-      description: "We now use automatic payment processing with NOWPayments.",
-    });
-  };
-
-  const [qrCodeData, setQrCodeData] = useState("");
-
-  useEffect(() => {
-    // If we have payment details, show payment QR code
-    if (paymentDetails) {
-      setQrCodeData(`${paymentDetails.currency}:${paymentDetails.address}?amount=${paymentDetails.amount}`);
-    } else {
-      // Just show a preview based on the form amount
-      const amount = rechargeForm.watch("amount");
-      setQrCodeData(`usdt:preview?amount=${amount}`);
-    }
-  }, [rechargeForm.watch("amount"), paymentDetails]);
 
   // Add scroll reset effect
   useEffect(() => {
@@ -325,167 +231,74 @@ export default function WalletPage() {
                 <CardTitle className="text-base sm:text-lg">Recharge Wallet</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4 sm:space-y-6 p-3 sm:p-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+                <div className="grid grid-cols-1 gap-4 sm:gap-6">
                   <div className="space-y-3 sm:space-y-4">
-                    <div className="bg-primary/10 p-2 sm:p-4 rounded-lg text-center space-y-1 sm:space-y-2">
-                      {paymentDetails ? (
-                        <>
-                          <QRCodeSVG
-                            value={qrCodeData}
-                            size={150}
-                            className="mx-auto bg-white p-2 rounded-md"
-                          />
-                          <p className="text-xs sm:text-sm font-medium">Scan QR to pay with {paymentDetails.currency}</p>
-                          <p className="text-xs text-muted-foreground">
-                            Send exactly {paymentDetails.amount} {paymentDetails.currency} to complete your payment
-                          </p>
-                        </>
-                      ) : (
-                        <>
-                          <div className="relative mx-auto w-[150px] h-[150px] flex items-center justify-center bg-white/70 p-2 rounded-md">
-                            <div className="absolute inset-0 flex items-center justify-center">
-                              <p className="text-xs text-muted-foreground p-4 text-center">
-                                Enter an amount and click "Create Payment" to generate payment details
-                              </p>
-                            </div>
-                            <QRCodeSVG
-                              value={qrCodeData}
-                              size={150}
-                              className="mx-auto opacity-20"
-                            />
-                          </div>
-                          <p className="text-xs sm:text-sm font-medium">
-                            NOWPayments Cryptocurrency Gateway
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            Secure, fast, and automated cryptocurrency payments
-                          </p>
-                        </>
-                      )}
-                    </div>
-                  </div>
-
-                  {paymentDetails ? (
-                    <div className="space-y-4 bg-gray-50 p-4 rounded-lg border border-gray-200">
-                      <div className="text-center">
-                        <h3 className="font-semibold text-sm sm:text-base mb-1">Payment in Progress</h3>
-                        <p className="text-xs sm:text-sm text-muted-foreground">
-                          {checkingPayment 
-                            ? "Checking payment status..." 
-                            : "Scan the QR code or copy the address below to complete payment"
-                          }
+                    <div className="bg-primary/10 p-4 rounded-lg text-center space-y-2 sm:space-y-3">
+                      <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto bg-white rounded-full flex items-center justify-center shadow-sm">
+                        <img 
+                          src="/assets/tether-usdt-logo.png" 
+                          alt="USDT Logo" 
+                          className="w-10 h-10 sm:w-12 sm:h-12"
+                        />
+                      </div>
+                      
+                      <div>
+                        <h3 className="font-semibold text-base sm:text-lg">
+                          Deposit USDT
+                        </h3>
+                        <p className="text-xs sm:text-sm text-muted-foreground max-w-xs mx-auto mt-1">
+                          Securely deposit USDT using our cryptocurrency payment partner NOWPayments.
                         </p>
                       </div>
                       
-                      <div className="space-y-2">
-                        <div className="bg-white p-2 rounded border border-gray-200">
-                          <p className="text-xs text-muted-foreground">Payment Amount</p>
-                          <p className="font-mono font-medium">{paymentDetails.amount} {paymentDetails.currency}</p>
-                        </div>
-                        
-                        <div className="bg-white p-2 rounded border border-gray-200">
-                          <p className="text-xs text-muted-foreground">Payment Address</p>
-                          <div className="flex items-center">
-                            <code className="font-mono text-xs sm:text-sm flex-1 break-all">
-                              {paymentDetails.address}
-                            </code>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="ml-2 h-7 w-7"
-                              onClick={() => {
-                                navigator.clipboard.writeText(paymentDetails.address);
-                                toast({
-                                  title: "Address Copied",
-                                  description: "The payment address has been copied to your clipboard."
-                                });
-                              }}
-                            >
-                              <Copy className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        </div>
-                        
-                        <div className="bg-white p-2 rounded border border-gray-200">
-                          <p className="text-xs text-muted-foreground">Payment ID</p>
-                          <p className="font-mono text-xs">{paymentDetails.paymentId}</p>
-                        </div>
-                      </div>
-                      
-                      <div className="text-center text-xs text-muted-foreground pt-2">
-                        <p>Once payment is sent, we'll automatically detect it and update your balance.</p>
-                        <Button 
-                          variant="link" 
-                          className="text-xs p-0 h-auto"
-                          onClick={() => setPaymentDetails(null)}
+                      <Form {...rechargeForm}>
+                        <form
+                          onSubmit={rechargeForm.handleSubmit((data) => {
+                            rechargeMutation.mutate({
+                              amount: data.amount,
+                              currency: data.currency || 'USDT',
+                              payCurrency: data.payCurrency || 'USDT',
+                              useInvoice: true
+                            });
+                          })}
+                          className="space-y-3 sm:space-y-4 max-w-sm mx-auto"
                         >
-                          Cancel and start over
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <Form {...rechargeForm}>
-                      <form
-                        onSubmit={rechargeForm.handleSubmit((data) => {
-                          // ALWAYS use invoice payment method to redirect to NOWPayments portal
-                          // This ensures users are always redirected to NOWPayments to complete their payment
-                          rechargeMutation.mutate({
-                            amount: data.amount,
-                            currency: data.currency || 'USDT',
-                            payCurrency: data.payCurrency || 'USDT', // Use preferred payment currency
-                            useInvoice: true // Always use invoice method for NOWPayments portal redirection
-                          });
+                          <FormField
+                            control={rechargeForm.control}
+                            name="amount"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel className="text-xs sm:text-sm">Amount (USDT)</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    type="number"
+                                    {...field}
+                                    className="h-8 sm:h-10 text-sm text-center"
+                                    onChange={(e) =>
+                                      field.onChange(parseFloat(e.target.value) || 0)
+                                    }
+                                  />
+                                </FormControl>
+                                <FormMessage className="text-xs" />
+                              </FormItem>
+                            )}
+                          />
                           
-                          // Track in analytics that a payment was initiated
-                          console.log('NOWPayments portal payment initiated:', data.amount, data.currency);
-                        })}
-                        className="space-y-3 sm:space-y-4"
-                      >
-                        <FormField
-                          control={rechargeForm.control}
-                          name="amount"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="text-xs sm:text-sm">Amount (USDT)</FormLabel>
-                              <FormControl>
-                                <Input
-                                  type="number"
-                                  {...field}
-                                  className="h-8 sm:h-10 text-sm"
-                                  onChange={(e) =>
-                                    field.onChange(parseFloat(e.target.value))
-                                  }
-                                />
-                              </FormControl>
-                              <FormMessage className="text-xs" />
-                            </FormItem>
-                          )}
-                        />
-                        
-                        {false ? ( // We're now using auto/direct payments, not popup
-                          <Button
-                            type="button"
-                            className="w-full h-8 sm:h-10 text-xs sm:text-sm mt-2"
-                            onClick={() => setIsPaymentPopupOpen(true)}
-                          >
-                            Pay with Crypto
-                          </Button>
-                        ) : (
                           <Button
                             type="submit"
-                            className="w-full h-8 sm:h-10 text-xs sm:text-sm mt-2"
+                            className="w-full h-10 text-sm sm:text-base"
                             disabled={rechargeMutation.isPending}
                           >
-                            Create Payment
+                            {rechargeMutation.isPending ? "Creating Payment..." : "Pay with Crypto"}
                           </Button>
-                        )}
-                        
-                        <p className="text-xs text-center text-muted-foreground">
-                          Powered by NOWPayments - Secure Cryptocurrency Payment Processing
-                        </p>
-                      </form>
-                    </Form>
-                  )}
+                          
+                          <p className="text-xs text-center text-muted-foreground">
+                            Powered by NOWPayments - Secure Cryptocurrency Payment Processing
+                          </p>
+                        </form>
+                      </Form>
+                    </div>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -504,6 +317,14 @@ export default function WalletPage() {
                     )}
                     className="space-y-3 sm:space-y-4"
                   >
+                    <div className="bg-amber-50 p-3 rounded-lg border border-amber-200 flex gap-2 items-start mb-2">
+                      <AlertTriangle className="h-4 w-4 text-amber-500 mt-0.5 flex-shrink-0" />
+                      <div className="text-xs text-amber-800">
+                        <p className="font-medium">Withdrawal Fee: 5%</p>
+                        <p>Minimum withdrawal amount is 10 USDT. Withdrawals are processed within 24 hours.</p>
+                      </div>
+                    </div>
+                    
                     <FormField
                       control={withdrawalForm.control}
                       name="amount"
@@ -516,7 +337,7 @@ export default function WalletPage() {
                               {...field}
                               className="h-8 sm:h-10 text-sm"
                               onChange={(e) =>
-                                field.onChange(parseFloat(e.target.value))
+                                field.onChange(parseFloat(e.target.value) || 0)
                               }
                             />
                           </FormControl>
@@ -545,10 +366,12 @@ export default function WalletPage() {
 
                     <Button
                       type="submit"
-                      className="w-full h-8 sm:h-10 text-xs sm:text-sm mt-2"
+                      className="w-full h-8 sm:h-10 text-xs sm:text-sm"
                       disabled={withdrawalMutation.isPending}
                     >
-                      Withdraw USDT
+                      {withdrawalMutation.isPending
+                        ? "Processing..."
+                        : "Withdraw USDT"}
                     </Button>
                   </form>
                 </Form>
