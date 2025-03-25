@@ -26,7 +26,7 @@ import WalletPage from "@/pages/wallet-page";
 import AccountPage from "@/pages/account-page";
 import ReferralsPage from "@/pages/referrals-page";
 import AdminPage from "@/pages/admin-page";
-import PaymentTestPage from "@/pages/payment-test";
+
 import LandingPage from "@/pages/landing-page";
 import NotFound from "@/pages/not-found";
 import ContactUsPage from "@/pages/contact-us";
@@ -162,7 +162,7 @@ function Router() {
       <Route path="/contact-us" component={ContactUsPage} />
       <Route path="/terms-of-service" component={TermsOfServicePage} />
       <Route path="/privacy-policy" component={PrivacyPolicyPage} />
-      <Route path="/payment-test" component={PaymentTestPage} />
+
       <Route path="/chickens">
         {() => user ? <ShopPage /> : <Redirect to="/auth?redirect=/shop" />}
       </Route>
