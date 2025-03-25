@@ -19,12 +19,15 @@ import {
 } from "@shared/schema";
 import session from "express-session";
 import createMemoryStore from "memorystore";
+import pgSessionStore from "connect-pg-simple";
 import { randomBytes } from "crypto";
 import { hashPassword } from './auth-utils';
+import { pool } from './db';
 
 // Import the salary value per referral from shared schema
 
 const MemoryStore = createMemoryStore(session);
+const PGStore = pgSessionStore(session);
 
 export interface IStorage {
   sessionStore: session.Store;
@@ -133,12 +136,11 @@ export class DatabaseStorage implements IStorage {
   private defaultWithdrawalTax: number = 5;
 
   constructor() {
-    // Configure memory store with appropriate settings for development
-    this.sessionStore = new MemoryStore({
-      checkPeriod: 86400000, // Prune expired entries every 24h
-      ttl: 86400000, // Session TTL (24 hours)
-      stale: false,  // Don't allow stale session data
-      noDisposeOnSet: true, // Prevent disposing sessions on set
+    // Create PostgreSQL session store
+    this.sessionStore = new PGStore({
+      pool: pool,           // Use the existing PostgreSQL connection pool
+      tableName: 'session', // Name of the session table
+      createTableIfMissing: true, // Automatically create the session table if it doesn't exist
     });
     this.initializeDefaults();
   }

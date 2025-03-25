@@ -49,7 +49,7 @@ export function setupAuth(app: Express) {
 
   console.log("[Auth Setup] Session settings:", {
     ...sessionSettings,
-    store: 'MemoryStore',
+    store: 'PostgreSQLStore',
     cookie: sessionSettings.cookie,
     nodeEnv: process.env.NODE_ENV
   });

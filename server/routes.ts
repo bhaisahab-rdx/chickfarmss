@@ -15,6 +15,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ status: "ok" });
   });
   
+  // Test NOWPayments API endpoint for verification
+  app.get("/api/test-nowpayments", async (req, res) => {
+    try {
+      // Check NOWPayments API status
+      const status = await nowPaymentsService.getStatus();
+      
+      // Check available currencies
+      const currencies = await nowPaymentsService.getAvailableCurrencies();
+      
+      // Check minimum payment amount for USDT
+      const minPaymentAmount = await nowPaymentsService.getMinimumPaymentAmount("USDT");
+      
+      res.json({
+        status,
+        apiKeyConfigured: isNOWPaymentsConfigured(),
+        ipnSecretConfigured: isIPNSecretConfigured(),
+        currencies: currencies.slice(0, 5), // Just include first 5 to keep response size small
+        minPaymentAmount,
+        message: "NOWPayments API is configured and working correctly"
+      });
+    } catch (error) {
+      console.error("Error testing NOWPayments API:", error);
+      res.status(500).json({ 
+        error: "Failed to test NOWPayments API",
+        message: error instanceof Error ? error.message : "Unknown error",
+        apiKeyConfigured: isNOWPaymentsConfigured(),
+        ipnSecretConfigured: isIPNSecretConfigured()
+      });
+    }
+  });
+  
   // Public test endpoints for payment testing - No authentication required
   app.get("/api/public/payments/service-status", async (req, res) => {
     try {
