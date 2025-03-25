@@ -118,13 +118,30 @@ export default function WalletPage() {
 
   const rechargeMutation = useMutation({
     mutationFn: async (data: z.infer<typeof rechargeSchema>) => {
+      // Log the request for debugging
+      console.log("NOWPayments invoice payment initiated:", data.amount, data.currency);
       return await apiRequest("POST", "/api/wallet/recharge", data);
     },
     onSuccess: (response) => {
       queryClient.invalidateQueries({ queryKey: ["/api/user"] });
       queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
 
-      // Store payment details for QR code and display
+      // Handle invoice-based payment flow (NOWPayments portal redirect)
+      if (response?.invoice?.invoiceUrl) {
+        // Open the NOWPayments invoice URL in a new tab
+        window.open(response.invoice.invoiceUrl, '_blank');
+        
+        toast({
+          title: "Payment Portal Opened",
+          description: "Complete your payment in the newly opened tab. Your balance will update automatically.",
+        });
+        
+        // Reset the form
+        rechargeForm.reset();
+        return;
+      }
+      
+      // Handle direct payment flow (fallback for non-invoice payments)
       if (response?.payment) {
         setPaymentDetails({
           paymentId: response.payment.paymentId,
