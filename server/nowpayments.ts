@@ -70,47 +70,7 @@ export interface StandardizedPaymentStatus {
   updated_at: string | null; // Always string or null, never undefined
 }
 
-/**
- * Helper function to convert a transaction to a standardized payment status object
- * This ensures consistent types throughout the application
- */
-export function createStandardizedPaymentStatus(
-  paymentId: string,
-  transaction: any, // Use any to avoid circular dependencies
-  apiPaymentStatus?: PaymentStatusResponse
-): StandardizedPaymentStatus {
-  // Create base payment status from transaction
-  const base: StandardizedPaymentStatus = {
-    payment_id: paymentId,
-    payment_status: transaction.status === 'pending' ? 'waiting' : transaction.status,
-    pay_address: '',
-    price_amount: parseFloat(transaction.amount),
-    price_currency: 'USDT',
-    pay_amount: parseFloat(transaction.amount),
-    pay_currency: 'USDT',
-    created_at: transaction.createdAt instanceof Date 
-      ? transaction.createdAt.toISOString() 
-      : String(transaction.createdAt),
-    actually_paid: null,
-    actually_paid_at: null,
-    updated_at: null
-  };
-  
-  // Merge with API payment status if provided
-  if (apiPaymentStatus) {
-    return {
-      ...base,
-      ...apiPaymentStatus,
-      // Ensure these fields are always properly typed
-      created_at: apiPaymentStatus.created_at || base.created_at,
-      actually_paid: apiPaymentStatus.actually_paid !== undefined ? apiPaymentStatus.actually_paid : null,
-      actually_paid_at: apiPaymentStatus.actually_paid_at || null,
-      updated_at: apiPaymentStatus.updated_at || null
-    };
-  }
-  
-  return base;
-}
+// Moved this function to be a method of NOWPaymentsService class
 
 export interface CreateInvoiceResponse {
   id: string;
@@ -257,13 +217,51 @@ class NOWPaymentsService {
    * If not, finds an alternative currency
    */
   async findAvailablePaymentCurrency(preferredCurrency: string = 'USDT'): Promise<string> {
+    // Common fallback currencies in order of preference
+    const fallbackCurrencies = ['BTC', 'ETH', 'DOGE', 'LTC', 'BNB'];
+
     try {
-      const currencies = await this.getAvailableCurrencies();
+      // If we know USDT is having issues, immediately try to use a fallback
+      if (preferredCurrency.toUpperCase() === 'USDT') {
+        console.log(`USDT has been reported as unavailable, trying alternatives first`);
+        
+        try {
+          // First try to get available currencies list
+          const currencies = await this.getAvailableCurrencies();
+          const enabledCurrencies = currencies.filter(c => c.enabled);
+          
+          // See if any of our fallback currencies are available
+          for (const fallback of fallbackCurrencies) {
+            const isAvailable = enabledCurrencies.some(
+              c => c.currency.toUpperCase() === fallback.toUpperCase()
+            );
+            
+            if (isAvailable) {
+              console.log(`Found alternative currency: ${fallback}`);
+              return fallback;
+            }
+          }
+          
+          // If none of our preferred options are available, pick the first enabled one
+          if (enabledCurrencies.length > 0) {
+            const fallbackCurrency = enabledCurrencies[0].currency;
+            console.log(`Using fallback currency: ${fallbackCurrency}`);
+            return fallbackCurrency;
+          }
+        } catch (fallbackError) {
+          console.error('Error finding fallback currency:', fallbackError);
+          // If we couldn't find a fallback, default to BTC which is almost always available
+          console.log('Defaulting to BTC due to USDT unavailability');
+          return 'BTC';
+        }
+      }
       
-      // Filter to enabled currencies only
+      // If preferred currency is not USDT or we couldn't find a fallback,
+      // proceed with standard availability check
+      const currencies = await this.getAvailableCurrencies();
       const enabledCurrencies = currencies.filter(c => c.enabled);
       
-      // First check if preferred currency is available
+      // Check if preferred currency is available
       const isPreferredAvailable = enabledCurrencies.some(
         c => c.currency.toUpperCase() === preferredCurrency.toUpperCase()
       );
@@ -273,11 +271,8 @@ class NOWPaymentsService {
         return preferredCurrency;
       }
       
-      // If preferred currency is not available, pick another common one
+      // If preferred currency is not available, try fallbacks again
       console.log(`Preferred currency ${preferredCurrency} is not available, looking for alternatives`);
-      
-      // List of fallback currencies in order of preference
-      const fallbackCurrencies = ['BTC', 'ETH', 'DOGE', 'LTC', 'BNB'];
       
       for (const fallback of fallbackCurrencies) {
         const isAvailable = enabledCurrencies.some(
@@ -290,21 +285,20 @@ class NOWPaymentsService {
         }
       }
       
-      // If none of our preferred options are available, just pick the first enabled one
+      // If none of our preferred options are available, pick the first enabled one
       if (enabledCurrencies.length > 0) {
         const fallbackCurrency = enabledCurrencies[0].currency;
         console.log(`Using fallback currency: ${fallbackCurrency}`);
         return fallbackCurrency;
       }
       
-      // If no currencies are available at all, return the original preference
-      // This will likely fail but is better than returning null/undefined
-      console.warn('No enabled currencies found, returning original preference');
-      return preferredCurrency;
+      // If no currencies are available at all, return BTC as a last resort
+      console.warn('No enabled currencies found, returning BTC as last resort');
+      return 'BTC';
     } catch (error) {
       console.error('Error finding available payment currency:', error);
-      // In case of error, return the original preference
-      return preferredCurrency;
+      // In case of error, return BTC as the fallback
+      return 'BTC';
     }
   }
 
@@ -609,6 +603,48 @@ class NOWPaymentsService {
     };
 
     return statusMap[paymentStatus] || 'pending';
+  }
+
+  /**
+   * Helper method to convert a transaction to a standardized payment status object
+   * This ensures consistent types throughout the application
+   */
+  createStandardizedPaymentStatus(
+    paymentId: string,
+    transaction: any, // Use any to avoid circular dependencies
+    apiPaymentStatus?: PaymentStatusResponse
+  ): StandardizedPaymentStatus {
+    // Create base payment status from transaction
+    const base: StandardizedPaymentStatus = {
+      payment_id: paymentId,
+      payment_status: transaction.status === 'pending' ? 'waiting' : transaction.status,
+      pay_address: '',
+      price_amount: parseFloat(transaction.amount),
+      price_currency: 'USDT',
+      pay_amount: parseFloat(transaction.amount),
+      pay_currency: 'USDT',
+      created_at: transaction.createdAt instanceof Date 
+        ? transaction.createdAt.toISOString() 
+        : String(transaction.createdAt),
+      actually_paid: null,
+      actually_paid_at: null,
+      updated_at: null
+    };
+    
+    // Merge with API payment status if provided
+    if (apiPaymentStatus) {
+      return {
+        ...base,
+        ...apiPaymentStatus,
+        // Ensure these fields are always properly typed
+        created_at: apiPaymentStatus.created_at || base.created_at,
+        actually_paid: apiPaymentStatus.actually_paid !== undefined ? apiPaymentStatus.actually_paid : null,
+        actually_paid_at: apiPaymentStatus.actually_paid_at || null,
+        updated_at: apiPaymentStatus.updated_at || null
+      };
+    }
+    
+    return base;
   }
 }
 
