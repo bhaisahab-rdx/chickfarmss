@@ -240,6 +240,7 @@ export const users = pgTable("users", {
   currentStreak: integer("current_streak").notNull().default(0),
   lastSpinAt: timestamp("last_spin_at"),
   extraSpinsAvailable: integer("extra_spins_available").notNull().default(0),
+  referralCount: integer("referral_count").notNull().default(0),
 });
 
 export const chickens = pgTable("chickens", {
