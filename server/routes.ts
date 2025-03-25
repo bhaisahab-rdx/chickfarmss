@@ -4,23 +4,8 @@ import { setupAuth, isAuthenticated } from "./auth";
 import { storage, mysteryBoxTypes } from "./storage";
 import { z } from "zod";
 import { dailySpinRewards, superJackpotRewards } from "@shared/schema";
-import { nowPaymentsService, PaymentStatusResponse } from "./nowpayments";
+import { nowPaymentsService, PaymentStatusResponse, StandardizedPaymentStatus } from "./nowpayments";
 import { config } from "./config";
-
-// Define a consistent PaymentStatus interface for use throughout the file
-interface PaymentStatus {
-  payment_id: string;
-  payment_status: string;
-  pay_address: string;
-  price_amount: number;
-  price_currency: string;
-  pay_amount: number;
-  pay_currency: string;
-  created_at: string; // Always use string format for dates in APIs
-  actually_paid: number | null;
-  actually_paid_at: string | null;
-  updated_at: string | null;
-}
 
 export async function registerRoutes(app: Express): Promise<Server> {
   setupAuth(app);

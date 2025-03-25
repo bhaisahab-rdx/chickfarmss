@@ -49,6 +49,63 @@ export interface PaymentStatusResponse {
   outcome_currency?: string;
 }
 
+// A standardized payment status interface for internal use
+export interface StandardizedPaymentStatus {
+  payment_id: string;
+  payment_status: string;
+  pay_address: string;
+  price_amount: number;
+  price_currency: string;
+  pay_amount: number;
+  pay_currency: string;
+  created_at: string; // Always string in ISO format
+  actually_paid: number | null; // Always number or null, never undefined
+  actually_paid_at: string | null; // Always string or null, never undefined
+  updated_at: string | null; // Always string or null, never undefined
+}
+
+/**
+ * Helper function to convert a transaction to a standardized payment status object
+ * This ensures consistent types throughout the application
+ */
+export function createStandardizedPaymentStatus(
+  paymentId: string,
+  transaction: any, // Use any to avoid circular dependencies
+  apiPaymentStatus?: PaymentStatusResponse
+): StandardizedPaymentStatus {
+  // Create base payment status from transaction
+  const base: StandardizedPaymentStatus = {
+    payment_id: paymentId,
+    payment_status: transaction.status === 'pending' ? 'waiting' : transaction.status,
+    pay_address: '',
+    price_amount: parseFloat(transaction.amount),
+    price_currency: 'USDT',
+    pay_amount: parseFloat(transaction.amount),
+    pay_currency: 'USDT',
+    created_at: transaction.createdAt instanceof Date 
+      ? transaction.createdAt.toISOString() 
+      : String(transaction.createdAt),
+    actually_paid: null,
+    actually_paid_at: null,
+    updated_at: null
+  };
+  
+  // Merge with API payment status if provided
+  if (apiPaymentStatus) {
+    return {
+      ...base,
+      ...apiPaymentStatus,
+      // Ensure these fields are always properly typed
+      created_at: apiPaymentStatus.created_at || base.created_at,
+      actually_paid: apiPaymentStatus.actually_paid !== undefined ? apiPaymentStatus.actually_paid : null,
+      actually_paid_at: apiPaymentStatus.actually_paid_at || null,
+      updated_at: apiPaymentStatus.updated_at || null
+    };
+  }
+  
+  return base;
+}
+
 export interface CreateInvoiceResponse {
   id: string;
   token_id: string;
