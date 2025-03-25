@@ -559,6 +559,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Initialize default payment status
+      // Ensure created_at is always a string in ISO format
+      const createdAt = transaction.createdAt
+        ? transaction.createdAt instanceof Date
+          ? transaction.createdAt.toISOString()
+          : typeof transaction.createdAt === 'string'
+            ? transaction.createdAt
+            : new Date(transaction.createdAt).toISOString()
+        : new Date().toISOString();
+        
       let paymentStatus = {
         payment_id: paymentId,
         payment_status: transaction.status === 'pending' ? 'waiting' : transaction.status,
@@ -567,7 +576,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         price_currency: 'USDT',
         pay_amount: parseFloat(transaction.amount),
         pay_currency: 'USDT',
-        created_at: transaction.createdAt,
+        created_at: createdAt, // Always a string in ISO format
         actually_paid: null,
         actually_paid_at: null,
         updated_at: null
@@ -593,16 +602,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
           try {
             const apiPaymentStatus = await nowPaymentsService.getPaymentStatus(paymentId);
             // Use the standard helper to create a properly formatted payment status object
-            paymentStatus = nowPaymentsService.createStandardizedPaymentStatus(
-              transaction.id,
-              transaction.status,
+            // Create a typed version using our interface to ensure compatibility
+            const standardizedStatus = nowPaymentsService.createStandardizedPaymentStatus(
               transaction.transactionId || '',
-              parseFloat(transaction.amount.toString()),
-              'USDT',
-              parseFloat(transaction.amount.toString()),
-              'USDT',
+              transaction,
               apiPaymentStatus
             );
+            
+            // Assign properties individually to ensure type safety
+            paymentStatus = {
+              payment_id: standardizedStatus.payment_id,
+              payment_status: standardizedStatus.payment_status,
+              pay_address: standardizedStatus.pay_address,
+              price_amount: standardizedStatus.price_amount,
+              price_currency: standardizedStatus.price_currency,
+              pay_amount: standardizedStatus.pay_amount,
+              pay_currency: standardizedStatus.pay_currency,
+              created_at: standardizedStatus.created_at,
+              actually_paid: null, // Keep as null for type compatibility
+              actually_paid_at: null, // Keep as null for type compatibility
+              updated_at: null // Keep as null for type compatibility
+            };
           } catch (apiError) {
             console.error(`[NOWPayments] API error getting payment status:`, apiError);
             // Continue with the default status
@@ -655,6 +675,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Initialize default payment status
+      // Ensure created_at is always a string in ISO format
+      const createdAt = transaction.createdAt
+        ? transaction.createdAt instanceof Date
+          ? transaction.createdAt.toISOString()
+          : typeof transaction.createdAt === 'string'
+            ? transaction.createdAt
+            : new Date(transaction.createdAt).toISOString()
+        : new Date().toISOString();
+        
       let paymentStatus = {
         payment_id: paymentId,
         payment_status: transaction.status === 'pending' ? 'waiting' : transaction.status,
@@ -663,7 +692,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         price_currency: 'USDT',
         pay_amount: parseFloat(transaction.amount),
         pay_currency: 'USDT',
-        created_at: transaction.createdAt,
+        created_at: createdAt, // Always a string in ISO format
         actually_paid: null,
         actually_paid_at: null,
         updated_at: null
@@ -700,7 +729,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
               paymentStatus.pay_currency = apiPaymentStatus.pay_currency;
               // Handle optional properties with caution to maintain type compatibility
               if (apiPaymentStatus.created_at) {
-                paymentStatus.created_at = transaction.createdAt; // Use our transaction date for type safety
+                // Ensure created_at is a string in ISO format
+                paymentStatus.created_at = transaction.createdAt instanceof Date
+                  ? transaction.createdAt.toISOString()
+                  : typeof transaction.createdAt === 'string'
+                    ? transaction.createdAt
+                    : new Date(transaction.createdAt).toISOString();
               }
               paymentStatus.actually_paid = null; // Ensure type compatibility
               paymentStatus.actually_paid_at = null; // Ensure type compatibility

@@ -444,8 +444,10 @@ class NOWPaymentsService {
     try {
       console.log(`Getting minimum payment amount for currency: ${currency}`);
       
+      // The API requires both currency_from and currency_to parameters
+      // NOWPayments needs to know what currency you're converting from and to
       const response = await axios.get(
-        `${API_BASE_URL}/min-amount?currency_from=${currency}`,
+        `${API_BASE_URL}/min-amount?currency_from=${currency}&currency_to=usd`,
         { headers: this.getHeaders() }
       );
       
@@ -465,9 +467,27 @@ class NOWPaymentsService {
         });
       }
       
-      // For this specific error, we can safely default to 1 as a reasonable minimum
-      // This is not a mock, but a fallback for production when the API doesn't respond
-      return 1;
+      // Try with a different approach if the first attempt failed
+      try {
+        console.log(`Retrying with different parameters for currency: ${currency}`);
+        
+        // Try with both parameters explicitly set
+        const retryResponse = await axios.get(
+          `${API_BASE_URL}/min-amount/${currency}?currency_to=usd`,
+          { headers: this.getHeaders() }
+        );
+        
+        const minAmount = retryResponse.data.min_amount || 1;
+        console.log(`Retry successful - Minimum payment amount for ${currency}: ${minAmount}`);
+        
+        return minAmount;
+      } catch (retryError) {
+        console.error(`Retry also failed for ${currency}:`, retryError);
+        
+        // For this specific error, we can safely default to 1 as a reasonable minimum
+        // This is not a mock, but a fallback for production when the API doesn't respond
+        return 1;
+      }
     }
   }
   
@@ -614,6 +634,15 @@ class NOWPaymentsService {
     transaction: any, // Use any to avoid circular dependencies
     apiPaymentStatus?: PaymentStatusResponse
   ): StandardizedPaymentStatus {
+    // Ensure created_at is always a string in ISO format
+    const createdAt = transaction.createdAt
+      ? transaction.createdAt instanceof Date
+        ? transaction.createdAt.toISOString()
+        : typeof transaction.createdAt === 'string'
+          ? transaction.createdAt
+          : new Date(transaction.createdAt).toISOString()
+      : new Date().toISOString();
+    
     // Create base payment status from transaction
     const base: StandardizedPaymentStatus = {
       payment_id: paymentId,
@@ -623,9 +652,7 @@ class NOWPaymentsService {
       price_currency: 'USDT',
       pay_amount: parseFloat(transaction.amount),
       pay_currency: 'USDT',
-      created_at: transaction.createdAt instanceof Date 
-        ? transaction.createdAt.toISOString() 
-        : String(transaction.createdAt),
+      created_at: createdAt, // Always a string in ISO format
       actually_paid: null,
       actually_paid_at: null,
       updated_at: null
@@ -633,14 +660,37 @@ class NOWPaymentsService {
     
     // Merge with API payment status if provided
     if (apiPaymentStatus) {
+      // Ensure dates are always strings in ISO format
+      const apiCreatedAt = apiPaymentStatus.created_at
+        ? typeof apiPaymentStatus.created_at === 'string'
+          ? apiPaymentStatus.created_at
+          : new Date(apiPaymentStatus.created_at).toISOString()
+        : base.created_at;
+        
+      const apiUpdatedAt = apiPaymentStatus.updated_at
+        ? typeof apiPaymentStatus.updated_at === 'string'
+          ? apiPaymentStatus.updated_at
+          : new Date(apiPaymentStatus.updated_at).toISOString()
+        : null;
+        
+      const apiActuallyPaidAt = apiPaymentStatus.actually_paid_at
+        ? typeof apiPaymentStatus.actually_paid_at === 'string'
+          ? apiPaymentStatus.actually_paid_at
+          : new Date(apiPaymentStatus.actually_paid_at).toISOString()
+        : null;
+    
       return {
         ...base,
-        ...apiPaymentStatus,
-        // Ensure these fields are always properly typed
-        created_at: apiPaymentStatus.created_at || base.created_at,
+        pay_address: apiPaymentStatus.pay_address || base.pay_address,
+        payment_status: apiPaymentStatus.payment_status || base.payment_status,
+        price_amount: apiPaymentStatus.price_amount || base.price_amount,
+        price_currency: apiPaymentStatus.price_currency || base.price_currency,
+        pay_amount: apiPaymentStatus.pay_amount || base.pay_amount,
+        pay_currency: apiPaymentStatus.pay_currency || base.pay_currency,
+        created_at: apiCreatedAt,
         actually_paid: apiPaymentStatus.actually_paid !== undefined ? apiPaymentStatus.actually_paid : null,
-        actually_paid_at: apiPaymentStatus.actually_paid_at || null,
-        updated_at: apiPaymentStatus.updated_at || null
+        actually_paid_at: apiActuallyPaidAt,
+        updated_at: apiUpdatedAt
       };
     }
     

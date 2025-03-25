@@ -353,13 +353,18 @@ export function PaymentPopup({ isOpen, onClose, onSuccess }: PaymentPopupProps) 
           <div className="py-4 text-center">
             <p className="mb-2">Your payment link is ready.</p>
             <p className="mb-4 text-sm text-muted-foreground">
-              If the payment page doesn't open automatically, please click the button below.
+              You can pay with multiple cryptocurrencies including BTC, ETH, USDT, and many others.
+              The payment page will display all available options.
             </p>
+            <div className="bg-amber-50 text-amber-700 p-3 rounded-md mb-4 text-sm">
+              <p className="font-medium">💡 Payment Options Available</p>
+              <p className="text-xs mt-1">Your deposit amount will be converted to USDT in your game wallet regardless of which cryptocurrency you use for payment.</p>
+            </div>
             <Button 
               onClick={openPaymentLink}
               className="w-full mb-2"
             >
-              Open Payment Link
+              Open Payment Gateway
             </Button>
             <div className="text-xs text-muted-foreground mt-2">
               {invoiceId && (
@@ -378,7 +383,7 @@ export function PaymentPopup({ isOpen, onClose, onSuccess }: PaymentPopupProps) 
               {isLoading ? <Loader size="sm" className="mr-2" /> : null}
               {serviceStatus && !serviceStatus.apiConfigured 
                 ? 'Payment Service Unavailable' 
-                : 'Pay with Crypto'}
+                : 'Pay with Any Cryptocurrency'}
             </Button>
           ) : (
             <Button variant="outline" onClick={closePaymentWindow}>
