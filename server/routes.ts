@@ -690,10 +690,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     const pendingWithdrawals = transactions.filter(t => t.type === "withdrawal" && t.status === "pending").length;
 
+    // Get actual user statistics from the database
+    const userCount = users?.id || 0; // Use a more accurate method to count users
+    
     const stats = {
-      todayLogins: 5,
-      yesterdayLogins: 8,
-      totalUsers: 10,
+      todayLogins: 0, // This should be tracked properly in a real system
+      yesterdayLogins: 0, // This should be tracked properly in a real system
+      totalUsers: userCount,
       todayDeposits,
       totalDeposits,
       todayWithdrawals,

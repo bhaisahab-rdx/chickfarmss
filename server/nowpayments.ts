@@ -8,13 +8,13 @@ const API_KEY = config.nowpayments.apiKey;
 
 // Function to check if NOWPayments API key is configured
 export const isNOWPaymentsConfigured = (): boolean => {
-  return !!API_KEY && API_KEY !== 'dev_test_key_for_ui_testing';
+  return !!API_KEY; // Simply check if the API key exists
 };
 
 // Function to check if NOWPayments IPN secret is configured
 export const isIPNSecretConfigured = (): boolean => {
   const ipnSecret = config.nowpayments.ipnSecret;
-  return !!ipnSecret && ipnSecret !== 'dev_test_secret';
+  return !!ipnSecret; // Simply check if the IPN secret exists
 };
 
 interface CreatePaymentResponse {
