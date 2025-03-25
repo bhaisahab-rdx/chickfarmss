@@ -54,9 +54,22 @@ export function PaymentPopup({ isOpen, onClose, onSuccess }: PaymentPopupProps) 
       
       if (!data.apiConfigured) {
         toast({
-          title: 'Payment Service Error',
-          description: 'Payment service is not fully configured. Please try again later or contact support.',
+          title: 'Payment Service Notice',
+          description: 'Crypto payment service requires configuration. Please contact support for assistance.',
           variant: 'destructive'
+        });
+      } else if (data.serviceStatus !== 'OK' && data.serviceStatus !== 'ok') {
+        toast({
+          title: 'Payment Service Status',
+          description: `Payment service is currently ${data.serviceStatus}. You may experience delays in processing.`,
+          variant: 'destructive'
+        });
+      } else {
+        // Service is configured and running
+        toast({
+          title: 'Payment Service Ready',
+          description: 'Cryptocurrency payment service is active and ready to accept payments.',
+          variant: 'default'
         });
       }
     } catch (error) {
@@ -64,8 +77,8 @@ export function PaymentPopup({ isOpen, onClose, onSuccess }: PaymentPopupProps) 
       setServiceStatus(undefined);
       
       toast({
-        title: 'Error',
-        description: 'Unable to check payment service status. Please try again later.',
+        title: 'Connection Error',
+        description: 'Unable to verify payment service status. Please check your connection and try again.',
         variant: 'destructive'
       });
     }
@@ -101,8 +114,11 @@ export function PaymentPopup({ isOpen, onClose, onSuccess }: PaymentPopupProps) 
         });
       } else {
         // Use the public test endpoint for debugging or when not authenticated
-        console.log('Using test invoice endpoint (not authenticated)');
-        response = await apiRequest('POST', '/api/public/payments/test-invoice');
+        console.log('Using test invoice endpoint (not authenticated) with amount:', amount);
+        response = await apiRequest('POST', '/api/public/payments/test-invoice', {
+          amount,
+          currency: 'USD'
+        });
       }
 
       console.log('Invoice creation response:', response);
