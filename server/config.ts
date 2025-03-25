@@ -13,8 +13,16 @@ export const config = {
   
   // API and application URLs
   urls: {
-    api: process.env.API_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:5000'),
-    app: process.env.APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:5000'),
+    api: process.env.API_URL || 
+      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 
+        (process.env.REPL_SLUG && process.env.REPL_OWNER ? 
+          `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co` : 
+          'http://localhost:5000')),
+    app: process.env.APP_URL || 
+      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 
+        (process.env.REPL_SLUG && process.env.REPL_OWNER ? 
+          `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co` : 
+          'http://localhost:5000')),
   },
   
   // Environment settings

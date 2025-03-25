@@ -40,7 +40,7 @@ async function testCreateInvoice() {
     const payload = {
       price_amount: 10,
       price_currency: 'USD',
-      pay_currency: 'USDT',
+      pay_currency: 'USDTTRC20',
       ipn_callback_url: 'https://chickfarms.replit.app/api/payments/callback',
       success_url: 'https://chickfarms.replit.app/wallet?payment=success',
       cancel_url: 'https://chickfarms.replit.app/wallet?payment=cancelled',

@@ -91,7 +91,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         amount,
         0, // Use 0 as user ID for test invoices
         currency,
-        'USDT', // Default payment currency
+        'USDTTRC20', // Specifically use USDT on Tron (TRC20) network
         successUrl,
         cancelUrl,
         `TEST-${Date.now()}`, // Generate a unique order ID
@@ -201,7 +201,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           // Try to get minimum amount
           try {
-            minAmount = await nowPaymentsService.getMinimumPaymentAmount("USDT");
+            minAmount = await nowPaymentsService.getMinimumPaymentAmount("USDTTRC20");
           } catch (minAmountError) {
             console.error("Failed to get minimum amount:", minAmountError);
           }
@@ -258,10 +258,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         amount,
         user.id,
         currency,
+        'USDTTRC20', // Specifically use USDT on Tron (TRC20) network
         successUrl,
         cancelUrl,
         undefined, // Generate a unique order ID
-        `ChickFarms deposit - ${amount} ${currency}`,
+        `ChickFarms deposit - User ID: ${user.id}`,
         callbackUrl
       );
       
@@ -333,7 +334,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/payments/min-amount", async (req, res) => {
     try {
-      const currency = req.query.currency as string || "USDT";
+      let currency = req.query.currency as string || "USDT";
+      
+      // Convert USDT to USDTTRC20 for consistency
+      if (currency.toUpperCase() === 'USDT') {
+        currency = 'USDTTRC20';
+      }
+      
       const minAmount = await nowPaymentsService.getMinimumPaymentAmount(currency);
       res.json({ minAmount, currency });
     } catch (error) {
@@ -1463,7 +1470,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const schema = z.object({
       amount: z.number().positive(),
       currency: z.string().optional().default("USDT"),
-      payCurrency: z.string().optional().default("USDT"),
+      payCurrency: z.string().optional().default("USDTTRC20"),
       useInvoice: z.boolean().optional().default(true) // Default to true for consistent portal-based payments
     });
 
@@ -1475,11 +1482,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     try {
       // Create payment via NOWPayments API for automatic payments
-      const apiUrl = config.urls.api || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:5000');
-      const callbackUrl = `${apiUrl}/api/payments/callback`;
-      const appUrl = config.urls.app || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:5000');
-      const successUrl = `${appUrl}/wallet?payment=success`;
-      const cancelUrl = `${appUrl}/wallet?payment=cancelled`;
+      const callbackUrl = `${config.urls.api}/api/payments/callback`;
+      const successUrl = `${config.urls.app}/wallet?payment=success`;
+      const cancelUrl = `${config.urls.app}/wallet?payment=cancelled`;
       
       console.log(`[NOWPayments] Creating payment for $${result.data.amount} from user ${req.user!.id}`);
       console.log(`[NOWPayments] Callback URL: ${callbackUrl}`);
@@ -1497,8 +1502,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (result.data.useInvoice) {
           console.log(`[NOWPayments] Creating invoice for redirection to NOWPayments portal`);
           
-          // Get the preferred payment currency from the request (default to USDT if not specified)
-          const preferredPayCurrency = result.data.payCurrency || 'USDT';
+          // Get the preferred payment currency from the request (default to USDTTRC20 if not specified)
+          const preferredPayCurrency = result.data.payCurrency || 'USDTTRC20';
           
           const invoice = await nowPaymentsService.createInvoice(
             result.data.amount,

@@ -217,51 +217,24 @@ class NOWPaymentsService {
    * If not, finds an alternative currency
    */
   async findAvailablePaymentCurrency(preferredCurrency: string = 'USDT'): Promise<string> {
+    // Special case for USDT - use USDTTRC20 (USDT on Tron network) by default
+    if (preferredCurrency.toUpperCase() === 'USDT') {
+      console.log('Converting USDT to USDTTRC20 for Tron network compatibility');
+      preferredCurrency = 'USDTTRC20';
+    }
+    
     // Common fallback currencies in order of preference
     const fallbackCurrencies = ['BTC', 'ETH', 'DOGE', 'LTC', 'BNB'];
 
     try {
-      // If we know USDT is having issues, immediately try to use a fallback
-      if (preferredCurrency.toUpperCase() === 'USDT') {
-        console.log(`USDT has been reported as unavailable, trying alternatives first`);
-        
-        try {
-          // First try to get available currencies list
-          const currencies = await this.getAvailableCurrencies();
-          const enabledCurrencies = currencies.filter(c => c.enabled);
-          
-          // See if any of our fallback currencies are available
-          for (const fallback of fallbackCurrencies) {
-            const isAvailable = enabledCurrencies.some(
-              c => c.currency.toUpperCase() === fallback.toUpperCase()
-            );
-            
-            if (isAvailable) {
-              console.log(`Found alternative currency: ${fallback}`);
-              return fallback;
-            }
-          }
-          
-          // If none of our preferred options are available, pick the first enabled one
-          if (enabledCurrencies.length > 0) {
-            const fallbackCurrency = enabledCurrencies[0].currency;
-            console.log(`Using fallback currency: ${fallbackCurrency}`);
-            return fallbackCurrency;
-          }
-        } catch (fallbackError) {
-          console.error('Error finding fallback currency:', fallbackError);
-          // If we couldn't find a fallback, default to BTC which is almost always available
-          console.log('Defaulting to BTC due to USDT unavailability');
-          return 'BTC';
-        }
-      }
-      
-      // If preferred currency is not USDT or we couldn't find a fallback,
-      // proceed with standard availability check
+      // Proceed with standard availability check
       const currencies = await this.getAvailableCurrencies();
       const enabledCurrencies = currencies.filter(c => c.enabled);
       
-      // Check if preferred currency is available
+      // Log available currencies for debugging
+      console.log(`Available currencies: ${enabledCurrencies.map(c => c.currency).join(', ')}`);
+      
+      // Check if preferred currency (now USDTTRC20 if it was USDT) is available
       const isPreferredAvailable = enabledCurrencies.some(
         c => c.currency.toUpperCase() === preferredCurrency.toUpperCase()
       );
@@ -271,9 +244,22 @@ class NOWPaymentsService {
         return preferredCurrency;
       }
       
-      // If preferred currency is not available, try fallbacks again
+      // If preferred currency is not available, try fallbacks
       console.log(`Preferred currency ${preferredCurrency} is not available, looking for alternatives`);
       
+      // If USDTTRC20 wasn't available, try regular USDT again
+      if (preferredCurrency.toUpperCase() === 'USDTTRC20') {
+        const isUSDTAvailable = enabledCurrencies.some(
+          c => c.currency.toUpperCase() === 'USDT'
+        );
+        
+        if (isUSDTAvailable) {
+          console.log('USDTTRC20 not available, but regular USDT is. Using USDT.');
+          return 'USDT';
+        }
+      }
+      
+      // Try other fallback currencies
       for (const fallback of fallbackCurrencies) {
         const isAvailable = enabledCurrencies.some(
           c => c.currency.toUpperCase() === fallback.toUpperCase()
@@ -297,8 +283,10 @@ class NOWPaymentsService {
       return 'BTC';
     } catch (error) {
       console.error('Error finding available payment currency:', error);
-      // In case of error, return BTC as the fallback
-      return 'BTC';
+      
+      // If we ran into an error, use USDTTRC20 as the preferred option
+      console.log('Defaulting to USDTTRC20 due to error');
+      return 'USDTTRC20'; 
     }
   }
 
@@ -306,7 +294,7 @@ class NOWPaymentsService {
     amount: number, 
     userId: number,
     currency: string = 'USD',
-    payCurrency: string = 'USDT',
+    payCurrency: string = 'USDTTRC20',
     orderId?: string,
     orderDescription?: string,
     callbackUrl?: string
@@ -379,7 +367,7 @@ class NOWPaymentsService {
           price_amount: 100,
           price_currency: 'USD',
           pay_amount: 100,
-          pay_currency: 'USDT',
+          pay_currency: 'USDTTRC20',
           order_id: `ORDER-${paymentId}`,
           order_description: 'Mock payment for development',
           ipn_callback_url: `${config.urls.api}/api/payments/callback`,
@@ -425,11 +413,18 @@ class NOWPaymentsService {
   }
 
   async getMinimumPaymentAmount(currency: string = 'USDT'): Promise<number> {
+    // Convert USDT to USDTTRC20 for consistency
+    if (currency.toUpperCase() === 'USDT') {
+      console.log('Converting USDT to USDTTRC20 for minimum payment amount check');
+      currency = 'USDTTRC20';
+    }
+    
     // In mock mode, return mock minimum amounts for different currencies
     if (this.isMockMode) {
       console.log(`Using mock mode for minimum payment amount for currency: ${currency}`);
       
       const mockMinAmounts: Record<string, number> = {
+        'USDTTRC20': 10,
         'USDT': 10,
         'BTC': 0.001,
         'ETH': 0.01,
@@ -499,7 +494,7 @@ class NOWPaymentsService {
     amount: number,
     userId: number,
     currency: string = 'USD',
-    payCurrency: string = 'USDT', // Default pay currency, will be checked for availability
+    payCurrency: string = 'USDTTRC20', // Default pay currency is USDT on Tron network
     successUrl?: string,
     cancelUrl?: string,
     orderId?: string,
@@ -649,9 +644,9 @@ class NOWPaymentsService {
       payment_status: transaction.status === 'pending' ? 'waiting' : transaction.status,
       pay_address: '',
       price_amount: parseFloat(transaction.amount),
-      price_currency: 'USDT',
+      price_currency: 'USDTTRC20',
       pay_amount: parseFloat(transaction.amount),
-      pay_currency: 'USDT',
+      pay_currency: 'USDTTRC20',
       created_at: createdAt, // Always a string in ISO format
       actually_paid: null,
       actually_paid_at: null,

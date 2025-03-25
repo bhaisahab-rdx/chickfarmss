@@ -1,0 +1,65 @@
+If you want users to pay using USDT on Tron (TRC20), you need to specify USDT-TRC20 as the pay_currency in your NOWPayments API request.
+
+✅ Correct API Request for USDT (TRC20) Payments
+Make sure your request follows this format:
+
+json
+Copy
+Edit
+{
+  "price_amount": 90,
+  "price_currency": "USDT",
+  "pay_currency": "USDTTRC20",
+  "ipn_callback_url": "https://your-website.com/ipn",
+  "order_id": "ORDER1234",
+  "order_description": "Purchase of Chickens"
+}
+🔹 Fixing Common Issues
+Ensure pay_currency is set to USDTTRC20, not just USDT.
+
+Check if NOWPayments supports USDT-TRC20 by running:
+
+bash
+Copy
+Edit
+curl -X GET "https://api.nowpayments.io/v1/currencies" \
+     -H "x-api-key: YOUR_NOWPAYMENTS_API_KEY"
+Make sure ipn_callback_url is a valid URL (it should be HTTPS and publicly accessible).
+
+Confirm that your NOWPayments account supports USDT-TRC20 transactions.
+
+🚀 Prompt for Replit AI
+Use this prompt to have Replit AI check and fix your NOWPayments integration:
+
+vbnet
+Copy
+Edit
+I want to integrate NOWPayments into my Replit project so users can pay using USDT on Tron (TRC20).
+Currently, I get an error when creating a payment: "Can not get estimate from BTC to USDT."
+
+Fix the NOWPayments integration by ensuring:
+1. Users pay in **USDT on Tron (TRC20)**.
+2. The API request correctly includes `pay_currency: "USDTTRC20"`.
+3. The `ipn_callback_url` is correctly set.
+4. The NOWPayments popup displays for users to complete payment.
+5. Any unsupported conversion issues are handled properly.
+
+Check for errors and make it work smoothly.
+✅ After Fixing: Test Payment Creation
+Run this API call in Replit to test:
+
+bash
+Copy
+Edit
+curl -X POST "https://api.nowpayments.io/v1/payment" \
+     -H "x-api-key: YOUR_NOWPAYMENTS_API_KEY" \
+     -H "Content-Type: application/json" \
+     -d '{
+           "price_amount": 90,
+           "price_currency": "USDT",
+           "pay_currency": "USDTTRC20",
+           "ipn_callback_url": "https://your-website.com/ipn",
+           "order_id": "ORDER1234",
+           "order_description": "Purchase of Chickens"
+         }'
+Let me know if you get any errors, and I’ll help you debug them. 🚀

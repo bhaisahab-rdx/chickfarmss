@@ -1,0 +1,79 @@
+I'm integrating NOWPayments into my Replit project to allow users to deposit USDT. However, when trying to create an invoice, I receive the following error:
+
+csharp
+Copy
+Edit
+Request failed with status code 400
+🔍 What I Need You to Do:
+1️⃣ Debug & Fix the NOWPayments API Request:
+
+Ensure the API request matches NOWPayments' correct format.
+
+Validate that price_currency, pay_currency, and price_amount are correct.
+
+Ensure headers contain a valid API key.
+
+2️⃣ Check API Key & Authentication:
+
+Verify that the API key is being sent correctly.
+
+If missing, add "x-api-key": "MY_NOWPAYMENTS_API_KEY" in the headers.
+
+3️⃣ Ensure Webhook & URLs Are Correct:
+
+The ipn_callback_url should be publicly accessible (not localhost).
+
+Confirm success_url and cancel_url are set correctly.
+
+4️⃣ Print & Log Full API Response:
+
+Add console.log(response.data) after making the request to see detailed errors.
+
+5️⃣ Test the API Using a Manual Request:
+
+Provide me with a cURL command I can use to manually test if the request works.
+
+📌 Here is My Current API Request Code:
+
+typescript
+Copy
+Edit
+const axios = require("axios");
+
+async function createInvoice() {
+    const requestData = {
+        price_amount: 90,
+        price_currency: "usdt",
+        pay_currency: "trx",
+        order_id: "user_12345",
+        order_description: "Deposit for ChickFarms",
+        ipn_callback_url: "https://your-replit-backend-url.com/webhook",
+        success_url: "https://your-game-url.com/success",
+        cancel_url: "https://your-game-url.com/cancel"
+    };
+
+    try {
+        const response = await axios.post("https://api.nowpayments.io/v1/invoice", requestData, {
+            headers: {
+                "x-api-key": "MY_NOWPAYMENTS_API_KEY",
+                "Content-Type": "application/json"
+            }
+        });
+
+        console.log(response.data);
+        return response.data;
+    } catch (error) {
+        console.error("Error creating invoice:", error.response?.data || error.message);
+    }
+}
+
+createInvoice();
+💡 Expected Outcome:
+
+The NOWPayments invoice should be successfully created.
+
+A valid payment link & QR code should be returned.
+
+Webhook should be triggered when payment is completed.
+
+🚀 Fix this and ensure the NOWPayments integration works correctly.

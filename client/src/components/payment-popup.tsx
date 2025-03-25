@@ -110,14 +110,18 @@ export function PaymentPopup({ isOpen, onClose, onSuccess }: PaymentPopupProps) 
         console.log('Creating invoice for authenticated user:', auth.user.id);
         response = await apiRequest('POST', '/api/payments/create-invoice', {
           amount, 
-          currency: 'USD'
+          currency: 'USD',
+          payCurrency: 'USDTTRC20', // Explicitly specify USDT on Tron network for payment
+          useInvoice: true // Always use the invoice system for official NOWPayments page
         });
       } else {
         // Use the public test endpoint for debugging or when not authenticated
         console.log('Using test invoice endpoint (not authenticated) with amount:', amount);
         response = await apiRequest('POST', '/api/public/payments/test-invoice', {
           amount,
-          currency: 'USD'
+          currency: 'USD',
+          payCurrency: 'USDTTRC20', // Explicitly specify USDT on Tron network for payment
+          useInvoice: true // Always use the invoice system for official NOWPayments page
         });
       }
 
@@ -383,7 +387,7 @@ export function PaymentPopup({ isOpen, onClose, onSuccess }: PaymentPopupProps) 
               {isLoading ? <Loader size="sm" className="mr-2" /> : null}
               {serviceStatus && !serviceStatus.apiConfigured 
                 ? 'Payment Service Unavailable' 
-                : 'Pay with Any Cryptocurrency'}
+                : isLoading ? 'Creating Payment...' : 'Pay with Any Cryptocurrency'}
             </Button>
           ) : (
             <Button variant="outline" onClick={closePaymentWindow}>

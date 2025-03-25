@@ -40,7 +40,7 @@ async function checkStatus() {
 }
 
 // Function to get minimum payment amount
-async function getMinimumPaymentAmount(currency = 'USDT') {
+async function getMinimumPaymentAmount(currency = 'USDTTRC20') {
   try {
     console.log(`Getting minimum payment amount for currency: ${currency}`);
     
@@ -59,7 +59,7 @@ async function getMinimumPaymentAmount(currency = 'USDT') {
     console.log(`Minimum payment amount response:`, response.data);
     return response.data;
   } catch (error) {
-    console.error(`Error getting minimum payment amount:`);
+    console.error(`Error getting minimum payment amount for ${currency}:`);
     if (error.response) {
       console.error('Response data:', error.response.data);
       console.error('Response status:', error.response.status);
@@ -103,6 +103,7 @@ async function createInvoice(amount) {
     const payload = {
       price_amount: amount,
       price_currency: 'USD',
+      pay_currency: 'USDTTRC20', // Explicitly specify USDT on Tron network
       ipn_callback_url: 'https://chickfarms.replit.app/api/payments/callback',
       success_url: 'https://chickfarms.replit.app/wallet?payment=success',
       cancel_url: 'https://chickfarms.replit.app/wallet?payment=cancelled',
@@ -128,7 +129,8 @@ async function createInvoice(amount) {
     console.log('Successfully created NOWPayments invoice:', {
       id: response.data.id,
       status: response.data.status,
-      invoice_url: response.data.invoice_url
+      invoice_url: response.data.invoice_url,
+      pay_currency: response.data.pay_currency || 'Not specified in response'
     });
     
     return response.data;
@@ -142,7 +144,41 @@ async function createInvoice(amount) {
     } else {
       console.error('Error message:', error.message);
     }
-    throw error;
+    
+    // If USDTTRC20 fails, try without specifying the currency
+    try {
+      console.log('USDTTRC20 invoice failed, trying without specifying pay_currency...');
+      const fallbackPayload = {
+        price_amount: amount,
+        price_currency: 'USD',
+        ipn_callback_url: 'https://chickfarms.replit.app/api/payments/callback',
+        success_url: 'https://chickfarms.replit.app/wallet?payment=success',
+        cancel_url: 'https://chickfarms.replit.app/wallet?payment=cancelled',
+        is_fee_paid_by_user: true
+      };
+      
+      const fallbackResponse = await axios.post(
+        `${API_BASE_URL}/invoice`,
+        fallbackPayload,
+        { 
+          headers: {
+            'x-api-key': API_KEY,
+            'Content-Type': 'application/json',
+          }
+        }
+      );
+      
+      console.log('Successfully created fallback NOWPayments invoice:', {
+        id: fallbackResponse.data.id,
+        status: fallbackResponse.data.status,
+        invoice_url: fallbackResponse.data.invoice_url
+      });
+      
+      return fallbackResponse.data;
+    } catch (fallbackError) {
+      console.error('Fallback invoice creation also failed:', fallbackError.message);
+      throw error; // Throw the original error
+    }
   }
 }
 
@@ -152,26 +188,32 @@ async function runTests() {
     // Step 1: Check API status
     await checkStatus();
     
-    // Step 2: Try different currencies for minimum amount check
-    // If USDT fails, try alternatives
+    // Step 2: Try to get minimum payment amount for USDTTRC20
     try {
-      await getMinimumPaymentAmount('USDT');
-    } catch (usdtError) {
-      console.log('Trying alternative currency (BTC) due to USDT issues...');
+      console.log('Testing USDTTRC20 as primary payment currency...');
+      await getMinimumPaymentAmount('USDTTRC20');
+    } catch (usdtTrc20Error) {
+      console.log('USDTTRC20 not available, trying regular USDT...');
       try {
-        await getMinimumPaymentAmount('BTC');
-      } catch (btcError) {
-        console.log('Trying another alternative currency (ETH)...');
+        await getMinimumPaymentAmount('USDT');
+      } catch (usdtError) {
+        console.log('USDT also not available, trying alternative currencies...');
         try {
-          await getMinimumPaymentAmount('ETH');
-        } catch (ethError) {
-          console.error('All cryptocurrency checks failed. Proceeding with default values.');
+          await getMinimumPaymentAmount('BTC');
+        } catch (btcError) {
+          console.log('Trying another alternative currency (ETH)...');
+          try {
+            await getMinimumPaymentAmount('ETH');
+          } catch (ethError) {
+            console.error('All cryptocurrency checks failed. Proceeding with default values.');
+          }
         }
       }
     }
     
-    // Step 3: Attempt to create an invoice with default settings 
-    // (which should use available currencies if USDT is unavailable)
+    // Step 3: Create an invoice with default settings
+    // The system should attempt to use USDTTRC20 first based on our settings
+    console.log('Creating payment invoice (should prefer USDTTRC20 when available)');
     await createInvoice(10);
   } catch (error) {
     console.error('Test failed with error:', error.message);

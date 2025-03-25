@@ -82,7 +82,7 @@ export default function WalletPage() {
     defaultValues: {
       amount: 10,
       currency: "USDT",
-      payCurrency: "USDT",
+      payCurrency: "USDTTRC20", // Explicitly use USDT on Tron network
       useInvoice: true,
     },
   });
@@ -106,7 +106,7 @@ export default function WalletPage() {
       return await apiRequest("POST", "/api/wallet/recharge", {
         amount: data.amount,
         currency: data.currency || "USDT",
-        payCurrency: data.payCurrency || "USDT",
+        payCurrency: data.payCurrency || "USDTTRC20", // Explicitly use USDT on Tron network
         useInvoice: true // Always use the invoice-based payment for consistency
       });
     },
@@ -126,7 +126,7 @@ export default function WalletPage() {
         });
         
         // Reset the form
-        rechargeForm.reset({ amount: 10, currency: "USDT", payCurrency: "USDT", useInvoice: true });
+        rechargeForm.reset({ amount: 10, currency: "USDT", payCurrency: "USDTTRC20", useInvoice: true });
         return;
       } else {
         toast({
@@ -257,7 +257,7 @@ export default function WalletPage() {
                             rechargeMutation.mutate({
                               amount: data.amount,
                               currency: data.currency || 'USDT',
-                              payCurrency: data.payCurrency || 'USDT',
+                              payCurrency: data.payCurrency || 'USDTTRC20', // Explicitly use USDT on Tron network
                               useInvoice: true
                             });
                           })}
@@ -289,7 +289,7 @@ export default function WalletPage() {
                             className="w-full h-10 text-sm sm:text-base"
                             disabled={rechargeMutation.isPending}
                           >
-                            {rechargeMutation.isPending ? "Creating Payment..." : "Pay with Crypto"}
+                            {rechargeMutation.isPending ? "Creating Payment..." : "Pay with Any Cryptocurrency"}
                           </Button>
                           
                           <p className="text-xs text-center text-muted-foreground">

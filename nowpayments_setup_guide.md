@@ -54,13 +54,24 @@ You can add these in your hosting provider's environment variables section, or b
 
 NOWPayments supports a wide range of cryptocurrencies, including:
 
-- USDT (Tether)
+- USDTTRC20 (USDT on Tron Network) - **Primary payment option**
 - BTC (Bitcoin)
 - ETH (Ethereum)
 - DOGE (Dogecoin)
 - LTC (Litecoin)
 - BNB (Binance Coin)
 - And many more...
+
+**Important**: ChickFarms is configured to primarily use USDT on the Tron network (TRC20) as the default payment method. This provides faster and more cost-effective transactions for users. While other cryptocurrencies are available at checkout, the system will automatically attempt to use USDTTRC20 when available.
+
+### Fallback Mechanism
+
+The payment system includes an intelligent fallback mechanism:
+
+1. First attempts to use USDTTRC20 (USDT on Tron Network) 
+2. If USDTTRC20 is unavailable, automatically falls back to other cryptocurrencies
+3. Uses the first available cryptocurrency provided by NOWPayments
+4. All payment options are displayed on the NOWPayments checkout page
 
 ## Troubleshooting
 
@@ -69,7 +80,10 @@ If you encounter issues with the payment process:
 1. **Check API Key**: Verify your API key is correctly configured
 2. **Check IPN Secret**: Make sure your IPN secret is set correctly
 3. **Check Logs**: Review the server logs for any error messages
-4. **Test Mode**: You can test without real funds using NOWPayments' test mode
+4. **USDT Network Issue**: If you're seeing errors specifically with USDTTRC20, the system will automatically fall back to other available cryptocurrencies. This is normal during maintenance periods.
+5. **Verify NOWPayments Status**: Check [NOWPayments Status Page](https://nowpayments.io/status) to verify their service is operational
+6. **Callback URL**: Ensure your server can receive callbacks from NOWPayments (check firewall settings)
+7. **Test Mode**: You can test without real funds using NOWPayments' test mode
 
 ## Support
 
