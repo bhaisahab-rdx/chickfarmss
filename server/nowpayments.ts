@@ -906,6 +906,19 @@ class NOWPaymentsService {
         console.log('[NOWPayments] API status check failed, using test invoice');
         return createTestInvoice();
       }
+      
+      // Additional check for API key permissions
+      // Even if status is OK, the key might not have permissions for invoice creation
+      try {
+        // Try to get minimum payment amount, which requires fewer permissions than invoice creation
+        await this.getMinimumPaymentAmount('USDTTRC20');
+      } catch (permissionError: any) {
+        if (permissionError.response && permissionError.response.status === 403) {
+          console.warn('[NOWPayments] API key has limited permissions. Key can check status but not create invoices.');
+          console.log('[NOWPayments] Using test invoice due to API key permission restrictions.');
+          return createTestInvoice();
+        }
+      }
     } catch (error: any) {
       console.log('[NOWPayments] API check error, using test invoice:', error.message);
       return createTestInvoice();
