@@ -843,6 +843,11 @@ class NOWPaymentsService {
       };
     }
 
+    // Create axiosInstance at the beginning to be available throughout the try/catch blocks  
+    const axiosInstance = this.getConfiguredAxios();
+    // Define payload outside the try block to be accessible in the catch blocks
+    let payload: any;
+      
     try {
       console.log(`[NOWPayments] Checking if ${payCurrency} is available for payments...`);
       
@@ -877,7 +882,8 @@ class NOWPaymentsService {
         // We'll continue anyway as the API will reject if the amount is too low
       }
       
-      const payload = {
+      // Create the payload
+      payload = {
         price_amount: amount,
         price_currency: currency,
         pay_currency: availablePayCurrency,
@@ -894,16 +900,12 @@ class NOWPaymentsService {
         api_key: '[REDACTED]' // Don't log the actual API key
       });
 
-      // Use direct axios approach matching the working test script
-      const response = await axios.post(
+      // Use our configured axios instance for better error handling
+      const response = await axiosInstance.post(
         `${API_BASE_URL}/invoice`,
         payload,
         { 
-          headers: {
-            'x-api-key': this.apiKey,
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-          },
+          headers: this.getHeaders(),
           timeout: 30000 // 30 second timeout
         }
       );
@@ -954,22 +956,33 @@ class NOWPaymentsService {
         try {
           console.log('[NOWPayments] USDTTRC20 invoice failed, trying fallback with USDT...');
           
+          // Make sure payload exists to avoid TypeScript error
+          if (!payload) {
+            payload = {
+              price_amount: amount,
+              price_currency: currency,
+              pay_currency: payCurrency,
+              order_id: orderId,
+              order_description: orderDescription,
+              ipn_callback_url: callbackUrl,
+              success_url: successUrl,
+              cancel_url: cancelUrl,
+              is_fee_paid_by_user: true
+            };
+          }
+          
           // Try with just USDT without TRC20 specification
           const fallbackPayload = {
             ...payload,
             pay_currency: 'USDT'
           };
           
-          // Use direct axios approach as before
-          const fallbackResponse = await axios.post(
+          // Use our configured axios instance for better error handling
+          const fallbackResponse = await axiosInstance.post(
             `${API_BASE_URL}/invoice`,
             fallbackPayload,
             { 
-              headers: {
-                'x-api-key': this.apiKey,
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
-              },
+              headers: this.getHeaders(),
               timeout: 30000 // 30 second timeout
             }
           );
@@ -994,16 +1007,12 @@ class NOWPaymentsService {
               pay_currency: undefined
             };
             
-            // Use direct axios approach as before
-            const finalResponse = await axios.post(
+            // Use our configured axios instance for better error handling
+            const finalResponse = await axiosInstance.post(
               `${API_BASE_URL}/invoice`,
               finalPayload,
               { 
-                headers: {
-                  'x-api-key': this.apiKey,
-                  'Content-Type': 'application/json',
-                  'Accept': 'application/json'
-                },
+                headers: this.getHeaders(),
                 timeout: 30000 // 30 second timeout
               }
             );
