@@ -1,5 +1,7 @@
-require('dotenv').config();
-const axios = require('axios');
+import * as dotenv from 'dotenv';
+import axios from 'axios';
+
+dotenv.config();
 
 // Function to create an invoice directly using the NOWPayments API
 async function testCreateInvoice() {
@@ -14,12 +16,12 @@ async function testCreateInvoice() {
   const requestData = {
     price_amount: 10,
     price_currency: "USD",
-    pay_currency: "USDT",
+    pay_currency: "USDTTRC20",
     order_id: "TEST-" + Date.now(),
     order_description: "ChickFarms test deposit",
-    ipn_callback_url: "https://workspace.hirosenaka.repl.co/api/payments/callback",
-    success_url: "https://workspace.hirosenaka.repl.co/wallet?payment=success",
-    cancel_url: "https://workspace.hirosenaka.repl.co/wallet?payment=cancelled"
+    ipn_callback_url: "https://workspace.sunabucha.repl.co/api/payments/callback",
+    success_url: "https://workspace.sunabucha.repl.co/wallet?payment=success",
+    cancel_url: "https://workspace.sunabucha.repl.co/wallet?payment=cancelled"
   };
   
   console.log('Sending request to NOWPayments API with the following data:');
