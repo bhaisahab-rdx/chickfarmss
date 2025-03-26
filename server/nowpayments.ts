@@ -99,6 +99,11 @@ class NOWPaymentsService {
   
   // Cache for enabled currencies list to reduce API calls
   private enabledCurrenciesCache: { currencies: AvailableCurrency[], timestamp: number } | null = null;
+  
+  // JWT token storage and expiry time
+  private jwtToken: string | null = null;
+  private jwtTokenExpiry: number = 0; // Unix timestamp when the token expires
+  private readonly JWT_REFRESH_BUFFER = 5 * 60 * 1000; // 5 minutes in milliseconds
 
   constructor() {
     if (!API_KEY || API_KEY.trim() === '') {
@@ -177,13 +182,87 @@ class NOWPaymentsService {
     }
   }
 
-  private getHeaders() {
-    return {
+  private getHeaders(includeJWT = false) {
+    const headers: Record<string, string> = {
       'x-api-key': this.apiKey,
       'Content-Type': 'application/json',
       'Accept': 'application/json',
       'User-Agent': 'ChickFarms-Payment-Client/1.0'
     };
+    
+    // Add JWT token if requested and available
+    if (includeJWT && this.jwtToken) {
+      headers['Authorization'] = `Bearer ${this.jwtToken}`;
+    }
+    
+    return headers;
+  }
+  
+  /**
+   * Authenticates with the NOWPayments API to obtain a JWT token
+   * This token is required for certain API operations
+   * @returns true if authentication was successful, false otherwise
+   */
+  private async authenticate(): Promise<boolean> {
+    if (this.isMockMode) {
+      console.log('[NOWPayments] Mock mode - skipping authentication');
+      return false;
+    }
+    
+    // Skip if we already have a valid token
+    if (this.jwtToken && this.jwtTokenExpiry > Date.now() + this.JWT_REFRESH_BUFFER) {
+      console.log('[NOWPayments] Using existing JWT token (expires in', 
+                Math.floor((this.jwtTokenExpiry - Date.now()) / 1000 / 60), 'minutes)');
+      return true;
+    }
+    
+    const email = config.nowpayments.email;
+    const password = config.nowpayments.password;
+    
+    if (!email || !password) {
+      console.warn('[NOWPayments] Cannot authenticate: missing email or password in configuration');
+      return false;
+    }
+    
+    console.log('[NOWPayments] Authenticating with email:', email);
+    
+    try {
+      const axios = this.getConfiguredAxios();
+      const response = await axios.post(
+        `${API_BASE_URL}/auth`,
+        { email, password },
+        { headers: this.getHeaders() }
+      );
+      
+      if (response.data && response.data.token) {
+        this.jwtToken = response.data.token;
+        
+        // Set expiry time to 12 hours from now (conservative estimate)
+        // NOWPayments tokens typically last for 24 hours
+        this.jwtTokenExpiry = Date.now() + (12 * 60 * 60 * 1000);
+        
+        console.log('[NOWPayments] Authentication successful, JWT token obtained');
+        console.log('[NOWPayments] Token expires in 12 hours');
+        return true;
+      } else {
+        console.error('[NOWPayments] Authentication failed: No token in response');
+        console.log('[NOWPayments] Response:', response.data);
+        return false;
+      }
+    } catch (error: any) {
+      console.error('[NOWPayments] Authentication error:', error.message);
+      
+      if (error.response) {
+        console.error('[NOWPayments] Authentication error details:', {
+          status: error.response.status,
+          data: error.response.data
+        });
+      }
+      
+      this.jwtToken = null;
+      this.jwtTokenExpiry = 0;
+      return false;
+    }
   }
   
   /**
@@ -397,112 +476,60 @@ class NOWPaymentsService {
     try {
       console.log('[NOWPayments] Fetching available currencies from API');
       
-      // Use our configured axios instance for better error handling and timeouts
+      // First try with standard API key authentication
+      try {
+        // Use our configured axios instance for better error handling and timeouts
+        const axios = this.getConfiguredAxios();
+        const response = await axios.get(`${API_BASE_URL}/currencies`, {
+          headers: this.getHeaders()
+        });
+        
+        if (response.data && response.data.currencies) {
+          console.log('[NOWPayments] Successfully fetched currencies with API key authentication');
+          // Continue with processing the response below
+          return this.processCurrenciesResponse(response);
+        }
+      } catch (error: any) {
+        // If we get a 403 error, try with JWT authentication
+        if (error.response && error.response.status === 403) {
+          console.log('[NOWPayments] API key not authorized for currencies endpoint. Trying JWT authentication...');
+          // Try to authenticate with JWT
+          const authenticated = await this.authenticate();
+          
+          if (authenticated) {
+            try {
+              // Try again with JWT token
+              const axios = this.getConfiguredAxios();
+              const response = await axios.get(`${API_BASE_URL}/currencies`, {
+                headers: this.getHeaders(true) // Include JWT token
+              });
+              
+              console.log('[NOWPayments] Successfully fetched currencies with JWT authentication');
+              // Continue with processing the response
+              return this.processCurrenciesResponse(response);
+            } catch (jwtError: any) {
+              console.error('[NOWPayments] Failed to fetch currencies even with JWT:', jwtError.message);
+              throw jwtError;
+            }
+          } else {
+            console.error('[NOWPayments] JWT authentication failed, cannot fetch currencies');
+            throw new Error('Failed to authenticate with NOWPayments API');
+          }
+        } else {
+          // For non-403 errors, throw the original error
+          throw error;
+        }
+      }
+      
+      // If we reach here, it means both the first attempt with API key authenticated succeeded
+      // Use our configured axios instance for better error handling
       const axios = this.getConfiguredAxios();
       const response = await axios.get(`${API_BASE_URL}/currencies`, {
         headers: this.getHeaders()
       });
       
-      // Handle the specific format returned by the API
-      // It returns an array of currency codes, not objects with 'enabled' property
-      const currencyCodes = response.data.currencies || [];
-      console.log(`[NOWPayments] Retrieved ${currencyCodes.length} currencies from API`);
-      
-      let result: AvailableCurrency[];
-      
-      if (currencyCodes.length > 0) {
-        // Convert the currency codes to our expected format
-        // Create a list of our prioritized currencies that we want to support
-        const prioritizedCurrencies = ['usdttrc20', 'btc', 'eth', 'usdt', 'trx', 'sol'];
-        
-        // Log some of the available currencies for debugging
-        console.log('[NOWPayments] Sample of available currencies:');
-        currencyCodes.slice(0, 10).forEach((code: string) => {
-          console.log(`[NOWPayments] - ${code}`);
-        });
-        
-        // Create our enabled currencies list based on the prioritized currencies
-        const enabledCurrencies: AvailableCurrency[] = [];
-        let id = 1;
-        
-        // Map of currency code to display name
-        const currencyNames: Record<string, string> = {
-          'usdttrc20': 'Tether on TRON',
-          'btc': 'Bitcoin',
-          'eth': 'Ethereum',
-          'usdt': 'Tether',
-          'trx': 'TRON',
-          'sol': 'Solana'
-        };
-        
-        // Map of currency code to network
-        const currencyNetworks: Record<string, string> = {
-          'usdttrc20': 'TRC20',
-          'btc': 'BTC',
-          'eth': 'ETH',
-          'usdt': 'ERC20',
-          'trx': 'TRON',
-          'sol': 'SOL'
-        };
-        
-        // Add our prioritized currencies first if they exist in the API response
-        for (const priorityCurrency of prioritizedCurrencies) {
-          if (currencyCodes.includes(priorityCurrency.toLowerCase())) {
-            const currency = priorityCurrency.toLowerCase();
-            enabledCurrencies.push({
-              id: id++,
-              name: currencyNames[currency] || currency.toUpperCase(),
-              currency: currency.toUpperCase(),
-              is_fiat: false,
-              enabled: true,
-              min_amount: currency === 'usdttrc20' ? 1 : 0.001,
-              max_amount: currency === 'btc' ? 10 : 100000,
-              image: `https://nowpayments.io/images/coins/${currency.replace('trc20', '')}.svg`,
-              network: currencyNetworks[currency] || currency.toUpperCase()
-            });
-          }
-        }
-        
-        console.log(`[NOWPayments] Created ${enabledCurrencies.length} enabled currencies from API response`);
-        result = enabledCurrencies;
-      } else {
-        // If no currencies were returned by the API, provide fallback currencies
-        console.warn('[NOWPayments] No currencies found in API response. Using fallback currencies.');
-        
-        // This allows the application to function even with API account limitations
-        result = [
-          {
-            id: 1,
-            name: 'Tether on TRON',
-            currency: 'USDTTRC20',
-            is_fiat: false,
-            enabled: true,
-            min_amount: 1, // Set a reasonable default
-            max_amount: 100000,
-            image: 'https://nowpayments.io/images/coins/usdt.svg',
-            network: 'TRC20'
-          },
-          {
-            id: 2,
-            name: 'Bitcoin',
-            currency: 'BTC',
-            is_fiat: false,
-            enabled: true,
-            min_amount: 0.001,
-            max_amount: 10,
-            image: 'https://nowpayments.io/images/coins/btc.svg',
-            network: 'BTC'
-          }
-        ];
-      }
-      
-      // Update the cache
-      this.enabledCurrenciesCache = {
-        currencies: result,
-        timestamp: Date.now()
-      };
-      
-      return result;
+      // Process the response using our helper method
+      return this.processCurrenciesResponse(response);
     } catch (error: any) {
       console.error('[NOWPayments] Error getting available currencies:', error.message);
       
@@ -543,6 +570,113 @@ class NOWPaymentsService {
     }
   }
   
+  /**
+   * Process the currencies response from the API
+   * This handles the formatting and conversion of currency data
+   */
+  private processCurrenciesResponse(response: any): AvailableCurrency[] {
+    // Handle the specific format returned by the API
+    // It returns an array of currency codes, not objects with 'enabled' property
+    const currencyCodes = response.data.currencies || [];
+    console.log(`[NOWPayments] Retrieved ${currencyCodes.length} currencies from API`);
+    
+    let result: AvailableCurrency[];
+    
+    if (currencyCodes.length > 0) {
+      // Convert the currency codes to our expected format
+      // Create a list of our prioritized currencies that we want to support
+      const prioritizedCurrencies = ['usdttrc20', 'btc', 'eth', 'usdt', 'trx', 'sol'];
+      
+      // Log some of the available currencies for debugging
+      console.log('[NOWPayments] Sample of available currencies:');
+      currencyCodes.slice(0, 10).forEach((code: string) => {
+        console.log(`[NOWPayments] - ${code}`);
+      });
+      
+      // Create our enabled currencies list based on the prioritized currencies
+      const enabledCurrencies: AvailableCurrency[] = [];
+      let id = 1;
+      
+      // Map of currency code to display name
+      const currencyNames: Record<string, string> = {
+        'usdttrc20': 'Tether on TRON',
+        'btc': 'Bitcoin',
+        'eth': 'Ethereum',
+        'usdt': 'Tether',
+        'trx': 'TRON',
+        'sol': 'Solana'
+      };
+      
+      // Map of currency code to network
+      const currencyNetworks: Record<string, string> = {
+        'usdttrc20': 'TRC20',
+        'btc': 'BTC',
+        'eth': 'ETH',
+        'usdt': 'ERC20',
+        'trx': 'TRON',
+        'sol': 'SOL'
+      };
+      
+      // Add our prioritized currencies first if they exist in the API response
+      for (const priorityCurrency of prioritizedCurrencies) {
+        if (currencyCodes.includes(priorityCurrency.toLowerCase())) {
+          const currency = priorityCurrency.toLowerCase();
+          enabledCurrencies.push({
+            id: id++,
+            name: currencyNames[currency] || currency.toUpperCase(),
+            currency: currency.toUpperCase(),
+            is_fiat: false,
+            enabled: true,
+            min_amount: currency === 'usdttrc20' ? 1 : 0.001,
+            max_amount: currency === 'btc' ? 10 : 100000,
+            image: `https://nowpayments.io/images/coins/${currency.replace('trc20', '')}.svg`,
+            network: currencyNetworks[currency] || currency.toUpperCase()
+          });
+        }
+      }
+      
+      console.log(`[NOWPayments] Created ${enabledCurrencies.length} enabled currencies from API response`);
+      result = enabledCurrencies;
+    } else {
+      // If no currencies were returned by the API, provide fallback currencies
+      console.warn('[NOWPayments] No currencies found in API response. Using fallback currencies.');
+      
+      // This allows the application to function even with API account limitations
+      result = [
+        {
+          id: 1,
+          name: 'Tether on TRON',
+          currency: 'USDTTRC20',
+          is_fiat: false,
+          enabled: true,
+          min_amount: 1, // Set a reasonable default
+          max_amount: 100000,
+          image: 'https://nowpayments.io/images/coins/usdt.svg',
+          network: 'TRC20'
+        },
+        {
+          id: 2,
+          name: 'Bitcoin',
+          currency: 'BTC',
+          is_fiat: false,
+          enabled: true,
+          min_amount: 0.001,
+          max_amount: 10,
+          image: 'https://nowpayments.io/images/coins/btc.svg',
+          network: 'BTC'
+        }
+      ];
+    }
+    
+    // Update the cache
+    this.enabledCurrenciesCache = {
+      currencies: result,
+      timestamp: Date.now()
+    };
+    
+    return result;
+  }
+
   /**
    * Checks if USDT is available for payments
    * If not, finds an alternative currency
@@ -808,21 +942,65 @@ class NOWPaymentsService {
     try {
       console.log(`[NOWPayments] Getting minimum payment amount for currency: ${currency}`);
       
-      // Use our configured axios instance for better error handling
-      const axios = this.getConfiguredAxios();
-      
-      // The API requires both currency_from and currency_to parameters
-      let response;
+      // First try with standard API key authentication
       try {
-        // First attempt with standard parameter format
-        response = await axios.get(
+        // Use our configured axios instance for better error handling
+        const axios = this.getConfiguredAxios();
+        
+        // The API requires both currency_from and currency_to parameters
+        const response = await axios.get(
           `${API_BASE_URL}/min-amount?currency_from=${currency}&currency_to=usd`,
           { headers: this.getHeaders() }
         );
-      } catch (requestError: any) {
-        // If we get a 403 error (common with new NOWPayments accounts)
-        if (requestError.response && requestError.response.status === 403) {
-          console.warn(`[NOWPayments] Received 403 Forbidden when requesting min amount for ${currency}. Using default value.`);
+        
+        if (response.data && response.data.min_amount !== undefined) {
+          const minAmount = response.data.min_amount || 1;
+          console.log(`[NOWPayments] Minimum payment amount for ${currency}: ${minAmount}`);
+          
+          // Cache this value to reduce future API calls
+          this.minAmountCache[currencyKey] = {
+            amount: minAmount,
+            timestamp: Date.now()
+          };
+          
+          return minAmount;
+        }
+      } catch (error: any) {
+        // If we get a 403 error, try with JWT authentication
+        if (error.response && error.response.status === 403) {
+          console.log('[NOWPayments] API key not authorized for min-amount endpoint. Trying JWT authentication...');
+          // Try to authenticate with JWT
+          const authenticated = await this.authenticate();
+          
+          if (authenticated) {
+            try {
+              // Try again with JWT token
+              const axios = this.getConfiguredAxios();
+              const response = await axios.get(
+                `${API_BASE_URL}/min-amount?currency_from=${currency}&currency_to=usd`,
+                { headers: this.getHeaders(true) } // Include JWT token
+              );
+              
+              if (response.data && response.data.min_amount !== undefined) {
+                const minAmount = response.data.min_amount || 1;
+                console.log(`[NOWPayments] Minimum payment amount for ${currency} with JWT auth: ${minAmount}`);
+                
+                // Cache this value to reduce future API calls
+                this.minAmountCache[currencyKey] = {
+                  amount: minAmount,
+                  timestamp: Date.now()
+                };
+                
+                return minAmount;
+              }
+            } catch (jwtError: any) {
+              console.error('[NOWPayments] Failed to get min amount even with JWT:', jwtError.message);
+              // Fall back to default value
+            }
+          }
+          
+          // If JWT authentication fails or API call fails, use default value
+          console.warn(`[NOWPayments] Using default minimum amount for ${currency} due to auth issues.`);
           const defaultAmount = defaultMinAmounts[currencyKey] || 1;
           
           // Cache the default value for this currency
@@ -832,9 +1010,20 @@ class NOWPaymentsService {
           };
           
           return defaultAmount;
+        } else {
+          // For non-403 errors, try alternate approach before giving up
+          throw error;
         }
-        throw requestError; // Re-throw if it's not a 403 error
       }
+      
+      // If we reach here, both the above methods failed, so we'll try one more time
+      // with the alternate endpoint format
+      const axios = this.getConfiguredAxios();
+      let response; // Declare the response variable
+      response = await axios.get(
+        `${API_BASE_URL}/min-amount/${currency}?currency_to=usd`,
+        { headers: this.getHeaders() }
+      );
       
       const minAmount = response.data.min_amount || 1;
       console.log(`[NOWPayments] Minimum payment amount for ${currency}: ${minAmount}`);
@@ -1077,23 +1266,69 @@ class NOWPaymentsService {
         api_key: '[REDACTED]' // Don't log the actual API key
       });
 
-      // Use our configured axios instance for better error handling
-      const response = await axiosInstance.post(
-        `${API_BASE_URL}/invoice`,
-        payload,
-        { 
-          headers: this.getHeaders(),
-          timeout: 30000 // 30 second timeout
+      // Try with standard API key authentication first
+      try {
+        // Use our configured axios instance for better error handling
+        const response = await axiosInstance.post(
+          `${API_BASE_URL}/invoice`,
+          payload,
+          { 
+            headers: this.getHeaders(),
+            timeout: 30000 // 30 second timeout
+          }
+        );
+        
+        console.log('[NOWPayments] Successfully created invoice with API key auth:', {
+          id: response.data.id,
+          status: response.data.status,
+          invoice_url: response.data.invoice_url
+        });
+        
+        return response.data;
+      } catch (error: any) {
+        // If we get a 403 error, try with JWT authentication
+        if (error.response && error.response.status === 403) {
+          console.log('[NOWPayments] API key not authorized for invoice creation. Trying JWT authentication...');
+          
+          // Try to authenticate with JWT
+          const authenticated = await this.authenticate();
+          
+          if (authenticated) {
+            try {
+              // Try again with JWT token
+              const jwtResponse = await axiosInstance.post(
+                `${API_BASE_URL}/invoice`,
+                payload,
+                { 
+                  headers: this.getHeaders(true), // Include JWT token
+                  timeout: 30000 // 30 second timeout
+                }
+              );
+              
+              console.log('[NOWPayments] Successfully created invoice with JWT auth:', {
+                id: jwtResponse.data.id,
+                status: jwtResponse.data.status,
+                invoice_url: jwtResponse.data.invoice_url
+              });
+              
+              return jwtResponse.data;
+            } catch (jwtError: any) {
+              console.error('[NOWPayments] Failed to create invoice even with JWT:', jwtError.message);
+              throw jwtError;
+            }
+          } else {
+            console.error('[NOWPayments] JWT authentication failed, cannot create invoice');
+            throw new Error('Failed to authenticate with NOWPayments API');
+          }
+        } else {
+          // For non-403 errors, throw the original error
+          throw error;
         }
-      );
+      }
 
-      console.log('[NOWPayments] Successfully created invoice:', {
-        id: response.data.id,
-        status: response.data.status,
-        invoice_url: response.data.invoice_url
-      });
-      
-      return response.data;
+      // This code should never be reached because we either return from the try block
+      // or throw an error from the catch block
+      throw new Error('Unexpected flow in createInvoice method');
     } catch (error: any) {
       console.error('[NOWPayments] Error creating invoice:', error.message);
       
