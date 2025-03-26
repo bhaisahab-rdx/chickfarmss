@@ -381,18 +381,18 @@ export function PaymentPopup({ isOpen, onClose, onSuccess, initialAmount = 10 }:
     <Dialog open={isOpen} onOpenChange={(open) => {
       if (!open) closePaymentWindow();
     }}>
-      <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
-          <DialogTitle>Deposit Funds</DialogTitle>
-          <DialogDescription>
+      <DialogContent className="sm:max-w-[425px] md:max-w-[500px] w-[95vw] mx-auto fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+        <DialogHeader className="text-center">
+          <DialogTitle className="text-xl md:text-2xl font-bold">Deposit Funds</DialogTitle>
+          <DialogDescription className="text-sm md:text-base max-w-[90%] mx-auto">
             Enter the amount you want to deposit. You'll be redirected to our secure payment processor.
           </DialogDescription>
         </DialogHeader>
         
         {!invoiceUrl ? (
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="amount" className="text-right">
+          <div className="grid gap-4 py-4 px-2 md:px-4">
+            <div className="grid grid-cols-4 items-center gap-2 md:gap-4">
+              <Label htmlFor="amount" className="text-right text-sm md:text-base">
                 Amount (USD)
               </Label>
               <Input
@@ -400,7 +400,7 @@ export function PaymentPopup({ isOpen, onClose, onSuccess, initialAmount = 10 }:
                 type="number"
                 value={amount}
                 onChange={handleAmountChange}
-                className="col-span-3"
+                className="col-span-3 text-lg md:text-xl font-medium"
                 min={1}
                 step={1}
                 disabled={isLoading}
@@ -409,15 +409,17 @@ export function PaymentPopup({ isOpen, onClose, onSuccess, initialAmount = 10 }:
             
             {/* Payment method information */}
             <div className="bg-blue-50 text-blue-700 p-3 rounded-md text-sm">
-              <p className="font-medium mb-1">💳 About Cryptocurrency Payments</p>
-              <p className="text-xs">
+              <p className="font-medium mb-1 flex items-center justify-center md:justify-start">
+                <span className="mr-2">💳</span> About Cryptocurrency Payments
+              </p>
+              <p className="text-xs md:text-sm text-center md:text-left">
                 We use NOWPayments, a secure cryptocurrency payment processor. 
                 Your deposit will be converted to USDT in your game wallet.
               </p>
-              <p className="text-xs mt-1.5 font-medium">
+              <p className="text-xs md:text-sm mt-1.5 font-medium text-center md:text-left">
                 Preferred payment: USDT on Tron Network (TRC20)
               </p>
-              <p className="text-xs mt-1 italic">
+              <p className="text-xs mt-1 italic text-center md:text-left">
                 Also accepts: BTC, ETH, LTC, DOGE, and 50+ other cryptocurrencies
               </p>
             </div>
@@ -427,7 +429,7 @@ export function PaymentPopup({ isOpen, onClose, onSuccess, initialAmount = 10 }:
               <div className={`text-xs px-3 py-2 rounded-md ${
                 serviceStatus.ready ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-700'
               }`}>
-                <div className="flex items-center">
+                <div className="flex items-center justify-center md:justify-start">
                   <div className={`w-2 h-2 rounded-full mr-2 ${
                     serviceStatus.ready ? 'bg-green-500' : 'bg-amber-500'
                   }`}></div>
@@ -451,57 +453,63 @@ export function PaymentPopup({ isOpen, onClose, onSuccess, initialAmount = 10 }:
             )}
           </div>
         ) : (
-          <div className="py-4 text-center">
-            <p className="mb-2 font-medium text-lg">Your payment gateway is ready</p>
-            <p className="mb-4 text-sm text-muted-foreground">
+          <div className="py-4 px-2 md:px-4 text-center">
+            <p className="mb-2 font-medium text-lg md:text-xl">Your payment gateway is ready</p>
+            <p className="mb-4 text-sm md:text-base text-muted-foreground max-w-[90%] mx-auto">
               The official NOWPayments checkout window should have opened automatically.
               If it didn't, click the button below.
             </p>
             
-            <div className="bg-amber-50 text-amber-700 p-3 rounded-md mb-4 text-sm">
-              <p className="font-medium">💡 Important Payment Information</p>
-              <p className="text-xs mt-1">Your payment will be securely processed by NOWPayments, our official payment partner.</p>
-              <p className="text-xs mt-1.5 font-medium">USDT on Tron Network (TRC20) is the primary currency.</p>
-              <p className="text-xs mt-1">The payment gateway will credit your game wallet automatically after payment confirmation.</p>
+            <div className="bg-amber-50 text-amber-700 p-3 md:p-4 rounded-md mb-4 text-sm">
+              <p className="font-medium flex items-center justify-center">
+                <span className="mr-2">💡</span> Important Payment Information
+              </p>
+              <p className="text-xs md:text-sm mt-2 text-center">Your payment will be securely processed by NOWPayments, our official payment partner.</p>
+              <p className="text-xs md:text-sm mt-2 font-medium text-center">USDT on Tron Network (TRC20) is the primary currency.</p>
+              <p className="text-xs md:text-sm mt-2 text-center">The payment gateway will credit your game wallet automatically after payment confirmation.</p>
             </div>
             
             <Button 
               onClick={() => invoiceUrl && window.open(invoiceUrl, '_blank')}
-              className="w-full mb-2"
+              className="w-full mb-2 py-3 text-base md:text-lg font-medium"
               variant="default"
               size="lg"
             >
               Open Payment Gateway
             </Button>
             
-            <div className="text-xs text-muted-foreground mt-3 bg-slate-50 p-2 rounded">
+            <div className="text-xs md:text-sm text-muted-foreground mt-4 bg-slate-50 p-3 rounded-md shadow-sm">
               {invoiceId && (
-                <p className="mb-1">Transaction ID: <span className="font-mono">{invoiceId}</span></p>
+                <p className="mb-1 break-all">Transaction ID: <span className="font-mono">{invoiceId}</span></p>
               )}
-              <p className="text-xs">After completing payment, your balance will update automatically.</p>
+              <p className="text-xs md:text-sm">After completing payment, your balance will update automatically.</p>
             </div>
             
-            <div className="mt-4 text-xs text-muted-foreground">
+            <div className="mt-4 text-xs md:text-sm text-muted-foreground">
               <p>Having trouble? Close this window and try again.</p>
             </div>
           </div>
         )}
 
-        <DialogFooter>
+        <DialogFooter className="flex w-full sm:justify-center md:justify-end px-3 py-2">
           {!invoiceUrl ? (
             <Button 
               onClick={createInvoice} 
               disabled={isLoading || amount <= 0 || (serviceStatus && !serviceStatus.ready)}
-              className="w-full sm:w-auto"
+              className="w-full md:w-auto text-base font-medium py-3 px-6"
               size="lg"
             >
               {isLoading ? <Loader size="sm" className="mr-2" /> : null}
               {serviceStatus && !serviceStatus.ready 
                 ? 'Payment Service Unavailable' 
-                : isLoading ? 'Creating Payment...' : 'Pay with Any Cryptocurrency'}
+                : isLoading ? 'Creating Payment...' : 'Pay with USDT-TRC20'}
             </Button>
           ) : (
-            <Button variant="outline" onClick={closePaymentWindow}>
+            <Button 
+              variant="outline" 
+              onClick={closePaymentWindow}
+              className="w-full md:w-auto"
+            >
               Cancel Payment
             </Button>
           )}
