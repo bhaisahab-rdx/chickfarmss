@@ -183,11 +183,44 @@ export function PaymentPopup({ isOpen, onClose, onSuccess, initialAmount = 10 }:
         
         console.log('Redirecting to payment URL:', response.invoice.invoiceUrl);
         
-        // Direct page redirect - this is the key change that fixes the redirect issue
-        // We use setTimeout to ensure all state is saved before redirecting
-        setTimeout(() => {
-          window.location.href = response.invoice.invoiceUrl;
-        }, 300);
+        if (response.invoice.invoiceUrl.includes('dev-payment.html')) {
+          // Mock payment mode (for development environment)
+          // Shows the invoice in a new window instead of redirecting
+          console.log('DEVELOPMENT MODE: Opening mock payment page instead of redirecting');
+          setPaymentWindow(window.open(response.invoice.invoiceUrl, '_blank'));
+          
+          // Notify user this is a test mode 
+          toast({
+            title: 'Development Mode',
+            description: 'Using test payment system. In production, you would be redirected to NOWPayments.',
+            duration: 5000,
+          });
+        } else {
+          // Direct page redirect - this is the key change that fixes the redirect issue
+          // We use setTimeout to ensure all state is saved before redirecting
+          setTimeout(() => {
+            window.location.href = response.invoice.invoiceUrl;
+          }, 300);
+        }
+      } else if (response && response.fallbackUrl) {
+        // Fallback for when real API fails but we have a test payment URL
+        console.log('Using fallback test payment URL:', response.fallbackUrl);
+        setInvoiceUrl(response.fallbackUrl);
+        setInvoiceId(response.fallbackTxId || 'test-tx');
+        
+        // Save test payment info
+        localStorage.setItem('paymentStarted', Date.now().toString());
+        localStorage.setItem('paymentAmount', amount.toString());
+        localStorage.setItem('paymentInvoiceId', response.fallbackTxId || 'test-tx');
+        
+        // Open in new window instead of redirect for test payments
+        setPaymentWindow(window.open(response.fallbackUrl, '_blank'));
+        
+        toast({
+          title: 'Test Payment Mode',
+          description: 'Using test payment system since the payment provider is unavailable.',
+          duration: 5000,
+        });
       } else {
         console.error('Invalid invoice response format:', response);
         throw new Error('Failed to create payment invoice: Invalid response format from server');
