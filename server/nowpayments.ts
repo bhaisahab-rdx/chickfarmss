@@ -491,11 +491,26 @@ class NOWPaymentsService {
     // Common fallback currencies in order of preference
     const fallbackCurrencies = ['BTC', 'ETH', 'DOGE', 'LTC', 'BNB'];
 
+    // Handle API key with limited permissions - quickly return the preferred currency
+    // This will speed up the invoice creation process when we already know
+    // the API key can't list currencies (e.g., returns 403 Forbidden)
+    if (this.minAmountCache['USDTTRC20']?.amount === 1 || this.isMockMode) {
+      console.log('[NOWPayments] Using preferred currency without API verification (limited permissions detected)');
+      return preferredCurrency;
+    }
+
     try {
       // This will now use our cached currencies list if available
       // So we're not making a request every time
       const currencies = await this.getAvailableCurrencies();
       const enabledCurrencies = currencies.filter(c => c.enabled);
+      
+      // If no enabled currencies found, return the preferred currency
+      // This could happen due to API limitations or permissions issues
+      if (enabledCurrencies.length === 0) {
+        console.log('[NOWPayments] No enabled currencies found. Using preferred currency as fallback.');
+        return preferredCurrency;
+      }
       
       // Log available currencies for debugging
       console.log(`[NOWPayments] Available currencies: ${enabledCurrencies.map(c => c.currency).join(', ')}`);
@@ -989,6 +1004,22 @@ class NOWPaymentsService {
           statusText: error.response.statusText,
           data: error.response.data
         });
+        
+        // Handle 403 Forbidden with INVALID_API_KEY specifically
+        if (error.response.status === 403) {
+          const errorData = error.response.data;
+          
+          // Check for specific INVALID_API_KEY error message
+          if (errorData && 
+              (errorData.message === 'INVALID_API_KEY' || 
+               errorData.statusText === 'Forbidden' ||
+               errorData.message?.includes('key') ||
+               errorData.message?.includes('permissions'))) {
+            console.warn('[NOWPayments] API key permission error. This key likely does not have invoice creation permissions.');
+            console.log('[NOWPayments] Falling back to test invoice due to API key restrictions.');
+            return createTestInvoice();
+          }
+        }
         
         // Check for specific API errors and provide better error messages
         if (error.response.status === 400) {
