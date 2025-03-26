@@ -1076,8 +1076,11 @@ class NOWPaymentsService {
                errorData.message?.includes('key') ||
                errorData.message?.includes('permissions'))) {
             console.warn('[NOWPayments] API key permission error. This key likely does not have invoice creation permissions.');
-            console.log('[NOWPayments] Falling back to test invoice due to API key restrictions.');
-            return createTestInvoice();
+            console.log('[NOWPayments] USING TEST INVOICE MODE due to API key restrictions. In production, you should use a fully authorized API key.');
+            console.log('[NOWPayments] To complete real cryptocurrency payments, please provide an API key with Invoice permissions.');
+            const testInvoice = createTestInvoice();
+            console.log('[NOWPayments] Created TEST INVOICE with ID:', testInvoice.id);
+            return testInvoice;
           }
         }
         
