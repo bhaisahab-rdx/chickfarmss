@@ -8,7 +8,7 @@ const API_BASE = 'http://localhost:5000';
 
 // Test user credentials (use admin for testing)
 const TEST_USER = {
-  username: 'admin',
+  username: 'adminraja',
   password: 'admin123'
 };
 
@@ -32,7 +32,7 @@ async function runTest() {
     // Step 2: Login to get session cookie
     console.log('\n2. Logging in to get authenticated session...');
     const loginResponse = await axios.post(
-      `${API_BASE}/api/auth/login`,
+      `${API_BASE}/api/login`,
       TEST_USER,
       { withCredentials: true }
     );
@@ -49,13 +49,17 @@ async function runTest() {
       throw new Error('No session cookie received');
     }
     
+    // Extract just the session cookie we need
+    const sessionCookie = cookies[0].split(';')[0];
+    console.log('Using session cookie:', sessionCookie);
+    
     // Step 3: Create a payment invoice
     console.log(`\n3. Creating payment invoice for $${DEPOSIT_AMOUNT}...`);
     const invoiceResponse = await axios.post(
       `${API_BASE}/api/payments/create-invoice`,
       { amount: DEPOSIT_AMOUNT, currency: 'USD' },
       { 
-        headers: { Cookie: cookies },
+        headers: { Cookie: sessionCookie },
         withCredentials: true
       }
     );
