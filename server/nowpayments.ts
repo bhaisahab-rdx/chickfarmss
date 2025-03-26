@@ -184,15 +184,17 @@ class NOWPaymentsService {
 
   private getHeaders(includeJWT = false) {
     const headers: Record<string, string> = {
-      'x-api-key': this.apiKey,
       'Content-Type': 'application/json',
       'Accept': 'application/json',
       'User-Agent': 'ChickFarms-Payment-Client/1.0'
     };
     
-    // Add JWT token if requested and available
+    // When using JWT authentication, DO NOT include the API key
     if (includeJWT && this.jwtToken) {
       headers['Authorization'] = `Bearer ${this.jwtToken}`;
+    } else {
+      // Only include API key when not using JWT authentication
+      headers['x-api-key'] = this.apiKey;
     }
     
     return headers;
@@ -227,30 +229,65 @@ class NOWPaymentsService {
     console.log('[NOWPayments] Authenticating with email:', email);
     
     try {
-      const axios = this.getConfiguredAxios();
-      const response = await axios.post(
-        `${API_BASE_URL}/auth`,
-        { email, password },
-        { headers: this.getHeaders() }
-      );
-      
-      if (response.data && response.data.token) {
-        this.jwtToken = response.data.token;
+      // First try WITHOUT the API key (standard JWT authentication)
+      try {
+        console.log('[NOWPayments] Trying authentication without API key first (preferred method)');
+        const axios = this.getConfiguredAxios();
+        const response = await axios.post(
+          `${API_BASE_URL}/auth`,
+          { email, password },
+          { 
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            }
+          }
+        );
         
-        // Set expiry time to 12 hours from now (conservative estimate)
-        // NOWPayments tokens typically last for 24 hours
-        this.jwtTokenExpiry = Date.now() + (12 * 60 * 60 * 1000);
+        if (response.data && response.data.token) {
+          this.jwtToken = response.data.token;
+          this.jwtTokenExpiry = Date.now() + (12 * 60 * 60 * 1000); // 12 hours
+          console.log('[NOWPayments] Authentication successful, JWT token obtained (no API key)');
+          return true;
+        } else {
+          console.warn('[NOWPayments] Authentication response did not contain token');
+        }
+      } catch (noApiKeyError: any) {
+        console.warn('[NOWPayments] Authentication without API key failed:', noApiKeyError.message);
+        console.warn('[NOWPayments] Trying with API key as fallback');
         
-        console.log('[NOWPayments] Authentication successful, JWT token obtained');
-        console.log('[NOWPayments] Token expires in 12 hours');
-        return true;
-      } else {
-        console.error('[NOWPayments] Authentication failed: No token in response');
-        console.log('[NOWPayments] Response:', response.data);
-        return false;
+        // Try again WITH the API key (fallback method)
+        try {
+          const axios = this.getConfiguredAxios();
+          const response = await axios.post(
+            `${API_BASE_URL}/auth`,
+            { email, password },
+            { 
+              headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'x-api-key': this.apiKey
+              }
+            }
+          );
+          
+          if (response.data && response.data.token) {
+            this.jwtToken = response.data.token;
+            this.jwtTokenExpiry = Date.now() + (12 * 60 * 60 * 1000); // 12 hours
+            console.log('[NOWPayments] Authentication successful with API key, JWT token obtained');
+            return true;
+          } else {
+            console.error('[NOWPayments] Authentication failed with API key: No token in response');
+            console.log('[NOWPayments] Response:', response.data);
+            return false;
+          }
+        } catch (apiKeyError: any) {
+          console.error('[NOWPayments] Authentication with API key failed:', apiKeyError.message);
+          throw apiKeyError; // Re-throw to be caught by outer catch
+        }
       }
     } catch (error: any) {
-      console.error('[NOWPayments] Authentication error:', error.message);
+      console.error('[NOWPayments] All authentication attempts failed:', error.message);
       
       if (error.response) {
         console.error('[NOWPayments] Authentication error details:', {
@@ -263,6 +300,10 @@ class NOWPaymentsService {
       this.jwtTokenExpiry = 0;
       return false;
     }
+    
+    // This line is reached only if the first attempt didn't return a token
+    // but also didn't throw an error
+    return false;
   }
   
   /**
@@ -1266,14 +1307,73 @@ class NOWPaymentsService {
         api_key: '[REDACTED]' // Don't log the actual API key
       });
 
-      // Try with standard API key authentication first
+      // Try JWT authentication first if we have a token
+      if (this.jwtToken && this.jwtTokenExpiry > Date.now()) {
+        try {
+          console.log('[NOWPayments] Attempting to create invoice with JWT authentication');
+          const jwtResponse = await axiosInstance.post(
+            `${API_BASE_URL}/invoice`,
+            payload,
+            { 
+              headers: this.getHeaders(true), // Include JWT token
+              timeout: 30000 // 30 second timeout
+            }
+          );
+          
+          console.log('[NOWPayments] Successfully created invoice with JWT auth:', {
+            id: jwtResponse.data.id,
+            status: jwtResponse.data.status,
+            invoice_url: jwtResponse.data.invoice_url
+          });
+          
+          return jwtResponse.data;
+        } catch (jwtError: any) {
+          console.warn('[NOWPayments] Failed to create invoice with JWT auth:', jwtError.message);
+          console.log('[NOWPayments] Falling back to API key authentication...');
+          // Continue to API key authentication
+        }
+      } else {
+        // Try to get a JWT token first
+        console.log('[NOWPayments] No JWT token available, attempting to authenticate...');
+        const authenticated = await this.authenticate();
+        
+        if (authenticated) {
+          try {
+            console.log('[NOWPayments] Successfully authenticated, trying invoice creation with JWT...');
+            const jwtResponse = await axiosInstance.post(
+              `${API_BASE_URL}/invoice`,
+              payload,
+              { 
+                headers: this.getHeaders(true), // Include JWT token
+                timeout: 30000 // 30 second timeout
+              }
+            );
+            
+            console.log('[NOWPayments] Successfully created invoice with JWT auth:', {
+              id: jwtResponse.data.id,
+              status: jwtResponse.data.status,
+              invoice_url: jwtResponse.data.invoice_url
+            });
+            
+            return jwtResponse.data;
+          } catch (jwtError: any) {
+            console.warn('[NOWPayments] Failed to create invoice with JWT auth after authentication:', jwtError.message);
+            console.log('[NOWPayments] Falling back to API key authentication...');
+            // Continue to API key authentication
+          }
+        } else {
+          console.warn('[NOWPayments] JWT authentication failed, falling back to API key...');
+        }
+      }
+      
+      // Fall back to API key authentication if JWT auth failed or isn't available
       try {
-        // Use our configured axios instance for better error handling
+        console.log('[NOWPayments] Attempting to create invoice with API key authentication');
         const response = await axiosInstance.post(
           `${API_BASE_URL}/invoice`,
           payload,
           { 
-            headers: this.getHeaders(),
+            headers: this.getHeaders(false), // Use API key only
             timeout: 30000 // 30 second timeout
           }
         );
@@ -1285,45 +1385,15 @@ class NOWPaymentsService {
         });
         
         return response.data;
-      } catch (error: any) {
-        // If we get a 403 error, try with JWT authentication
-        if (error.response && error.response.status === 403) {
-          console.log('[NOWPayments] API key not authorized for invoice creation. Trying JWT authentication...');
-          
-          // Try to authenticate with JWT
-          const authenticated = await this.authenticate();
-          
-          if (authenticated) {
-            try {
-              // Try again with JWT token
-              const jwtResponse = await axiosInstance.post(
-                `${API_BASE_URL}/invoice`,
-                payload,
-                { 
-                  headers: this.getHeaders(true), // Include JWT token
-                  timeout: 30000 // 30 second timeout
-                }
-              );
-              
-              console.log('[NOWPayments] Successfully created invoice with JWT auth:', {
-                id: jwtResponse.data.id,
-                status: jwtResponse.data.status,
-                invoice_url: jwtResponse.data.invoice_url
-              });
-              
-              return jwtResponse.data;
-            } catch (jwtError: any) {
-              console.error('[NOWPayments] Failed to create invoice even with JWT:', jwtError.message);
-              throw jwtError;
-            }
-          } else {
-            console.error('[NOWPayments] JWT authentication failed, cannot create invoice');
-            throw new Error('Failed to authenticate with NOWPayments API');
-          }
-        } else {
-          // For non-403 errors, throw the original error
-          throw error;
+      } catch (apiKeyError: any) {
+        console.error('[NOWPayments] Failed to create invoice with API key auth:', apiKeyError.message);
+        
+        if (apiKeyError.response && apiKeyError.response.status === 403) {
+          console.error('[NOWPayments] API key not authorized for invoice creation.');
+          console.log('[NOWPayments] Both authentication methods failed. Falling back to test invoice.');
         }
+        
+        throw apiKeyError; // Will be caught by outer catch block
       }
 
       // This code should never be reached because we either return from the try block
