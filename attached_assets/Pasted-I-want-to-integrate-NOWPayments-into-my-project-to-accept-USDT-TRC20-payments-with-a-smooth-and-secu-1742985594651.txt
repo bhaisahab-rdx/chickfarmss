@@ -1,0 +1,135 @@
+I want to integrate NOWPayments into my project to accept USDT-TRC20 payments with a smooth and secure flow. Please follow these detailed steps to ensure proper setup, API integration, automatic payment detection, error handling, and security validation."
+
+🚀 1. API Key & Currency Availability Check
+First, verify if my NOWPayments API key is valid and check available currencies using this request:
+
+bash
+Copy
+Edit
+curl -X GET "https://api.nowpayments.io/v1/merchant" \
+     -H "x-api-key: MY_NOWPAYMENTS_API_KEY"
+✅ If the request fails or shows no enabled currencies, log an error and notify me to check my API key in the NOWPayments dashboard.
+
+Check if USDT-TRC20 is available using:
+
+bash
+Copy
+Edit
+curl -X GET "https://api.nowpayments.io/v1/currencies" \
+     -H "x-api-key: MY_NOWPAYMENTS_API_KEY"
+✅ If usdttrc20 is not available, instruct me to manually enable it in the NOWPayments dashboard.
+
+💰 2. Create USDT-TRC20 Payment Request
+When a user initiates a payment, send this API request to generate a NOWPayments invoice:
+
+bash
+Copy
+Edit
+curl -X POST "https://api.nowpayments.io/v1/payment" \
+     -H "x-api-key: MY_NOWPAYMENTS_API_KEY" \
+     -H "Content-Type: application/json" \
+     -d '{
+           "price_amount": 90,
+           "price_currency": "usd",
+           "pay_currency": "usdttrc20",
+           "ipn_callback_url": "https://myserver.com/payment-callback",
+           "order_id": "ORDER_1234",
+           "order_description": "Purchase in ChickWorld"
+         }'
+✅ Ensure pay_currency is strictly set to usdttrc20 to prevent fallback to BTC (which causes API errors).
+✅ If NOWPayments returns error "Cannot get estimate from BTC to USDT", force pay_currency to usdttrc20 and retry.
+
+Once the request succeeds, display the following to the user:
+
+QR Code for payment.
+
+USDT-TRC20 Wallet Address.
+
+Amount to send.
+
+🔄 3. Handle Payment Callbacks & Security
+Set up an IPN (Instant Payment Notification) endpoint on my backend to receive payment updates:
+
+python
+Copy
+Edit
+from flask import Flask, request, jsonify
+import hmac, hashlib
+
+app = Flask(__name__)
+
+NOWPAYMENTS_SECRET_KEY = "MY_NOWPAYMENTS_API_SECRET"
+
+def verify_nowpayments_signature(request_body, received_signature):
+    calculated_signature = hmac.new(
+        NOWPAYMENTS_SECRET_KEY.encode(),
+        request_body.encode(),
+        hashlib.sha512
+    ).hexdigest()
+    return calculated_signature == received_signature
+
+@app.route('/payment-callback', methods=['POST'])
+def payment_callback():
+    request_body = request.get_data(as_text=True)
+    received_signature = request.headers.get("x-nowpayments-sig")
+
+    if not verify_nowpayments_signature(request_body, received_signature):
+        return jsonify({"error": "Invalid Signature"}), 400
+
+    payment_data = request.json
+    if payment_data["payment_status"] == "finished":
+        user_id = payment_data["order_id"]
+        usdt_amount = payment_data["pay_amount"]
+        
+        # TODO: Update user balance in the database
+        return jsonify({"message": "Payment confirmed"}), 200
+    return jsonify({"message": "Payment pending"}), 202
+
+if __name__ == '__main__':
+    app.run(port=5000)
+✅ Validate NOWPayments signature to prevent fake payments.
+✅ Update the user’s wallet balance when payment_status is "finished".
+✅ Log all callback data for debugging.
+
+🔎 4. Query Payment Status (If Needed)
+If the user refreshes the page, fetch the latest payment status using:
+
+bash
+Copy
+Edit
+curl -X GET "https://api.nowpayments.io/v1/payment/ORDER_1234" \
+     -H "x-api-key: MY_NOWPAYMENTS_API_KEY"
+✅ If payment is "finished", update the balance.
+✅ If "waiting", show a "Waiting for Payment" message.
+✅ If "expired", allow a retry option.
+
+🛠 5. Implement the NOWPayments Payment Popup UI
+When a user clicks "Pay with USDT-TRC20", open a popup with the NOWPayments invoice.
+
+Ensure it auto-closes when payment is detected.
+
+html
+Copy
+Edit
+<button onclick="openNowPaymentsPopup()">Pay with USDT-TRC20</button>
+
+<script>
+function openNowPaymentsPopup() {
+    window.open("https://nowpayments.io/payment-link/ORDER_1234", "Pay with USDT", "width=600,height=800");
+}
+</script>
+✅ The popup should auto-close when the payment is detected.
+
+📌 6. Test Everything
+Test a payment to confirm that:
+✅ The QR code & wallet address are displayed correctly.
+✅ The payment updates the balance automatically.
+✅ The callback works and validates the signature.
+✅ Errors are properly logged.
+
+🎯 Final Goals
+✅ Users can pay via NOWPayments USDT-TRC20 pop-up.
+✅ A QR Code & payment address are shown.
+✅ Payments are automatically detected & update user balance.
+✅ All errors are logged & handled properly.
+✅ Security validation is in place.
