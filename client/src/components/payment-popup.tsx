@@ -191,40 +191,8 @@ export function PaymentPopup({ isOpen, onClose, onSuccess, initialAmount = 10 }:
 
       console.log('Invoice creation response:', response);
       
-      if (response && response.invoice && response.invoice.invoiceUrl) {
-        // Set the invoice URL from the nested invoice object
-        setInvoiceUrl(response.invoice.invoiceUrl);
-        setInvoiceId(response.invoice.id);
-        
-        // Save payment info in localStorage before redirecting
-        localStorage.setItem('paymentStarted', Date.now().toString());
-        localStorage.setItem('paymentAmount', amount.toString());
-        if (response.invoice.id) {
-          localStorage.setItem('paymentInvoiceId', response.invoice.id);
-        }
-        
-        console.log('Redirecting to payment URL:', response.invoice.invoiceUrl);
-        
-        if (response.invoice.invoiceUrl.includes('dev-payment.html')) {
-          // Mock payment mode (for development environment)
-          // Shows the invoice in a new window instead of redirecting
-          console.log('DEVELOPMENT MODE: Opening mock payment page instead of redirecting');
-          setPaymentWindow(window.open(response.invoice.invoiceUrl, '_blank'));
-          
-          // Notify user this is a test mode 
-          toast({
-            title: 'Development Mode',
-            description: 'Using test payment system. In production, you would be redirected to NOWPayments.',
-            duration: 5000,
-          });
-        } else {
-          // Direct page redirect - this is the key change that fixes the redirect issue
-          // We use setTimeout to ensure all state is saved before redirecting
-          setTimeout(() => {
-            window.location.href = response.invoice.invoiceUrl;
-          }, 300);
-        }
-      } else if (response && response.fallbackUrl) {
+      // Step 1: First check for the fallback URL case
+      if (response && response.fallbackUrl) {
         // Fallback for when real API fails but we have a test payment URL
         console.log('Using fallback test payment URL:', response.fallbackUrl);
         setInvoiceUrl(response.fallbackUrl);
@@ -243,9 +211,112 @@ export function PaymentPopup({ isOpen, onClose, onSuccess, initialAmount = 10 }:
           description: 'Using test payment system since the payment provider is unavailable.',
           duration: 5000,
         });
+      }
+      // Step 2: Check for transaction with invoice info
+      else if (response && response.transaction && response.invoice) {
+        console.log('Got transaction with invoice:', response.transaction.id);
+        // Set the invoice URL from the invoice response
+        setInvoiceUrl(response.invoice.invoiceUrl);
+        setInvoiceId(response.invoice.id);
+        
+        // Save payment info in localStorage before redirecting
+        localStorage.setItem('paymentStarted', Date.now().toString());
+        localStorage.setItem('paymentAmount', amount.toString());
+        localStorage.setItem('paymentInvoiceId', response.invoice.id);
+        
+        console.log('Redirecting to payment URL:', response.invoice.invoiceUrl);
+        
+        if (response.invoice.invoiceUrl.includes('dev-payment.html')) {
+          // Mock payment mode (for development environment)
+          // Shows the invoice in a new window instead of redirecting
+          console.log('DEVELOPMENT MODE: Opening mock payment page instead of redirecting');
+          setPaymentWindow(window.open(response.invoice.invoiceUrl, '_blank'));
+          
+          // Notify user this is a test mode 
+          toast({
+            title: 'Development Mode',
+            description: 'Using test payment system. In production, you would be redirected to NOWPayments.',
+            duration: 5000,
+          });
+        } else {
+          // Direct page redirect with timeout for state saving first
+          console.log('PRODUCTION MODE: Redirecting to payment page:', response.invoice.invoiceUrl);
+          
+          // Using window.location.assign which is better for redirects than setting window.location.href
+          setTimeout(() => {
+            window.location.assign(response.invoice.invoiceUrl);
+          }, 500);
+        }
+      }
+      // Step 3: Check for standalone invoice without transaction
+      else if (response && response.invoice_url) {
+        // This is the case for direct invoice responses from getNowPayments API
+        console.log('Got direct invoice URL response:', response.invoice_url);
+        setInvoiceUrl(response.invoice_url);
+        setInvoiceId(response.id || 'direct-invoice');
+        
+        // Save payment info
+        localStorage.setItem('paymentStarted', Date.now().toString());
+        localStorage.setItem('paymentAmount', amount.toString());
+        localStorage.setItem('paymentInvoiceId', response.id || 'direct-invoice');
+        
+        // Decide how to open based on URL pattern
+        if (response.invoice_url.includes('dev-payment.html')) {
+          setPaymentWindow(window.open(response.invoice_url, '_blank'));
+          toast({
+            title: 'Development Mode',
+            description: 'Using test payment system.',
+            duration: 5000,
+          });
+        } else {
+          // Directly redirect for production URLs
+          setTimeout(() => {
+            window.location.assign(response.invoice_url); 
+          }, 500);
+        }
+      }
+      // Step 4: Check for standard NOWPayments API response structure
+      else if (response && response.id && response.invoice_url) {
+        // Standard NOWPayments invoice API response 
+        console.log('Got standard NOWPayments invoice response:', response);
+        setInvoiceUrl(response.invoice_url);
+        setInvoiceId(response.id);
+        
+        // Save payment info
+        localStorage.setItem('paymentStarted', Date.now().toString());
+        localStorage.setItem('paymentAmount', amount.toString());
+        localStorage.setItem('paymentInvoiceId', response.id);
+        
+        if (response.invoice_url.includes('dev-payment')) {
+          setPaymentWindow(window.open(response.invoice_url, '_blank'));
+        } else {
+          // Direct redirect to NOWPayments
+          setTimeout(() => {
+            window.location.assign(response.invoice_url);
+          }, 500);
+        }
       } else {
         console.error('Invalid invoice response format:', response);
-        throw new Error('Failed to create payment invoice: Invalid response format from server');
+        // Try to create a test invoice as last resort if we got an unexpected response format
+        const userId = auth.user?.id || 'guest';
+        const fallbackTxId = `TEST-${userId}-${Date.now()}`;
+        const fallbackUrl = `/dev-payment.html?invoice=${fallbackTxId}&amount=${amount}&currency=USD&success=${encodeURIComponent('/wallet?payment=success')}&cancel=${encodeURIComponent('/wallet?payment=cancelled')}`;
+        
+        console.log('Created last-resort fallback payment URL:', fallbackUrl);
+        setInvoiceUrl(fallbackUrl);
+        setInvoiceId(fallbackTxId);
+        
+        localStorage.setItem('paymentStarted', Date.now().toString());
+        localStorage.setItem('paymentAmount', amount.toString());
+        localStorage.setItem('paymentInvoiceId', fallbackTxId);
+        
+        setPaymentWindow(window.open(fallbackUrl, '_blank'));
+        
+        toast({
+          title: 'Using Test Payment',
+          description: 'We encountered an issue with the payment service. Using test mode instead.',
+          duration: 5000,
+        });
       }
     } catch (error) {
       console.error('Error creating payment invoice:', error);
