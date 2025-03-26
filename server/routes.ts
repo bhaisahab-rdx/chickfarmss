@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { setupAuth, isAuthenticated } from "./auth";
 import { storage, mysteryBoxTypes } from "./storage";
 import { z } from "zod";
-import { dailySpinRewards, superJackpotRewards } from "@shared/schema";
+import { dailySpinRewards, superJackpotRewards, referralCommissionRates } from "@shared/schema";
 import { nowPaymentsService, PaymentStatusResponse, StandardizedPaymentStatus, isNOWPaymentsConfigured, isIPNSecretConfigured } from "./nowpayments";
 import { config } from "./config";
 import crypto from 'crypto';
@@ -720,14 +720,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 const nextReferrer = await storage.getUserByReferralCode(currentReferrer.referredBy);
                 if (!nextReferrer) break;
                 
-                // Calculate commission based on level
+                // Use centralized commission rates from schema
                 let commissionRate = 0;
                 switch (level) {
-                  case 2: commissionRate = 0.05; break; // 5%
-                  case 3: commissionRate = 0.03; break; // 3%
-                  case 4: commissionRate = 0.02; break; // 2%
-                  case 5: commissionRate = 0.01; break; // 1%
-                  case 6: commissionRate = 0.01; break; // 1%
+                  case 2: commissionRate = referralCommissionRates.level2; break; // 6%
+                  case 3: commissionRate = referralCommissionRates.level3; break; // 4%
+                  case 4: commissionRate = referralCommissionRates.level4; break; // 3%
+                  case 5: commissionRate = referralCommissionRates.level5; break; // 2%
+                  case 6: commissionRate = referralCommissionRates.level6; break; // 1%
                   default: commissionRate = 0;
                 }
                 
