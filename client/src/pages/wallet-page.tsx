@@ -30,9 +30,9 @@ import { QRCodeSVG } from "qrcode.react";
 
 const rechargeSchema = z.object({
   amount: z.number().min(1, "Amount must be at least 1 USDT"),
-  currency: z.string().optional(),
-  payCurrency: z.string().optional(),
-  useInvoice: z.boolean().optional()
+  currency: z.string().default("USDTTRC20"),
+  payCurrency: z.string().default("USDTTRC20"),
+  useInvoice: z.boolean().default(true)
 });
 
 const withdrawalSchema = z.object({
@@ -82,7 +82,7 @@ export default function WalletPage() {
     resolver: zodResolver(rechargeSchema),
     defaultValues: {
       amount: 10,
-      currency: "USDT",
+      currency: "USDTTRC20",
       payCurrency: "USDTTRC20", // Explicitly use USDT on Tron network
       useInvoice: true,
     },
@@ -119,7 +119,7 @@ export default function WalletPage() {
       // Call the recharge endpoint to get payment URL
       const response = await apiRequest("POST", "/api/wallet/recharge", {
         amount: currentAmount,
-        currency: "USDT", 
+        currency: "USDTTRC20", // Use network-specific format as required by NOWPayments
         payCurrency: "USDTTRC20", // Explicitly use USDT on Tron network
         useInvoice: true
       });
@@ -176,7 +176,7 @@ export default function WalletPage() {
       console.log("NOWPayments invoice payment initiated:", data.amount, data.currency);
       return await apiRequest("POST", "/api/wallet/recharge", {
         amount: data.amount,
-        currency: data.currency || "USDT",
+        currency: data.currency || "USDTTRC20",
         payCurrency: data.payCurrency || "USDTTRC20", // Explicitly use USDT on Tron network
         useInvoice: true // Always use the invoice-based payment
       });
@@ -193,7 +193,7 @@ export default function WalletPage() {
       });
       
       // Reset the form
-      rechargeForm.reset({ amount: 10, currency: "USDT", payCurrency: "USDTTRC20", useInvoice: true });
+      rechargeForm.reset({ amount: 10, currency: "USDTTRC20", payCurrency: "USDTTRC20", useInvoice: true });
     },
     onError: (error: Error) => {
       toast({
