@@ -25,7 +25,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useLocation } from "wouter";
 import { Copy, AlertTriangle } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
-import { PaymentPopup } from "@/components/payment-popup";
+// Direct payment approach used instead of popup
+// import { PaymentPopup } from "@/components/payment-popup";
 
 const rechargeSchema = z.object({
   amount: z.number().min(1, "Amount must be at least 1 USDT"),
@@ -95,11 +96,10 @@ export default function WalletPage() {
     },
   });
 
-  // State for the payment popup
-  const [isPaymentPopupOpen, setIsPaymentPopupOpen] = useState(false);
+  // Direct payment without using popup - removed popup state variables
   
-  // Function to open payment popup with current amount
-  const openPaymentPopup = () => {
+  // Function to handle direct payment redirect to NOWPayments
+  const handleDirectPayment = async () => {
     // Get the amount from the form
     const currentAmount = rechargeForm.getValues().amount;
     
@@ -113,48 +113,68 @@ export default function WalletPage() {
       return;
     }
     
-    console.log("Opening payment popup with amount:", currentAmount);
+    console.log("Initiating direct payment with amount:", currentAmount);
     
-    // Open the popup
-    setIsPaymentPopupOpen(true);
+    try {
+      // Call the recharge endpoint to get payment URL
+      const response = await apiRequest("POST", "/api/wallet/recharge", {
+        amount: currentAmount,
+        currency: "USDT", 
+        payCurrency: "USDTTRC20", // Explicitly use USDT on Tron network
+        useInvoice: true
+      });
+      
+      if (response?.invoice?.invoiceUrl) {
+        // Redirect user to NOWPayments invoice URL
+        window.location.href = response.invoice.invoiceUrl;
+        
+        // The toast below might not be seen due to redirect
+        toast({
+          title: "Redirecting to Payment Portal",
+          description: "Please complete your payment on the NOWPayments page.",
+        });
+      } else {
+        toast({
+          title: "Payment Error",
+          description: "Could not generate payment link. Please try again.",
+          variant: "destructive"
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: "Payment Failed",
+        description: error.message || "Failed to initiate payment. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
-  // Handle recharge through NOWPayments
+  // Recharge mutation for form submission (not currently used, but kept for future reference)
+  // We're using direct payment with handleDirectPayment() instead
   const rechargeMutation = useMutation({
     mutationFn: async (data: z.infer<typeof rechargeSchema>) => {
-      // Always use the invoice-based payment with NOWPayments portal
+      // Direct payment with NOWPayments portal
       console.log("NOWPayments invoice payment initiated:", data.amount, data.currency);
       return await apiRequest("POST", "/api/wallet/recharge", {
         amount: data.amount,
         currency: data.currency || "USDT",
         payCurrency: data.payCurrency || "USDTTRC20", // Explicitly use USDT on Tron network
-        useInvoice: true // Always use the invoice-based payment for consistency
+        useInvoice: true // Always use the invoice-based payment
       });
     },
     onSuccess: (response) => {
       queryClient.invalidateQueries({ queryKey: ["/api/user"] });
       queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
 
-      // Handle NOWPayments portal redirect
-      if (response?.invoice?.invoiceUrl) {
-        // Open the NOWPayments invoice URL in a new tab
-        window.open(response.invoice.invoiceUrl, '_blank');
-        
-        toast({
-          title: "Payment Portal Opened",
-          description: "Complete your payment in the newly opened tab. Your balance will update automatically.",
-          variant: "default"
-        });
-        
-        // Reset the form
-        rechargeForm.reset({ amount: 10, currency: "USDT", payCurrency: "USDTTRC20", useInvoice: true });
-        return;
-      } else {
-        toast({
-          title: "Payment Initiated",
-          description: "Please complete the payment to add funds to your account.",
-        });
-      }
+      // With direct payment approach, we're handling the redirect in handleDirectPayment()
+      // This code is kept for reference but not actively used
+      toast({
+        title: "Payment Initiated",
+        description: "Please complete the payment to add funds to your account.",
+      });
+      
+      // Reset the form
+      rechargeForm.reset({ amount: 10, currency: "USDT", payCurrency: "USDTTRC20", useInvoice: true });
     },
     onError: (error: Error) => {
       toast({
@@ -194,20 +214,6 @@ export default function WalletPage() {
   return (
     <div className="flex flex-col min-h-screen bg-gradient-to-b from-amber-50/50 to-white">
       <BalanceBar />
-      
-      {/* Payment Popup */}
-      <PaymentPopup 
-        isOpen={isPaymentPopupOpen}
-        onClose={() => setIsPaymentPopupOpen(false)}
-        initialAmount={rechargeForm.getValues().amount}
-        onSuccess={() => {
-          queryClient.invalidateQueries({ queryKey: ["/api/user"] });
-          toast({
-            title: "Payment Successful",
-            description: "Your payment has been processed and your balance has been updated.",
-          });
-        }}
-      />
 
       <div className="flex-grow space-y-4 sm:space-y-6 px-3 sm:px-4 max-w-4xl mx-auto pb-20 md:pb-16 overflow-x-hidden">
         <div className="flex justify-between items-center pt-4">
@@ -301,10 +307,10 @@ export default function WalletPage() {
                           <Button
                             type="button"
                             className="w-full h-10 text-sm sm:text-base"
-                            onClick={openPaymentPopup}
+                            onClick={handleDirectPayment}
                             disabled={rechargeForm.getValues().amount <= 0}
                           >
-                            Pay with Any Cryptocurrency
+                            💳 Pay with USDT-TRC20
                           </Button>
                           
                           <p className="text-xs text-center text-muted-foreground">
