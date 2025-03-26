@@ -42,15 +42,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const apiConfigured = isNOWPaymentsConfigured();
       const ipnConfigured = isIPNSecretConfigured();
       let errorMessage = null;
+      let minAmount = 10; // Default minimum amount
+      let apiStatus = "unknown";
       
+      console.log("[Payment Service Status] ========= START PAYMENT STATUS CHECK =========");
       console.log("[Payment Service Status] Checking NOWPayments configuration...");
       console.log("[Payment Service Status] API key configured:", apiConfigured ? "YES" : "NO");
       console.log("[Payment Service Status] IPN secret configured:", ipnConfigured ? "YES" : "NO");
+      console.log("[Payment Service Status] Request origin:", req.headers.origin || 'Unknown');
+      console.log("[Payment Service Status] User agent:", req.headers['user-agent'] || 'Unknown');
       
       if (apiConfigured) {
         try {
           console.log("[Payment Service Status] Calling NOWPayments status API...");
           const status = await nowPaymentsService.getStatus();
+          
+          console.log("[Payment Service Status] Raw status response:", status);
           
           // Even with the changes to nowpayments.ts, we need to check for error status
           if (status.status === 'error') {
@@ -60,6 +67,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
           } else {
             serviceStatus = status.status || "unknown";
             console.log("[Payment Service Status] Service status:", serviceStatus);
+            
+            // If we got a valid status, let's also try to get minimum amount
+            if (serviceStatus !== "unknown" && serviceStatus !== "error") {
+              try {
+                console.log("[Payment Service Status] Getting minimum payment amount for USDTTRC20...");
+                minAmount = await nowPaymentsService.getMinimumPaymentAmount("USDTTRC20");
+                console.log("[Payment Service Status] Minimum payment amount:", minAmount);
+              } catch (minAmountError) {
+                console.error("[Payment Service Status] Failed to get minimum amount:", minAmountError);
+                // Not setting errorMessage here as the main status check was successful
+              }
+            }
           }
         } catch (error) {
           console.error("[Payment Service Status] Exception checking payment service:", error);
@@ -70,13 +89,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log("[Payment Service Status] API key not configured, skipping status check");
       }
       
+      // For NowPayments, we will consider the service ready if:
+      // 1. API key is configured
+      // 2. IPN secret is configured 
+      // 3. Service status is not an explicit "error" (treat "unknown" as ok since the API returns OK as message)
+      
+      // With our fallback systems, the service should work even when the status is unknown
+      const isReady = apiConfigured && ipnConfigured && serviceStatus !== "error";
+      
+      console.log("[Payment Service Status] Service ready status:", isReady ? "READY" : "NOT READY");
+      console.log("[Payment Service Status] ========= END PAYMENT STATUS CHECK =========");
+      
       // Return a more detailed response to the client
       res.json({ 
         apiConfigured, 
         ipnConfigured, 
         serviceStatus,
         error: errorMessage,
-        ready: apiConfigured && ipnConfigured && serviceStatus !== "error" && serviceStatus !== "unknown"
+        ready: isReady,
+        minAmount: minAmount
       });
     } catch (error) {
       console.error("[Payment Service Status] Unexpected error:", error);
