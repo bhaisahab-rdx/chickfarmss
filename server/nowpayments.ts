@@ -894,12 +894,18 @@ class NOWPaymentsService {
         api_key: '[REDACTED]' // Don't log the actual API key
       });
 
-      // Use our configured axios instance for better error handling
-      const axios = this.getConfiguredAxios();
+      // Use direct axios approach matching the working test script
       const response = await axios.post(
         `${API_BASE_URL}/invoice`,
         payload,
-        { headers: this.getHeaders() }
+        { 
+          headers: {
+            'x-api-key': this.apiKey,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          timeout: 30000 // 30 second timeout
+        }
       );
 
       console.log('[NOWPayments] Successfully created invoice:', {
@@ -943,7 +949,79 @@ class NOWPaymentsService {
         }
       }
       
-      // General error case
+      // If we got an error and the error appears to be related to currency availability, try a fallback approach
+      if (error.response?.status === 400 || error.message?.includes('not available') || error.message?.includes('invalid')) {
+        try {
+          console.log('[NOWPayments] USDTTRC20 invoice failed, trying fallback with USDT...');
+          
+          // Try with just USDT without TRC20 specification
+          const fallbackPayload = {
+            ...payload,
+            pay_currency: 'USDT'
+          };
+          
+          // Use direct axios approach as before
+          const fallbackResponse = await axios.post(
+            `${API_BASE_URL}/invoice`,
+            fallbackPayload,
+            { 
+              headers: {
+                'x-api-key': this.apiKey,
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+              },
+              timeout: 30000 // 30 second timeout
+            }
+          );
+          
+          console.log('[NOWPayments] Successfully created fallback invoice with USDT:', {
+            id: fallbackResponse.data.id,
+            status: fallbackResponse.data.status,
+            invoice_url: fallbackResponse.data.invoice_url
+          });
+          
+          return fallbackResponse.data;
+        } catch (fallbackError: any) {
+          console.error('[NOWPayments] Fallback invoice with USDT also failed:', fallbackError.message);
+          
+          // Try one more approach - let NOWPayments choose the currency
+          try {
+            console.log('[NOWPayments] Final attempt - creating invoice without specifying pay_currency...');
+            
+            // Remove the pay_currency field to let NOWPayments choose an available currency
+            const finalPayload = {
+              ...payload,
+              pay_currency: undefined
+            };
+            
+            // Use direct axios approach as before
+            const finalResponse = await axios.post(
+              `${API_BASE_URL}/invoice`,
+              finalPayload,
+              { 
+                headers: {
+                  'x-api-key': this.apiKey,
+                  'Content-Type': 'application/json',
+                  'Accept': 'application/json'
+                },
+                timeout: 30000 // 30 second timeout
+              }
+            );
+            
+            console.log('[NOWPayments] Successfully created final fallback invoice:', {
+              id: finalResponse.data.id,
+              status: finalResponse.data.status,
+              invoice_url: finalResponse.data.invoice_url
+            });
+            
+            return finalResponse.data;
+          } catch (finalError) {
+            console.error('[NOWPayments] All invoice creation attempts failed');
+          }
+        }
+      }
+      
+      // General error case if all attempts fail
       throw error;
     }
   }
