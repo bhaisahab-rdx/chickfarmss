@@ -124,6 +124,25 @@ export default function WalletPage() {
         useInvoice: true
       });
       
+      // Check if invoiceDetails contains an error
+      if (response?.transaction?.bankDetails) {
+        try {
+          // Parse the bank details to check for API error
+          const bankDetails = JSON.parse(response.transaction.bankDetails);
+          
+          if (bankDetails?.invoiceDetails?.code === "INVALID_API_KEY") {
+            toast({
+              title: "Payment Gateway Error",
+              description: "The payment system is currently unavailable. Please contact support.",
+              variant: "destructive"
+            });
+            return;
+          }
+        } catch (err) {
+          console.error("Error parsing bank details:", err);
+        }
+      }
+      
       if (response?.invoice?.invoiceUrl) {
         // Redirect user to NOWPayments invoice URL
         window.location.href = response.invoice.invoiceUrl;
@@ -135,8 +154,8 @@ export default function WalletPage() {
         });
       } else {
         toast({
-          title: "Payment Error",
-          description: "Could not generate payment link. Please try again.",
+          title: "Payment Processing Error",
+          description: "Could not generate payment link. The payment gateway may be temporarily unavailable.",
           variant: "destructive"
         });
       }
