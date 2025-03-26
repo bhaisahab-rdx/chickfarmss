@@ -1,6 +1,5 @@
-import { useState, useEffect, useRef } from "react";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
+import { useState, useEffect } from "react";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { SpinWheel } from "@/components/ui/spin-wheel";
 import { SpinRewardType } from "@shared/schema";
 import { X } from "lucide-react";
@@ -76,12 +75,14 @@ export function SpinWheelModal({
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent 
         className="sm:max-w-[800px] p-0 bg-gradient-to-b from-amber-50 to-orange-100 border-amber-300 max-h-[85vh] overflow-y-auto overscroll-contain modal-content"
-        aria-describedby="spin-wheel-description"
       >
         <div className="relative pt-10 pb-6 px-6 overflow-y-auto">
-          <VisuallyHidden>
-            <DialogTitle>Spin Wheel Game</DialogTitle>
-          </VisuallyHidden>
+          <DialogTitle className="sr-only">Spin Wheel Game</DialogTitle>
+          <DialogDescription className="sr-only">
+            {spinType === "daily"
+              ? "Try your luck and win awesome rewards!"
+              : "Big stakes, amazing rewards!"}
+          </DialogDescription>
           
           {/* Close button - fixed to viewport to ensure it's always accessible */}
           <button
