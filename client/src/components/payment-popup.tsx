@@ -502,7 +502,7 @@ export function PaymentPopup({ isOpen, onClose, onSuccess, initialAmount = 10 }:
               {isLoading ? <Loader size="sm" className="mr-2" /> : null}
               {serviceStatus && !serviceStatus.ready 
                 ? 'Payment Service Unavailable' 
-                : isLoading ? 'Creating Payment...' : 'Pay with USDT-TRC20'}
+                : isLoading ? 'Creating Payment...' : '💳 Pay with USDT-TRC20'}
             </Button>
           ) : (
             <Button 
