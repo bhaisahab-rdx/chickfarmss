@@ -140,7 +140,7 @@ export function FloatingSpinButton() {
             spinButtonSound.play();
             
             // If daily spin is available, show that dialog, otherwise show super spin
-            if (spinStatusQuery.data?.canSpinDaily || spinStatusQuery.data?.extraSpinsAvailable > 0) {
+            if (spinStatusQuery.data?.canSpinDaily || (spinStatusQuery.data?.extraSpinsAvailable && spinStatusQuery.data?.extraSpinsAvailable > 0)) {
               setIsDailySpinOpen(true);
               setSpinWheelOpen(true);
             } else {
