@@ -962,13 +962,20 @@ class NOWPaymentsService {
       } catch (permissionError: any) {
         if (permissionError.response && permissionError.response.status === 403) {
           console.warn('[NOWPayments] API key has limited permissions. Key can check status but not create invoices.');
-          console.log('[NOWPayments] Using test invoice due to API key permission restrictions.');
-          return createTestInvoice();
+          console.log('[NOWPayments] USING TEST INVOICE MODE due to API key permission restrictions.');
+          console.log('[NOWPayments] To complete real cryptocurrency payments, please provide an API key with Invoice permissions.');
+          const testInvoice = createTestInvoice();
+          console.log('[NOWPayments] Created TEST INVOICE with ID:', testInvoice.id);
+          return testInvoice;
         }
       }
     } catch (error: any) {
       console.log('[NOWPayments] API check error, using test invoice:', error.message);
-      return createTestInvoice();
+      console.log('[NOWPayments] USING TEST INVOICE MODE due to API connectivity issues.');
+      console.log('[NOWPayments] To complete real cryptocurrency payments, please verify your NOWPayments API key.');
+      const testInvoice = createTestInvoice();
+      console.log('[NOWPayments] Created TEST INVOICE with ID:', testInvoice.id);
+      return testInvoice;
     }
 
     // Create axiosInstance at the beginning to be available throughout the try/catch blocks  
@@ -987,9 +994,12 @@ class NOWPaymentsService {
           availablePayCurrency = await this.findAvailablePaymentCurrency(payCurrency);
         } catch (permissionError: any) {
           if (permissionError.response && permissionError.response.status === 403) {
-            console.warn('[NOWPayments] Received 403 Forbidden when checking available currencies. Using default currency.');
-            // Return to default test invoice if we have permission issues
-            return createTestInvoice();
+            console.warn('[NOWPayments] Received 403 Forbidden when checking available currencies.');
+            console.log('[NOWPayments] USING TEST INVOICE MODE due to currency API permission issues.');
+            console.log('[NOWPayments] To complete real cryptocurrency payments, please provide an API key with full permissions.');
+            const testInvoice = createTestInvoice();
+            console.log('[NOWPayments] Created TEST INVOICE with ID:', testInvoice.id);
+            return testInvoice;
           }
           throw permissionError; // Re-throw if it's not a 403
         }
@@ -1183,8 +1193,11 @@ class NOWPaymentsService {
             return finalResponse.data;
           } catch (finalError: any) {
             console.error('[NOWPayments] All invoice creation attempts failed', finalError.message);
-            // If we've exhausted all options, return test invoice as last fallback
-            return createTestInvoice();
+            console.log('[NOWPayments] USING TEST INVOICE MODE as final fallback after all API attempts failed.');
+            console.log('[NOWPayments] To complete real cryptocurrency payments, please verify your NOWPayments account has active payment methods.');
+            const testInvoice = createTestInvoice();
+            console.log('[NOWPayments] Created FINAL FALLBACK TEST INVOICE with ID:', testInvoice.id);
+            return testInvoice;
           }
         }
       }
