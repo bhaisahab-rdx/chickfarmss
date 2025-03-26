@@ -1006,11 +1006,11 @@ export default function LandingPage() {
                 <div className="space-y-3 mt-4">
                   {[
                     { level: 1, rate: "10%", description: "Direct referrals" },
-                    { level: 2, rate: "5%", description: "Your referrals' referrals" },
-                    { level: 3, rate: "3%", description: "3rd generation" },
-                    { level: 4, rate: "2%", description: "4th generation" },
-                    { level: 5, rate: "1%", description: "5th generation" },
-                    { level: 6, rate: "0.5%", description: "6th generation" }
+                    { level: 2, rate: "6%", description: "Your referrals' referrals" },
+                    { level: 3, rate: "4%", description: "3rd generation" },
+                    { level: 4, rate: "3%", description: "4th generation" },
+                    { level: 5, rate: "2%", description: "5th generation" },
+                    { level: 6, rate: "1%", description: "6th generation" }
                   ].map((tier, i) => (
                     <motion.div 
                       key={i}

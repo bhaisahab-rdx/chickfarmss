@@ -1315,14 +1315,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   const nextReferrer = await storage.getUserByReferralCode(currentReferrer.referredBy);
                   if (!nextReferrer) break;
                   
-                  // Get commission rate for this level
+                  // Get commission rate for this level using centralized rates from schema
                   let commissionRate = 0;
                   switch (level) {
-                    case 2: commissionRate = 0.06; break; // 6% for level 2
-                    case 3: commissionRate = 0.04; break; // 4% for level 3
-                    case 4: commissionRate = 0.03; break; // 3% for level 4
-                    case 5: commissionRate = 0.02; break; // 2% for level 5
-                    case 6: commissionRate = 0.01; break; // 1% for level 6
+                    case 2: commissionRate = referralCommissionRates.level2; break; // 6%
+                    case 3: commissionRate = referralCommissionRates.level3; break; // 4%
+                    case 4: commissionRate = referralCommissionRates.level4; break; // 3%
+                    case 5: commissionRate = referralCommissionRates.level5; break; // 2%
+                    case 6: commissionRate = referralCommissionRates.level6; break; // 1%
                   }
                   
                   // Calculate commission amount
@@ -2204,14 +2204,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
               const nextReferrer = await storage.getUserByReferralCode(currentReferrer.referredBy);
               if (!nextReferrer) break;
 
-              // Get commission rate for this level
+              // Get commission rate for this level using centralized rates from schema
               let commissionRate = 0;
               switch (level) {
-                case 2: commissionRate = 0.06; break; // 6% for level 2
-                case 3: commissionRate = 0.04; break; // 4% for level 3
-                case 4: commissionRate = 0.03; break; // 3% for level 4
-                case 5: commissionRate = 0.02; break; // 2% for level 5
-                case 6: commissionRate = 0.01; break; // 1% for level 6
+                case 2: commissionRate = referralCommissionRates.level2; break; // 6%
+                case 3: commissionRate = referralCommissionRates.level3; break; // 4%
+                case 4: commissionRate = referralCommissionRates.level4; break; // 3%
+                case 5: commissionRate = referralCommissionRates.level5; break; // 2%
+                case 6: commissionRate = referralCommissionRates.level6; break; // 1%
               }
 
               // Calculate commission amount
