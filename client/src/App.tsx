@@ -12,8 +12,6 @@ import Navigation from "@/components/navigation";
 import ScrollToTop from "@/components/scroll-to-top";
 import { LoadingChickens } from "@/components/ui/loading-chickens";
 import { FloatingSpinButton } from "@/components/floating-spin-button";
-import HelpMenu from "@/components/help-menu";
-import ContextSensitiveHelp from "@/components/context-sensitive-help";
 import BalanceBar from "@/components/balance-bar";
 import { TouchScrollFix } from "@/components/touch-scroll-fix";
 
@@ -253,8 +251,6 @@ function AppContent() {
               {user && !hideUIElements && (
                 <>
                   <BalanceBar />
-                  <HelpMenu />
-                  <ContextSensitiveHelp />
                 </>
               )}
             </>
