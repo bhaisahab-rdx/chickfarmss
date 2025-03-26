@@ -148,26 +148,28 @@ export function PaymentPopup({ isOpen, onClose, onSuccess, initialAmount = 10 }:
 
       console.log('Invoice creation response:', response);
       
-      if (response.success && response.invoiceUrl) {
-        setInvoiceUrl(response.invoiceUrl);
-        setInvoiceId(response.invoiceId);
+      if (response && response.invoice && response.invoice.invoiceUrl) {
+        // Set the invoice URL from the nested invoice object
+        setInvoiceUrl(response.invoice.invoiceUrl);
+        setInvoiceId(response.invoice.id);
         
         // Save payment info in localStorage before redirecting
         localStorage.setItem('paymentStarted', Date.now().toString());
         localStorage.setItem('paymentAmount', amount.toString());
-        if (response.invoiceId) {
-          localStorage.setItem('paymentInvoiceId', response.invoiceId);
+        if (response.invoice.id) {
+          localStorage.setItem('paymentInvoiceId', response.invoice.id);
         }
         
-        console.log('Redirecting to payment URL:', response.invoiceUrl);
+        console.log('Redirecting to payment URL:', response.invoice.invoiceUrl);
         
         // Direct page redirect - this is the key change that fixes the redirect issue
         // We use setTimeout to ensure all state is saved before redirecting
         setTimeout(() => {
-          window.location.href = response.invoiceUrl;
+          window.location.href = response.invoice.invoiceUrl;
         }, 300);
       } else {
-        throw new Error('Failed to create payment invoice');
+        console.error('Invalid invoice response format:', response);
+        throw new Error('Failed to create payment invoice: Invalid response format from server');
       }
     } catch (error) {
       console.error('Error creating payment invoice:', error);
