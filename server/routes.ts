@@ -1686,16 +1686,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post("/api/wallet/recharge", isAuthenticated, async (req, res) => {
+    console.log(`[NOWPayments] ===== PAYMENT REQUEST STARTED =====`);
+    console.log(`[NOWPayments] Request body:`, req.body);
+    
     const schema = z.object({
       amount: z.number().positive(),
       currency: z.string().optional().default("USDT"),
       payCurrency: z.string().optional().default("USDTTRC20"),
-      useInvoice: z.boolean().optional().default(true) // Default to true for consistent portal-based payments
+      useInvoice: z.boolean().optional().default(true), // Default to true for consistent portal-based payments
+      useFallback: z.boolean().optional().default(false) // Whether to enable fallback to test mode
     });
 
     const result = schema.safeParse(req.body);
     if (!result.success) {
       console.error(`[NOWPayments] Invalid request body:`, req.body);
+      console.error(`[NOWPayments] Validation error:`, result.error);
       return res.status(400).json(result.error);
     }
 
@@ -1709,11 +1714,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`[NOWPayments] Callback URL: ${callbackUrl}`);
       console.log(`[NOWPayments] API Key exists: ${!!config.nowpayments.apiKey}`);
       console.log(`[NOWPayments] Using invoice: ${result.data.useInvoice}`);
+      console.log(`[NOWPayments] Fallback enabled: ${result.data.useFallback}`);
+      console.log(`[NOWPayments] Pay currency requested: ${result.data.payCurrency}`);
       
       if (!config.nowpayments.apiKey) {
         // If API key is missing, log warning but still use the mock mode of nowPaymentsService
         console.warn("[NOWPayments] API Key is missing, using mock NOWPayments mode");
-        // Don't throw here - continue with the mock mode implementation
+        // Force fallback mode when API key is missing
+        result.data.useFallback = true;
+      }
+      
+      // Check if we should use fallback immediately due to configuration issues
+      const useFallback = result.data.useFallback || !config.nowpayments.apiKey || nowPaymentsService.isMockMode;
+      
+      if (useFallback) {
+        console.log(`[NOWPayments] Using fallback test invoice due to configuration or client request`);
+        
+        // Create a test transaction ID
+        const fallbackTxId = `TEST-${Date.now()}-${req.user!.id}`;
+        
+        // Generate a test payment URL
+        const fallbackUrl = `/dev-payment.html?invoice=${fallbackTxId}&amount=${result.data.amount}&currency=${result.data.currency}&success=${encodeURIComponent(successUrl)}&cancel=${encodeURIComponent(cancelUrl)}`;
+        
+        console.log(`[NOWPayments] Generated fallback URL: ${fallbackUrl}`);
+        
+        // Create a pending transaction in our database
+        const transaction = await storage.createTransaction(
+          req.user!.id,
+          "recharge",
+          result.data.amount,
+          fallbackTxId,
+          undefined,
+          JSON.stringify({ 
+            paymentMethod: "test_payment",
+            status: "pending" 
+          })
+        );
+        
+        console.log(`[NOWPayments] Created test transaction with ID: ${fallbackTxId}`);
+        
+        // Return the fallback response in a format client expects
+        return res.json({ 
+          success: true,
+          transaction,
+          fallbackTxId,
+          fallbackUrl,
+          invoice: {
+            id: fallbackTxId,
+            status: "pending",
+            invoiceUrl: fallbackUrl,
+            amount: result.data.amount,
+            currency: result.data.currency,
+            createdAt: new Date().toISOString(),
+          },
+          message: 'Using fallback test payment mode'
+        });
       }
       
       try {
@@ -1723,6 +1778,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           // Get the preferred payment currency from the request (default to USDTTRC20 if not specified)
           const preferredPayCurrency = result.data.payCurrency || 'USDTTRC20';
+          
+          console.log(`[NOWPayments] About to call nowPaymentsService.createInvoice with:`, {
+            amount: result.data.amount,
+            userId: req.user!.id,
+            currency: result.data.currency,
+            payCurrency: preferredPayCurrency,
+            successUrl,
+            cancelUrl,
+            orderId: undefined,
+            orderDescription: `ChickFarms deposit - User ID: ${req.user!.id}`,
+            callbackUrl
+          });
           
           const invoice = await nowPaymentsService.createInvoice(
             result.data.amount,
@@ -1736,7 +1803,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             callbackUrl
           );
           
-          console.log(`[NOWPayments] Invoice created: ${invoice.id}`);
+          console.log(`[NOWPayments] Invoice created successfully:`, invoice);
           
           // Create a pending transaction in our database
           const transaction = await storage.createTransaction(
@@ -1751,8 +1818,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
             })
           );
           
+          console.log(`[NOWPayments] DB transaction created with ID:`, transaction.id);
+          console.log(`[NOWPayments] Returning response to client with invoice URL:`, invoice.invoice_url);
+          
           // Return both the transaction and the invoice details for redirection
           return res.json({
+            success: true,
             transaction,
             invoice: {
               id: invoice.id,
