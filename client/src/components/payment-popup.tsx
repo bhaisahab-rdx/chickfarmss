@@ -152,8 +152,20 @@ export function PaymentPopup({ isOpen, onClose, onSuccess, initialAmount = 10 }:
         setInvoiceUrl(response.invoiceUrl);
         setInvoiceId(response.invoiceId);
         
-        // Open the NOWPayments checkout in a new window
-        openPaymentWindow(response.invoiceUrl);
+        // Save payment info in localStorage before redirecting
+        localStorage.setItem('paymentStarted', Date.now().toString());
+        localStorage.setItem('paymentAmount', amount.toString());
+        if (response.invoiceId) {
+          localStorage.setItem('paymentInvoiceId', response.invoiceId);
+        }
+        
+        console.log('Redirecting to payment URL:', response.invoiceUrl);
+        
+        // Direct page redirect - this is the key change that fixes the redirect issue
+        // We use setTimeout to ensure all state is saved before redirecting
+        setTimeout(() => {
+          window.location.href = response.invoiceUrl;
+        }, 300);
       } else {
         throw new Error('Failed to create payment invoice');
       }
@@ -193,60 +205,8 @@ export function PaymentPopup({ isOpen, onClose, onSuccess, initialAmount = 10 }:
     }
   };
 
-  const openPaymentWindow = (url: string) => {
-    // Close previous window if exists
-    if (paymentWindow && !paymentWindow.closed) {
-      paymentWindow.close();
-    }
-    
-    try {
-      // Directly redirect to the payment URL instead of opening in a new window
-      // This fixes issues with popup blockers and ensures the payment flow works correctly
-      console.log('Redirecting to payment URL:', url);
-      
-      // Use window.location.href to directly navigate to the payment URL
-      window.location.href = url;
-      
-      // Since we're redirecting the entire page, we don't need to monitor window state
-      // The user will be redirected back to the success/cancel URL configured in the payment
-      
-      // Store the current time in localStorage to check payment status when user returns
-      localStorage.setItem('paymentStarted', Date.now().toString());
-      localStorage.setItem('paymentAmount', amount.toString());
-      
-      // The return flow will be handled by the success_url and cancel_url parameters
-      // passed to the NOWPayments API when creating the invoice
-    } catch (error) {
-      console.error('Error redirecting to payment page:', error);
-      toast({
-        title: 'Browser Error',
-        description: 'Unable to redirect to payment page. Please use the "Open Payment Gateway" button below.',
-        variant: 'destructive'
-      });
-      
-      // Fallback to opening in a new window if direct redirect fails
-      try {
-        const newWindow = window.open(
-          url, 
-          '_blank', 
-          'noopener,noreferrer,width=450,height=600,scrollbars=yes'
-        );
-        
-        if (newWindow) {
-          newWindow.focus();
-          setPaymentWindow(newWindow);
-        } else {
-          toast({
-            title: 'Popup Blocked',
-            description: 'Your browser blocked the payment window. Click "Open Payment Gateway" below.',
-            variant: 'destructive'
-          });
-        }
-      } catch (popupError) {
-        console.error('Fallback popup also failed:', popupError);
-      }
-    }
-  };
+  // In-page redirect happens automatically in the createInvoice function
+  // We no longer need multiple functions to handle window/tab opening
   
   const handlePaymentWindowClosed = async () => {
     // Only check status and refresh user data if authenticated and we have an invoice ID
@@ -337,13 +297,7 @@ export function PaymentPopup({ isOpen, onClose, onSuccess, initialAmount = 10 }:
     resetForm();
   };
 
-  // Handle direct link opening (without popup)
-  const openPaymentLink = () => {
-    if (invoiceUrl) {
-      // Open the link in a new tab
-      window.open(invoiceUrl, '_blank');
-    }
-  };
+  // No need for this function anymore as we use an inline function in the Button onClick
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => {
@@ -434,7 +388,7 @@ export function PaymentPopup({ isOpen, onClose, onSuccess, initialAmount = 10 }:
             </div>
             
             <Button 
-              onClick={openPaymentLink}
+              onClick={() => invoiceUrl && window.open(invoiceUrl, '_blank')}
               className="w-full mb-2"
               variant="default"
               size="lg"
