@@ -124,26 +124,47 @@ export function PaymentPopup({ isOpen, onClose, onSuccess, initialAmount = 10 }:
 
     try {
       let response;
+      console.log('Step 1: Initiating payment request process');
       
       // Check if the user is authenticated
       if (auth.user) {
         // Authenticated user - use the regular endpoint
         console.log('Creating invoice for authenticated user:', auth.user.id);
-        response = await apiRequest('POST', '/api/wallet/recharge', {
-          amount, 
-          currency: 'USD',
-          payCurrency: 'USDTTRC20', // Explicitly specify USDT on Tron network for payment
-          useInvoice: true // Always use the invoice system for official NOWPayments page
-        });
+        try {
+          console.log('Sending request to /api/wallet/recharge with data:', {
+            amount, 
+            currency: 'USD',
+            payCurrency: 'USDTTRC20',
+            useInvoice: true
+          });
+          
+          response = await apiRequest('POST', '/api/wallet/recharge', {
+            amount, 
+            currency: 'USD',
+            payCurrency: 'USDTTRC20', // Explicitly specify USDT on Tron network for payment
+            useInvoice: true // Always use the invoice system for official NOWPayments page
+          });
+          
+          console.log('Step 2: Received response from server:', response);
+        } catch (error) {
+          console.error('Error in API request:', error);
+          throw error;
+        }
       } else {
         // Use the public test endpoint for debugging or when not authenticated
         console.log('Using test invoice endpoint (not authenticated) with amount:', amount);
-        response = await apiRequest('POST', '/api/public/payments/test-invoice', {
-          amount,
-          currency: 'USD',
-          payCurrency: 'USDTTRC20', // Explicitly specify USDT on Tron network for payment
-          useInvoice: true // Always use the invoice system for official NOWPayments page
-        });
+        try {
+          response = await apiRequest('POST', '/api/public/payments/test-invoice', {
+            amount,
+            currency: 'USD',
+            payCurrency: 'USDTTRC20', // Explicitly specify USDT on Tron network for payment
+            useInvoice: true // Always use the invoice system for official NOWPayments page
+          });
+          console.log('Step 2: Received response from test endpoint:', response);
+        } catch (error) {
+          console.error('Error in API request to test endpoint:', error);
+          throw error;
+        }
       }
 
       console.log('Invoice creation response:', response);

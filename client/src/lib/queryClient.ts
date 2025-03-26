@@ -76,6 +76,20 @@ export async function apiRequest(
   }
 
   console.log(`[API Response] Status:`, response.status);
+  
+  // For debugging purposes, clone the response and log its contents
+  const responseClone = response.clone();
+  responseClone.text().then(text => {
+    try {
+      const jsonData = JSON.parse(text);
+      console.log("[API Response] Data:", jsonData);
+    } catch (e) {
+      console.log("[API Response] Raw Response:", text);
+    }
+  }).catch(err => {
+    console.error("[API Response] Error parsing response:", err);
+  });
+  
   await throwIfResNotOk(response);
   return await getResponseData(response);
 }
