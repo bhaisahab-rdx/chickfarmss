@@ -101,15 +101,23 @@ class NOWPaymentsService {
   private enabledCurrenciesCache: { currencies: AvailableCurrency[], timestamp: number } | null = null;
 
   constructor() {
-    if (!API_KEY) {
+    if (!API_KEY || API_KEY.trim() === '') {
       console.warn('[NOWPayments] API key is not provided - using restricted dev mode');
       this.apiKey = '';
       this.isMockMode = true;
     } else {
-      this.apiKey = API_KEY;
+      this.apiKey = API_KEY.trim(); // Ensure no whitespace in API key
       this.isMockMode = false;
+      
+      // Check if API key looks valid (basic check)
+      if (this.apiKey.length < 10) {
+        console.warn('[NOWPayments] WARNING: API key appears too short, might be invalid');
+        console.warn('[NOWPayments] Continuing in production mode, but expect API errors');
+      }
+      
       console.log('[NOWPayments] Service initialized with production API key');
-      console.log('[NOWPayments] API key starting with:', this.apiKey.substring(0, 4) + '...');
+      console.log('[NOWPayments] API key starting with:', this.apiKey.substring(0, 4) + '...' + 
+                  ' ending with: ' + '...' + this.apiKey.substring(this.apiKey.length - 4));
       
       // Perform a startup check in the background (don't block initialization)
       setTimeout(async () => {
@@ -120,6 +128,12 @@ class NOWPaymentsService {
           
           if (status.status === 'error') {
             console.warn('[NOWPayments] Startup check detected API error:', status.message);
+            if (status.message?.includes('403') || status.message?.includes('Forbidden') || 
+                status.message?.includes('key') || status.message?.includes('auth')) {
+              console.warn('[NOWPayments] API key appears to be invalid or lacks permissions.');
+              console.warn('[NOWPayments] Payment functionality will use test mode for development.');
+              console.warn('[NOWPayments] For production use, please provide a valid NOWPayments API key.');
+            }
           } else if (status.status === 'unknown') {
             console.warn('[NOWPayments] Startup check returned unknown status');
           } else {
@@ -127,14 +141,19 @@ class NOWPaymentsService {
           }
           
           // Also check available currencies on startup
-          const currencies = await this.getAvailableCurrencies();
-          const enabledCurrencies = currencies.filter(c => c.enabled);
-          console.log(`[NOWPayments] Found ${enabledCurrencies.length} enabled currencies on startup`);
-          
-          // Log warning if there are no enabled currencies
-          if (enabledCurrencies.length === 0) {
-            console.warn('[NOWPayments] No enabled currencies found. This may be due to account limitations or API restrictions.');
-            console.warn('[NOWPayments] Will use fallback currencies when needed to maintain functionality.');
+          try {
+            const currencies = await this.getAvailableCurrencies();
+            const enabledCurrencies = currencies.filter(c => c.enabled);
+            console.log(`[NOWPayments] Found ${enabledCurrencies.length} enabled currencies on startup`);
+            
+            // Log warning if there are no enabled currencies
+            if (enabledCurrencies.length === 0) {
+              console.warn('[NOWPayments] No enabled currencies found. This may be due to account limitations or API restrictions.');
+              console.warn('[NOWPayments] Will use fallback currencies when needed to maintain functionality.');
+            }
+          } catch (currencyError) {
+            console.warn('[NOWPayments] Error fetching currencies:', currencyError);
+            console.warn('[NOWPayments] This may indicate API key permission issues.');
           }
           
           // Also check minimum payment amount for USDTTRC20
@@ -945,10 +964,16 @@ class NOWPaymentsService {
       return createTestInvoice();
     }
     
+    // Always log the API key first few characters for debugging
+    console.log(`[NOWPayments] Using API Key starting with: ${this.apiKey.substring(0, 4)}...`);
+    
     // Check for permissions by making a small API call first
     try {
       // Try to get status - if this fails with 403, we're in test mode
+      console.log('[NOWPayments] Checking API status before creating invoice...');
       const statusCheck = await this.getStatus();
+      console.log(`[NOWPayments] API status check result: ${statusCheck.status}`);
+      
       if (statusCheck.status !== 'OK') {
         console.log('[NOWPayments] API status check failed, using test invoice');
         return createTestInvoice();
@@ -958,8 +983,12 @@ class NOWPaymentsService {
       // Even if status is OK, the key might not have permissions for invoice creation
       try {
         // Try to get minimum payment amount, which requires fewer permissions than invoice creation
+        console.log('[NOWPayments] Checking minimum payment amount to verify API key permissions...');
         await this.getMinimumPaymentAmount('USDTTRC20');
+        console.log('[NOWPayments] API key has sufficient permissions for payment operations');
       } catch (permissionError: any) {
+        console.warn('[NOWPayments] Error checking minimum payment amount:', permissionError.message);
+        
         if (permissionError.response && permissionError.response.status === 403) {
           console.warn('[NOWPayments] API key has limited permissions. Key can check status but not create invoices.');
           console.log('[NOWPayments] USING TEST INVOICE MODE due to API key permission restrictions.');
@@ -1081,13 +1110,23 @@ class NOWPaymentsService {
           
           // Check for specific INVALID_API_KEY error message
           if (errorData && 
-              (errorData.message === 'INVALID_API_KEY' || 
+              (errorData.code === 'INVALID_API_KEY' || 
+               errorData.message === 'INVALID_API_KEY' || 
                errorData.statusText === 'Forbidden' ||
                errorData.message?.includes('key') ||
+               errorData.message?.includes('access denied') ||
                errorData.message?.includes('permissions'))) {
-            console.warn('[NOWPayments] API key permission error. This key likely does not have invoice creation permissions.');
+            console.warn('[NOWPayments] API key permission error. This key is likely invalid or does not have invoice creation permissions.');
+            console.log('[NOWPayments] API Key details:', {
+              keyLength: this.apiKey.length,
+              keyPrefix: this.apiKey.substring(0, 4),
+              keySuffix: this.apiKey.substring(this.apiKey.length - 4)
+            });
+            console.log('[NOWPayments] Error details:', errorData);
             console.log('[NOWPayments] USING TEST INVOICE MODE due to API key restrictions. In production, you should use a fully authorized API key.');
-            console.log('[NOWPayments] To complete real cryptocurrency payments, please provide an API key with Invoice permissions.');
+            console.log('[NOWPayments] To complete real cryptocurrency payments, please provide a valid API key with Invoice permissions.');
+            
+            // Generate a test invoice as fallback
             const testInvoice = createTestInvoice();
             console.log('[NOWPayments] Created TEST INVOICE with ID:', testInvoice.id);
             return testInvoice;
