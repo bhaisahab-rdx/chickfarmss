@@ -200,45 +200,51 @@ export function PaymentPopup({ isOpen, onClose, onSuccess, initialAmount = 10 }:
     }
     
     try {
-      // Open in _blank to ensure a new window/tab and not inside iframe
-      const newWindow = window.open(
-        url, 
-        '_blank', 
-        'noopener,noreferrer,width=450,height=600,scrollbars=yes'
-      );
+      // Directly redirect to the payment URL instead of opening in a new window
+      // This fixes issues with popup blockers and ensures the payment flow works correctly
+      console.log('Redirecting to payment URL:', url);
       
-      // Handle popup blocked case
-      if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
-        toast({
-          title: 'Popup Blocked',
-          description: 'Your browser blocked the payment window. Click "Open Payment Gateway" below.',
-          variant: 'destructive'
-        });
-        return;
-      }
+      // Use window.location.href to directly navigate to the payment URL
+      window.location.href = url;
       
-      // Try to focus the window
-      try {
-        newWindow.focus();
-      } catch (focusError) {
-        console.log('Unable to focus payment window');
-      }
+      // Since we're redirecting the entire page, we don't need to monitor window state
+      // The user will be redirected back to the success/cancel URL configured in the payment
       
-      // Store reference and monitor window state
-      setPaymentWindow(newWindow);
-      const checkWindowClosed = setInterval(() => {
-        if (newWindow.closed) {
-          clearInterval(checkWindowClosed);
-          handlePaymentWindowClosed();
-        }
-      }, 1000);
+      // Store the current time in localStorage to check payment status when user returns
+      localStorage.setItem('paymentStarted', Date.now().toString());
+      localStorage.setItem('paymentAmount', amount.toString());
+      
+      // The return flow will be handled by the success_url and cancel_url parameters
+      // passed to the NOWPayments API when creating the invoice
     } catch (error) {
-      console.error('Error opening payment window:', error);
+      console.error('Error redirecting to payment page:', error);
       toast({
         title: 'Browser Error',
-        description: 'Unable to open payment window. Please use the "Open Payment Gateway" button below.',
+        description: 'Unable to redirect to payment page. Please use the "Open Payment Gateway" button below.',
         variant: 'destructive'
       });
+      
+      // Fallback to opening in a new window if direct redirect fails
+      try {
+        const newWindow = window.open(
+          url, 
+          '_blank', 
+          'noopener,noreferrer,width=450,height=600,scrollbars=yes'
+        );
+        
+        if (newWindow) {
+          newWindow.focus();
+          setPaymentWindow(newWindow);
+        } else {
+          toast({
+            title: 'Popup Blocked',
+            description: 'Your browser blocked the payment window. Click "Open Payment Gateway" below.',
+            variant: 'destructive'
+          });
+        }
+      } catch (popupError) {
+        console.error('Fallback popup also failed:', popupError);
+      }
     }
   };
   
