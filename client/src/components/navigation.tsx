@@ -137,16 +137,6 @@ export default function Navigation() {
                     <span>Referrals</span>
                   </Button>
                 </Link>
-                <Link href="/spin">
-                  <Button 
-                    variant={location === "/spin" ? "default" : "ghost"}
-                    className="flex items-center h-10 gap-2 font-medium" 
-                    size="sm"
-                  >
-                    <SpinIcon />
-                    <span>Spin</span>
-                  </Button>
-                </Link>
               </div>
             </div>
 
@@ -212,7 +202,6 @@ export default function Navigation() {
                 { path: "/market", icon: <MarketIcon />, label: "Market" },
                 { path: "/wallet", icon: <WalletIcon />, label: "Wallet" },
                 { path: "/referrals", icon: <ReferralsIcon />, label: "Referrals" },
-                { path: "/spin", icon: <SpinIcon />, label: "Spin" },
                 { path: "/account", icon: 
                   <Avatar className="h-6 w-6 sm:h-8 sm:w-8 ring-1 ring-primary/20">
                     <AvatarFallback className="bg-primary/10 text-[10px] sm:text-xs">{initials}</AvatarFallback>
