@@ -126,7 +126,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const schema = z.object({
         amount: z.number().positive(),
-        currency: z.string().optional()
+        currency: z.string().optional(),
+        useFallback: z.boolean().optional()
       });
       
       const result = schema.safeParse(req.body);
@@ -134,7 +135,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Invalid request parameters", details: result.error });
       }
 
-      const { amount, currency = 'USD' } = result.data;
+      const { amount, currency = 'USD', useFallback = false } = result.data;
       
       // Generate success and cancel URLs with the app URL
       const successUrl = `${config.urls.app}/wallet?payment=success`;
@@ -143,31 +144,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Set up callback URL for NOWPayments IPN webhook
       const callbackUrl = `${config.urls.api}/api/payments/callback`;
       
-      console.log(`Creating test NOWPayments invoice for anonymous user, amount: ${amount} ${currency}`);
+      // Use fallback/test payment if requested or if in mock mode
+      if (useFallback || nowPaymentsService.isMockMode) {
+        console.log(`Creating fallback test payment for amount: ${amount} ${currency}`);
+        
+        // Generate a fallback test payment using our local dev-payment.html
+        const testTxId = `TEST-${Date.now()}`;
+        const testPaymentUrl = `${config.urls.app}/dev-payment.html?invoice=${testTxId}&amount=${amount}&currency=${currency}&success=${encodeURIComponent(successUrl)}&cancel=${encodeURIComponent(cancelUrl)}`;
+        
+        return res.json({
+          success: true,
+          invoice: {
+            id: testTxId,
+            status: 'test_mode',
+            invoiceUrl: testPaymentUrl
+          },
+          message: 'Using test payment system'
+        });
+      }
       
-      // Create the invoice using NOWPayments API
-      const invoice = await nowPaymentsService.createInvoice(
-        amount,
-        0, // Use 0 as user ID for test invoices
-        currency,
-        'USDTTRC20', // Specifically use USDT on Tron (TRC20) network
-        successUrl,
-        cancelUrl,
-        `TEST-${Date.now()}`, // Generate a unique order ID
-        `ChickFarms test payment - ${amount} ${currency}`,
-        callbackUrl
-      );
-      
-      console.log(`Created test invoice with ID ${invoice.id}, popup URL: ${invoice.invoice_url}`);
-      
-      // Return the NOWPayments invoice URL to open in a popup/iframe
-      res.json({
-        success: true,
-        invoiceId: invoice.id,
-        invoiceUrl: invoice.invoice_url
-      });
+      try {
+        console.log(`Creating NOWPayments invoice for anonymous user, amount: ${amount} ${currency}`);
+        
+        // Create the invoice using NOWPayments API
+        const invoice = await nowPaymentsService.createInvoice(
+          amount,
+          0, // Use 0 as user ID for test invoices
+          currency,
+          'USDTTRC20', // Specifically use USDT on Tron (TRC20) network
+          successUrl,
+          cancelUrl,
+          `TEST-${Date.now()}`, // Generate a unique order ID
+          `ChickFarms test payment - ${amount} ${currency}`,
+          callbackUrl
+        );
+        
+        console.log(`Created test invoice with ID ${invoice.id}, popup URL: ${invoice.invoice_url}`);
+        
+        // Return the NOWPayments invoice URL to open in a popup/iframe
+        return res.json({
+          success: true,
+          invoice: {
+            id: invoice.id,
+            status: 'created',
+            invoiceUrl: invoice.invoice_url
+          }
+        });
+      } catch (apiError) {
+        console.error("Error creating NOWPayments invoice:", apiError);
+        
+        // If the API fails, create a fallback test payment
+        console.log("Falling back to test payment due to API error");
+        const testTxId = `FALLBACK-${Date.now()}`;
+        const testPaymentUrl = `${config.urls.app}/dev-payment.html?invoice=${testTxId}&amount=${amount}&currency=${currency}&success=${encodeURIComponent(successUrl)}&cancel=${encodeURIComponent(cancelUrl)}`;
+        
+        return res.json({
+          success: true,
+          invoice: {
+            id: testTxId,
+            status: 'fallback_mode',
+            invoiceUrl: testPaymentUrl
+          },
+          message: 'Using fallback test payment system due to API error'
+        });
+      }
     } catch (error) {
-      console.error("Error creating test NOWPayments invoice:", error);
+      console.error("Unexpected error in test payment endpoint:", error);
       res.status(500).json({ error: "Failed to create test payment invoice" });
     }
   });
