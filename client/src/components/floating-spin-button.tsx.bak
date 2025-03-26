@@ -112,20 +112,6 @@ export function FloatingSpinButton() {
     },
   });
 
-  const handleOpenDailySpin = () => {
-    console.log("Opening daily spin modal");
-    setSpinWheelOpen(true);
-    spinButtonSound.play();
-    setTimeout(() => setIsDailySpinOpen(true), 50);
-  };
-
-  const handleOpenSuperSpin = () => {
-    console.log("Opening super spin modal");
-    setSpinWheelOpen(true);
-    spinButtonSound.play();
-    setTimeout(() => setIsSuperSpinOpen(true), 50);
-  };
-
   if (!user) return null;
 
   return (
@@ -150,11 +136,24 @@ export function FloatingSpinButton() {
           whileHover={{ scale: 1.1 }}
           whileTap={{ scale: 0.9 }}
           onClick={() => {
-            if (spinStatusQuery.data?.canSpinDaily || (spinStatusQuery.data?.extraSpinsAvailable && spinStatusQuery.data?.extraSpinsAvailable > 0)) {
-              handleOpenDailySpin();
-            } else {
-              handleOpenSuperSpin();
-            }
+            // First set the UI state to open the wheel
+            console.log("Spin wheel button clicked. Opening spin wheel modal...");
+            setSpinWheelOpen(true);
+            
+            // Play the spin button sound
+            spinButtonSound.play();
+            
+            // Set a small delay to ensure state is updated before opening the modal
+            setTimeout(() => {
+              // If daily spin is available, show that dialog, otherwise show super spin
+              if (spinStatusQuery.data?.canSpinDaily || (spinStatusQuery.data?.extraSpinsAvailable && spinStatusQuery.data?.extraSpinsAvailable > 0)) {
+                console.log("Opening daily spin modal");
+                setIsDailySpinOpen(true);
+              } else {
+                console.log("Opening super spin modal");
+                setIsSuperSpinOpen(true);
+              }
+            }, 50);
           }}
         >
           <motion.div
@@ -193,21 +192,37 @@ export function FloatingSpinButton() {
             <circle cx="50" cy="80" r="4" fill="#FDBA74" />
           </svg>
           
-          {showNotification && (
-            <div className="absolute -top-1 -right-1 z-20">
-              <Badge variant="destructive" className="bg-green-500 hover:bg-green-600">
-                Ready!
-              </Badge>
-            </div>
-          )}
+          {/* Notification Badge */}
+          <AnimatePresence>
+            {showNotification && (
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                exit={{ scale: 0 }}
+                className="absolute -top-1 -right-1 z-20"
+              >
+                <Badge variant="destructive" className="bg-green-500 hover:bg-green-600">
+                  Ready!
+                </Badge>
+              </motion.div>
+            )}
+          </AnimatePresence>
           
-          {spinStatusQuery.data?.extraSpinsAvailable > 0 && (
-            <div className="absolute -bottom-1 -right-1 z-20">
-              <Badge variant="outline" className="bg-amber-100 text-amber-900 border-amber-300">
-                +{spinStatusQuery.data?.extraSpinsAvailable}
-              </Badge>
-            </div>
-          )}
+          {/* Extra Spins Badge */}
+          <AnimatePresence>
+            {spinStatusQuery.data?.extraSpinsAvailable > 0 && (
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                exit={{ scale: 0 }}
+                className="absolute -bottom-1 -right-1 z-20"
+              >
+                <Badge variant="outline" className="bg-amber-100 text-amber-900 border-amber-300">
+                  +{spinStatusQuery.data?.extraSpinsAvailable}
+                </Badge>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </motion.button>
       </div>
 
