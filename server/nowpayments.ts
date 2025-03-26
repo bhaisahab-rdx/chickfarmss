@@ -384,24 +384,71 @@ class NOWPaymentsService {
         headers: this.getHeaders()
       });
       
-      const currencies = response.data.currencies || [];
-      console.log(`[NOWPayments] Retrieved ${currencies.length} currencies from API`);
-      
-      // Log the enabled currencies for debugging
-      const enabledCurrencies = currencies.filter((c: any) => c.enabled);
-      console.log(`[NOWPayments] Found ${enabledCurrencies.length} enabled currencies`);
+      // Handle the specific format returned by the API
+      // It returns an array of currency codes, not objects with 'enabled' property
+      const currencyCodes = response.data.currencies || [];
+      console.log(`[NOWPayments] Retrieved ${currencyCodes.length} currencies from API`);
       
       let result: AvailableCurrency[];
       
-      if (enabledCurrencies.length > 0) {
-        console.log('[NOWPayments] Available currencies:');
-        enabledCurrencies.forEach((currency: any) => {
-          console.log(`[NOWPayments] - ${currency.currency} (${currency.network || 'default network'})`);
+      if (currencyCodes.length > 0) {
+        // Convert the currency codes to our expected format
+        // Create a list of our prioritized currencies that we want to support
+        const prioritizedCurrencies = ['usdttrc20', 'btc', 'eth', 'usdt', 'trx', 'sol'];
+        
+        // Log some of the available currencies for debugging
+        console.log('[NOWPayments] Sample of available currencies:');
+        currencyCodes.slice(0, 10).forEach((code: string) => {
+          console.log(`[NOWPayments] - ${code}`);
         });
-        result = currencies;
+        
+        // Create our enabled currencies list based on the prioritized currencies
+        const enabledCurrencies: AvailableCurrency[] = [];
+        let id = 1;
+        
+        // Map of currency code to display name
+        const currencyNames: Record<string, string> = {
+          'usdttrc20': 'Tether on TRON',
+          'btc': 'Bitcoin',
+          'eth': 'Ethereum',
+          'usdt': 'Tether',
+          'trx': 'TRON',
+          'sol': 'Solana'
+        };
+        
+        // Map of currency code to network
+        const currencyNetworks: Record<string, string> = {
+          'usdttrc20': 'TRC20',
+          'btc': 'BTC',
+          'eth': 'ETH',
+          'usdt': 'ERC20',
+          'trx': 'TRON',
+          'sol': 'SOL'
+        };
+        
+        // Add our prioritized currencies first if they exist in the API response
+        for (const priorityCurrency of prioritizedCurrencies) {
+          if (currencyCodes.includes(priorityCurrency.toLowerCase())) {
+            const currency = priorityCurrency.toLowerCase();
+            enabledCurrencies.push({
+              id: id++,
+              name: currencyNames[currency] || currency.toUpperCase(),
+              currency: currency.toUpperCase(),
+              is_fiat: false,
+              enabled: true,
+              min_amount: currency === 'usdttrc20' ? 1 : 0.001,
+              max_amount: currency === 'btc' ? 10 : 100000,
+              image: `https://nowpayments.io/images/coins/${currency.replace('trc20', '')}.svg`,
+              network: currencyNetworks[currency] || currency.toUpperCase()
+            });
+          }
+        }
+        
+        console.log(`[NOWPayments] Created ${enabledCurrencies.length} enabled currencies from API response`);
+        result = enabledCurrencies;
       } else {
-        // If no enabled currencies were returned by the API, provide fallback currencies
-        console.warn('[NOWPayments] No enabled currencies found in API response. Using fallback currencies.');
+        // If no currencies were returned by the API, provide fallback currencies
+        console.warn('[NOWPayments] No currencies found in API response. Using fallback currencies.');
         
         // This allows the application to function even with API account limitations
         result = [
@@ -411,7 +458,7 @@ class NOWPaymentsService {
             currency: 'USDTTRC20',
             is_fiat: false,
             enabled: true,
-            min_amount: 7.603903, // From our test script
+            min_amount: 1, // Set a reasonable default
             max_amount: 100000,
             image: 'https://nowpayments.io/images/coins/usdt.svg',
             network: 'TRC20'
