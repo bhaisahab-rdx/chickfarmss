@@ -1,0 +1,50 @@
+POST
+Create invoice
+https://api.nowpayments.io/v1/invoice
+Creates a payment link. With this method, the customer is required to follow the generated url to complete the payment. Data must be sent as a JSON-object payload.
+
+Request fields:
+
+price_amount (required) - the amount that users have to pay for the order stated in fiat currency. In case you do not indicate the price in crypto, our system will automatically convert this fiat amount into its crypto equivalent. NOTE: Some of the assets (KISHU, NWC, FTT, CHR, XYM, SRK, KLV, SUPER, OM, XCUR, NOW, SHIB, SAND, MATIC, CTSI, MANA, FRONT, FTM, DAO, LGCY), have a maximum price limit of ~$2000;
+price_currency (required) - the fiat currency in which the price_amount is specified (usd, eur, etc);
+pay_currency (optional) - the specified crypto currency (btc, eth, etc), or one of available fiat currencies if it's enabled for your account (USD, EUR, ILS, GBP, AUD, RON);
+If not specified, can be chosen on the invoice_url
+ipn_callback_url (optional) - url to receive callbacks, should contain "http" or "https", eg. "https://nowpayments.io";
+order_id (optional) - internal store order ID, e.g. "RGDBP-21314";
+order_description (optional) - internal store order description, e.g. "Apple Macbook Pro 2019 x 1";
+success_url(optional) - url where the customer will be redirected after successful payment;
+cancel_url(optional) - url where the customer will be redirected after failed payment;
+is_fixed_rate(optional) - boolean, can be true or false. Required for fixed-rate exchanges;
+NOTE: the rate of exchange will be frozen for 20 minutes. If there are no incoming payments during this period, the payment status changes to "expired";
+is_fee_paid_by_user(optional) - boolean, can be true or false. Required for fixed-rate exchanges with all fees paid by users;
+NOTE: the rate of exchange will be frozen for 20 minutes. If there are no incoming payments during this period, the payment status changes to "expired";
+SUCCESSFUL RESPONSE FIELDS
+View More
+Name	Type	Description
+id	String	Invoice ID
+token_id	String	Internal identifier
+order_id	String	Order ID specified in request
+order_description	String	Order description specified in request
+price_amount	String	Base price in fiat
+price_currency	String	Ticker of base fiat currency
+pay_currency	String	Currency your customer will pay with. If it's 'null' your customer can choose currency in web interface.
+ipn_callback_url	String	Link to your endpoint for IPN notifications catching
+invoice_url	String	Link to the payment page that you can share with your customer
+success_url	String	Customer will be redirected to this link once the payment is finished
+cancel_url	String	Customer will be redirected to this link if the payment fails
+partially_paid_url	String	Customer will be redirected to this link if the payment gets partially paid status
+payout_currency	String	Ticker of payout currency
+created_at	String	Time of invoice creation
+updated_at	String	Time of latest invoice information update
+is_fixed_rate	Boolean	This parameter is 'True' if Fixed Rate option is enabled and 'false' if it's disabled
+is_fee_paid_by_user	Boolean	This parameter is 'True' if Fee Paid By User option is enabled and 'false' if it's disabled
+HEADERS
+x-api-key
+{{api-key}}
+
+(Required) Your NOWPayments API key
+
+Content-Type
+application/json
+
+(Required) Your payload has to be JSON object
