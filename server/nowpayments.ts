@@ -782,6 +782,36 @@ class NOWPaymentsService {
     }
   }
   
+  /**
+   * Creates a test invoice with a URL that points to a local test payment page
+   * This is used when either in mock mode or when the API is not available
+   */
+  createTestInvoice(
+    amount: number,
+    userId: number,
+    currency: string = 'USD',
+    successUrl?: string,
+    cancelUrl?: string,
+    orderId?: string
+  ): CreateInvoiceResponse {
+    orderId = orderId || `TEST-${userId}-${Date.now()}`;
+    successUrl = successUrl || `${config.urls.app}/wallet?payment=success`;
+    cancelUrl = cancelUrl || `${config.urls.app}/wallet?payment=cancelled`;
+    
+    // Create a local test URL that includes all the necessary parameters
+    const testInvoiceUrl = `${config.urls.app}/dev-payment.html?invoice=${orderId}&amount=${amount}&currency=${currency}&success=${encodeURIComponent(successUrl)}&cancel=${encodeURIComponent(cancelUrl)}`;
+    
+    console.log(`[NOWPayments] Created test invoice URL: ${testInvoiceUrl}`);
+    
+    return {
+      id: orderId,
+      token_id: 'test-token',
+      invoice_url: testInvoiceUrl,
+      success: true,
+      status: 'test_mode'
+    };
+  }
+  
   async createInvoice(
     amount: number,
     userId: number,
