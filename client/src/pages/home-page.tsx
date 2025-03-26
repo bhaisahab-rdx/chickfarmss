@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/tooltip";
 import BalanceBar from "@/components/balance-bar";
 import { Droplets, Wheat } from "lucide-react";
+import { ApiTest } from "@/components/api-test";
 
 // Utility functions at the top level
 const getChickenImage = (type: string) => {

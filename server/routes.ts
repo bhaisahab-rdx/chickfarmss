@@ -16,7 +16,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ status: "ok" });
   });
   
-
+  // Test endpoint for API testing
+  app.get("/api/test", (req, res) => {
+    console.log("[API] Test endpoint accessed");
+    res.json({ 
+      status: "ok",
+      message: "API is working properly",
+      timestamp: new Date().toISOString(),
+      apiVersion: "1.0.0"
+    });
+  });
   
   // NOWPayments API is fully configured for production use
   

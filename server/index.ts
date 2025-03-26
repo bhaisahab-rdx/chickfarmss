@@ -46,13 +46,14 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  const server = await registerRoutes(app);
-
   // Make sure we're setting the correct Content-Type header for API responses
+  // This middleware needs to be before registerRoutes to properly handle the API responses
   app.use('/api', (req, res, next) => {
     res.setHeader('Content-Type', 'application/json');
     next();
   });
+
+  const server = await registerRoutes(app);
   
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
@@ -95,8 +96,8 @@ app.use((req, res, next) => {
     res.sendFile(pathModule.join(__dirname, '../client/public/index.html'));
   });
   
-  // But let other HTML requests go to Vite
-  app.get(/^\/(?!api).*/, (req, res, next) => {
+  // But let other HTML requests go to Vite, ensuring API requests are excluded
+  app.get(/^(?!\/api\/).*$/, (req, res, next) => {
     if (req.headers.accept && req.headers.accept.includes('text/html')) {
       return next();
     }
