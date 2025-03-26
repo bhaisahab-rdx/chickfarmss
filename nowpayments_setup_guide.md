@@ -1,130 +1,112 @@
-# NOWPayments Integration Guide for ChickFarms
+# NOWPayments Setup Guide for ChickFarms
 
-This guide explains how to set up NOWPayments cryptocurrency payment processing for ChickFarms. Our integration uses the official NOWPayments checkout page to provide a secure, reliable payment experience.
+## Introduction
 
-## Integration Overview
+This guide will help you set up and configure NOWPayments for accepting cryptocurrency payments in the ChickFarms application. NOWPayments is a cryptocurrency payment gateway that supports various cryptocurrencies, including USDT (TRC20), which is the primary currency used in ChickFarms.
 
-ChickFarms integrates with NOWPayments to allow users to:
-1. Deposit funds into their game wallet using cryptocurrencies
-2. Process payments securely through the official NOWPayments platform
-3. Automatically update wallet balances when payments are verified
+## Step 1: Create a NOWPayments Account
 
-## Development vs Production
+1. Visit [NOWPayments](https://nowpayments.io/) and sign up for an account
+2. Complete the verification process
+3. Set up your cryptocurrency wallet addresses for receiving payments
 
-The application can work in two modes:
-
-1. **Development Mode**: Works without API keys for testing purposes, simulating payment flows
-2. **Production Mode**: Connects to NOWPayments' official system for real cryptocurrency transactions
-
-## Setting Up NOWPayments (Production)
-
-Follow these steps to enable real cryptocurrency payments:
-
-### Step 1: Create a NOWPayments Account
-
-1. Sign up at [NOWPayments.io](https://nowpayments.io)
-2. Verify your account and complete KYC requirements
-
-### Step 2: Create API Keys
+## Step 2: Obtain API Keys
 
 1. Log in to your NOWPayments dashboard
-2. Navigate to **Store Settings** > **API Keys**
-3. Create a new API key
-4. Copy your API key for the next step
+2. Navigate to the "API" section
+3. Generate a new API key with the following permissions:
+   - Create payments
+   - Create invoices
+   - Check payment status
+   - Check currency rates
+4. Copy and securely store your API key
 
-### Step 3: Configure IPN (Instant Payment Notifications)
+## Step 3: Configure IPN (Instant Payment Notifications)
 
-1. Go to **Store Settings** > **IPN**
-2. Create a new IPN secret
-3. Add your callback URL: `https://your-domain.com/api/payments/callback`
-4. Save your IPN secret for the next step
+1. Navigate to the "IPN" section in your NOWPayments dashboard
+2. Generate a new IPN secret key
+3. Set your IPN callback URL to `https://your-app-domain.com/api/payments/callback`
+4. Copy and securely store your IPN secret key
 
-### Step 4: Configure Your ChickFarms Application
+## Step 4: Configure Environment Variables
 
 Add the following environment variables to your application:
 
 ```
-NOWPAYMENTS_API_KEY=your_api_key_here
-NOWPAYMENTS_IPN_SECRET=your_ipn_secret_here
+NOWPAYMENTS_API_KEY=your_api_key
+IPN_SECRET_KEY=your_ipn_secret
+APP_DOMAIN=https://your-app-domain.com
 ```
 
-You can add these in your hosting provider's environment variables section, or by contacting support.
+## Step 5: Test the Integration
 
-### Step 5: Test the Integration
+Run the provided test scripts to verify your integration:
 
-1. Log in to your ChickFarms account
-2. Navigate to the Wallet section
-3. Click "Deposit" and select a cryptocurrency
-4. Complete a small test transaction to verify everything works
+```bash
+# Basic API connectivity test
+node test-nowpayments-status.js
 
-## Supported Cryptocurrencies
+# Direct invoice creation test
+node test-nowpayments-direct.js
 
-NOWPayments supports a wide range of cryptocurrencies, including:
+# Complete end-to-end payment test
+node test-payment-e2e.js
+```
 
-- USDTTRC20 (USDT on Tron Network) - **Primary payment option**
-- BTC (Bitcoin)
-- ETH (Ethereum)
-- DOGE (Dogecoin)
-- LTC (Litecoin)
-- BNB (Binance Coin)
-- And many more...
+## Step 6: Implement Payment Flow in Your Application
 
-**Important**: ChickFarms is configured to primarily use USDT on the Tron network (TRC20) as the default payment method. This provides faster and more cost-effective transactions for users. While other cryptocurrencies are available at checkout, the system will automatically attempt to use USDTTRC20 when available.
+1. Update the payment creation code to use the direct invoice approach
+2. Implement IPN callback handler to process incoming payments
+3. Update transaction status tracking
 
-### Fallback Mechanism
+## Step 7: Configure Production Settings
 
-The payment system includes an intelligent fallback mechanism:
+Before going to production:
 
-1. First attempts to use USDTTRC20 (USDT on Tron Network) 
-2. If USDTTRC20 is unavailable, automatically falls back to other cryptocurrencies
-3. Uses the first available cryptocurrency provided by NOWPayments
-4. All payment options are displayed on the NOWPayments checkout page
+1. Update all URLs to use your production domain
+2. Generate new API and IPN keys for production use
+3. Test the complete payment flow in a staging environment
 
-## Technical Implementation Details
+## Supported Currencies
 
-Our NOWPayments integration includes the following key components:
+The primary currency for ChickFarms is USDT (TRC20), but NOWPayments supports many other cryptocurrencies. To accept additional currencies:
 
-### 1. Payment Flow
+1. Enable them in your NOWPayments dashboard
+2. Update the payment creation code to support multiple currencies
+3. Test each currency to ensure proper conversion rates
 
-1. **Deposit Initialization**: When a user clicks "Pay with Any Cryptocurrency" in the wallet section
-2. **Invoice Creation**: System creates a NOWPayments invoice using their API
-3. **Checkout Redirection**: User is directed to the official NOWPayments checkout page
-4. **Payment Processing**: User completes payment using their selected cryptocurrency
-5. **IPN Notification**: NOWPayments sends a notification to our server via IPN callback
-6. **Balance Update**: System verifies the payment and updates the user's game balance
+## Security Best Practices
 
-### 2. Enhanced Error Handling
-
-The integration includes sophisticated error handling:
-
-- **API Connection Issues**: Timeouts are set to prevent hanging on slow connections
-- **Detailed Logging**: System logs all payment-related events for troubleshooting
-- **User-Friendly Errors**: Clear messages inform users of issues in the payment process
-- **Fallback Currency**: If USDTTRC20 is unavailable, other cryptocurrencies are offered
-
-### 3. Security Features
-
-- **IPN Signature Verification**: All callbacks from NOWPayments are cryptographically verified
-- **Secure Environment Variables**: API keys and secrets are stored securely
-- **Status Monitoring**: System regularly checks the NOWPayments service status
-- **Idempotent Processing**: Payments are processed once regardless of multiple callbacks
+1. Never expose your API key or IPN secret in client-side code
+2. Always validate IPN callbacks using HMAC signatures
+3. Implement proper error handling and logging
+4. Keep your NOWPayments integration code updated
+5. Monitor transactions for suspicious activity
 
 ## Troubleshooting
 
-If you encounter issues with the payment process:
+### Common Issues
 
-1. **Check API Key**: Verify your API key is correctly configured
-2. **Check IPN Secret**: Make sure your IPN secret is set correctly
-3. **Check Logs**: Review the server logs for any error messages - look for `[NOWPayments]` and `[Payment Service Status]` entries
-4. **USDT Network Issue**: If you're seeing errors specifically with USDTTRC20, the system will automatically fall back to other available cryptocurrencies. This is normal during maintenance periods.
-5. **Verify NOWPayments Status**: Check [NOWPayments Status Page](https://nowpayments.io/status) to verify their service is operational
-6. **Callback URL**: Ensure your server can receive callbacks from NOWPayments (check firewall settings)
-7. **Test Connection**: Use the status check endpoint to verify API connectivity: `/api/public/payments/service-status`
-8. **Timeout Errors**: If seeing timeout errors, NOWPayments API might be experiencing delays - the system will retry automatically
+1. **Payments not showing up**: Check IPN callback URL and logs
+2. **API errors**: Verify API key permissions and IP restrictions
+3. **Invoice creation failures**: Ensure amount is above minimum threshold
+4. **IPN verification failures**: Check IPN secret key
 
-## Support
+### Support Channels
 
-If you need help with your NOWPayments integration, contact support:
+- [NOWPayments Support](https://nowpayments.io/help/contact)
+- [API Documentation](https://documenter.getpostman.com/view/7907941/S1a32n38?version=latest)
 
-- NOWPayments Support: [https://nowpayments.io/help](https://nowpayments.io/help)
-- ChickFarms Support: Contact your administrator
+## Fees and Limits
+
+- NOWPayments charges a small fee per transaction (check their latest pricing)
+- Each cryptocurrency has minimum and maximum payment amounts
+- Transaction processing times vary by cryptocurrency
+- Some features may have usage limits based on your account tier
+
+## Next Steps
+
+- Consider implementing multi-currency support
+- Set up automated notifications for payment events
+- Implement advanced fraud detection measures
+- Create a reconciliation process for tracking payments
