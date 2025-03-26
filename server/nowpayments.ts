@@ -117,7 +117,7 @@ class NOWPaymentsService {
    * @returns Axios instance with default configuration
    */
   private getConfiguredAxios() {
-    const axios = require('axios');
+    // We don't need to require axios again, as it's already imported at the top of the file
     
     // Create an instance with default timeout and retry configuration
     const instance = axios.create({

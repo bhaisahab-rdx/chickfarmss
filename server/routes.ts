@@ -6,6 +6,7 @@ import { z } from "zod";
 import { dailySpinRewards, superJackpotRewards } from "@shared/schema";
 import { nowPaymentsService, PaymentStatusResponse, StandardizedPaymentStatus, isNOWPaymentsConfigured, isIPNSecretConfigured } from "./nowpayments";
 import { config } from "./config";
+import crypto from 'crypto';
 
 export async function registerRoutes(app: Express): Promise<Server> {
   setupAuth(app);
@@ -510,8 +511,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(400).json({ error: "Missing signature" });
         }
         
-        // Verify the signature
-        const crypto = require('crypto');
+        // Verify the signature using the imported crypto module
         const hmac = crypto.createHmac('sha512', ipnSecret);
         const rawBody = typeof ipnData === 'string' ? ipnData : JSON.stringify(ipnData);
         const computedSignature = hmac.update(rawBody).digest('hex');
