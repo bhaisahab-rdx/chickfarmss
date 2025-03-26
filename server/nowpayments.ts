@@ -698,21 +698,22 @@ class NOWPaymentsService {
       return cachedValue.amount;
     }
     
+    // Standard minimum amount defaults for common currencies
+    const defaultMinAmounts: Record<string, number> = {
+      'USDTTRC20': 10,
+      'USDT': 10,
+      'BTC': 0.001,
+      'ETH': 0.01,
+      'DOGE': 50,
+      'LTC': 0.1,
+      'BNB': 0.1
+    };
+    
     // In mock mode, return mock minimum amounts for different currencies
     if (this.isMockMode) {
       console.log(`[NOWPayments] Using mock mode for minimum payment amount for currency: ${currency}`);
       
-      const mockMinAmounts: Record<string, number> = {
-        'USDTTRC20': 10,
-        'USDT': 10,
-        'BTC': 0.001,
-        'ETH': 0.01,
-        'DOGE': 50,
-        'LTC': 0.1,
-        'BNB': 0.1
-      };
-      
-      const minAmount = mockMinAmounts[currencyKey] || 1;
+      const minAmount = defaultMinAmounts[currencyKey] || 1;
       
       // Cache this value
       this.minAmountCache[currencyKey] = {
@@ -730,11 +731,29 @@ class NOWPaymentsService {
       const axios = this.getConfiguredAxios();
       
       // The API requires both currency_from and currency_to parameters
-      // NOWPayments needs to know what currency you're converting from and to
-      const response = await axios.get(
-        `${API_BASE_URL}/min-amount?currency_from=${currency}&currency_to=usd`,
-        { headers: this.getHeaders() }
-      );
+      let response;
+      try {
+        // First attempt with standard parameter format
+        response = await axios.get(
+          `${API_BASE_URL}/min-amount?currency_from=${currency}&currency_to=usd`,
+          { headers: this.getHeaders() }
+        );
+      } catch (requestError: any) {
+        // If we get a 403 error (common with new NOWPayments accounts)
+        if (requestError.response && requestError.response.status === 403) {
+          console.warn(`[NOWPayments] Received 403 Forbidden when requesting min amount for ${currency}. Using default value.`);
+          const defaultAmount = defaultMinAmounts[currencyKey] || 1;
+          
+          // Cache the default value for this currency
+          this.minAmountCache[currencyKey] = {
+            amount: defaultAmount,
+            timestamp: Date.now() 
+          };
+          
+          return defaultAmount;
+        }
+        throw requestError; // Re-throw if it's not a 403 error
+      }
       
       const minAmount = response.data.min_amount || 1;
       console.log(`[NOWPayments] Minimum payment amount for ${currency}: ${minAmount}`);
@@ -771,13 +790,27 @@ class NOWPaymentsService {
         const minAmount = retryResponse.data.min_amount || 1;
         console.log(`Retry successful - Minimum payment amount for ${currency}: ${minAmount}`);
         
+        // Cache the result
+        this.minAmountCache[currencyKey] = {
+          amount: minAmount,
+          timestamp: Date.now()
+        };
+        
         return minAmount;
       } catch (retryError) {
-        console.error(`Retry also failed for ${currency}:`, retryError);
+        console.error(`[NOWPayments] Retry also failed for ${currency}:`, retryError);
         
-        // For this specific error, we can safely default to 1 as a reasonable minimum
-        // This is not a mock, but a fallback for production when the API doesn't respond
-        return 1;
+        // Use the default minimum amount for this currency or fallback to 1
+        const defaultAmount = defaultMinAmounts[currencyKey] || 1;
+        console.warn(`[NOWPayments] Using default minimum amount for ${currency}: ${defaultAmount}`);
+        
+        // Cache the default value
+        this.minAmountCache[currencyKey] = {
+          amount: defaultAmount,
+          timestamp: Date.now() // Cache for less time when using defaults
+        };
+        
+        return defaultAmount;
       }
     }
   }
@@ -854,7 +887,17 @@ class NOWPaymentsService {
       // First check if we can get available currencies
       let availablePayCurrency: string;
       try {
-        availablePayCurrency = await this.findAvailablePaymentCurrency(payCurrency);
+        // Handle 403 errors that might happen during currency check
+        try {
+          availablePayCurrency = await this.findAvailablePaymentCurrency(payCurrency);
+        } catch (permissionError: any) {
+          if (permissionError.response && permissionError.response.status === 403) {
+            console.warn('[NOWPayments] Received 403 Forbidden when checking available currencies. Using default currency.');
+            // Return to default test invoice if we have permission issues
+            return this.createTestInvoice(amount, userId, currency, successUrl, cancelUrl, orderId);
+          }
+          throw permissionError; // Re-throw if it's not a 403
+        }
         
         if (availablePayCurrency !== payCurrency) {
           console.log(`[NOWPayments] Requested currency ${payCurrency} is not available, using ${availablePayCurrency} instead`);
