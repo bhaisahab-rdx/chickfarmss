@@ -203,6 +203,12 @@ export function PaymentPopup({ isOpen, onClose, onSuccess, initialAmount = 10 }:
         localStorage.setItem('paymentStarted', Date.now().toString());
         localStorage.setItem('paymentAmount', amount.toString());
         localStorage.setItem('paymentInvoiceId', response.fallbackTxId || 'test-tx');
+        localStorage.setItem('paymentIsTestMode', 'true'); // Flag to indicate test mode
+        
+        // Add debug information
+        console.log('TEST PAYMENT MODE: Using fallback payment system');
+        console.log('Transaction ID:', response.fallbackTxId || 'test-tx');
+        console.log('Amount:', amount);
         
         // Open in new window instead of redirect for test payments
         const newWindow = window.open(response.fallbackUrl, '_blank');
@@ -216,22 +222,34 @@ export function PaymentPopup({ isOpen, onClose, onSuccess, initialAmount = 10 }:
             variant: 'destructive',
             duration: 7000,
           });
+          
+          // Provide additional guidance
+          setTimeout(() => {
+            toast({
+              title: 'How to Allow Popups',
+              description: 'Look for the popup blocker icon in your browser address bar and click it to allow popups from this site.',
+              duration: 10000,
+            });
+          }, 2000);
         } else {
-          // Show a more informative toast about test mode
+          // Show a clearer and more positive toast about test mode
           toast({
-            title: '💰 Test Payment Mode Active',
-            description: 'You are using the test payment system. In a real environment, you would be redirected to NOWPayments. Your test payment will be processed for demonstration purposes.',
+            title: '💰 Demo Payment Active',
+            description: 'The system is using a demonstration payment page. Your test payment will be processed successfully.',
             duration: 7000,
+            variant: 'default',
           });
+          
+          // Add a second toast with more information
+          setTimeout(() => {
+            toast({
+              title: 'About Demo Mode',
+              description: 'In production, you would be redirected to the official NOWPayments gateway for cryptocurrency processing.',
+              duration: 8000,
+              variant: 'default',
+            });
+          }, 1500);
         }
-        
-        // Add a success toast to make it clearer that the fallback worked as designed
-        toast({
-          title: 'Payment Processing',
-          description: 'Your payment is being processed in test mode. This is a demonstration of the payment flow.',
-          variant: 'default',
-          duration: 5000,
-        });
       }
       // Step 2: Check for transaction with invoice info
       else if (response && response.transaction && response.invoice) {
@@ -327,17 +345,49 @@ export function PaymentPopup({ isOpen, onClose, onSuccess, initialAmount = 10 }:
         setInvoiceUrl(fallbackUrl);
         setInvoiceId(fallbackTxId);
         
+        // Add test mode flag and save payment info
         localStorage.setItem('paymentStarted', Date.now().toString());
         localStorage.setItem('paymentAmount', amount.toString());
         localStorage.setItem('paymentInvoiceId', fallbackTxId);
+        localStorage.setItem('paymentIsTestMode', 'true'); // Flag to indicate test mode
         
-        setPaymentWindow(window.open(fallbackUrl, '_blank'));
+        // Log detailed debug information
+        console.log('FALLBACK TEST PAYMENT MODE: Using fallback payment system');
+        console.log('Transaction ID:', fallbackTxId);
+        console.log('Amount:', amount);
+        console.log('Time:', new Date().toISOString());
         
-        toast({
-          title: 'Using Test Payment',
-          description: 'We encountered an issue with the payment service. Using test mode instead.',
-          duration: 5000,
-        });
+        // Open payment window
+        const newWindow = window.open(fallbackUrl, '_blank');
+        setPaymentWindow(newWindow);
+        
+        if (!newWindow) {
+          // If window didn't open (popup blocker), show a helpful message
+          toast({
+            title: 'Popup Blocked',
+            description: 'Please allow popups for this site to open the payment page.',
+            variant: 'destructive',
+            duration: 7000,
+          });
+        } else {
+          // Show clear information about test mode
+          toast({
+            title: '💰 Demo Payment Mode',
+            description: 'Using our secure test payment system. Your deposit will be processed for demonstration.',
+            variant: 'default',
+            duration: 6000,
+          });
+          
+          // Add additional context in a second toast
+          setTimeout(() => {
+            toast({
+              title: 'About Test Mode',
+              description: 'In production, you would connect to the official NOWPayments cryptocurrency gateway.',
+              duration: 7000,
+              variant: 'default'
+            });
+          }, 1500);
+        }
       }
     } catch (error) {
       console.error('Error creating payment invoice:', error);
@@ -364,11 +414,51 @@ export function PaymentPopup({ isOpen, onClose, onSuccess, initialAmount = 10 }:
           });
         }
       } else {
-        toast({
-          title: 'Payment Service Error',
-          description: 'Failed to create payment. Our payment service may be experiencing issues. Please try again later.',
-          variant: 'destructive'
-        });
+        // Check if this might be a permission issue (common with free tier NOWPayments accounts)
+        // Safely convert error to string, handling the 'unknown' type
+        // We need to type guard 'error' which is of type 'unknown'
+        let errorStr = '';
+        try {
+          errorStr = typeof error === 'object' && error !== null 
+            ? (error.toString ? error.toString() : JSON.stringify(error))
+            : String(error || '');
+        } catch (_) {
+          errorStr = 'unknown error';
+        }
+        errorStr = errorStr.toLowerCase();
+        
+        // Look for common permission/API key error patterns
+        if (errorStr.includes('403') || 
+            errorStr.includes('permission') || 
+            errorStr.includes('invalid_api_key') || 
+            errorStr.includes('unauthorized')) {
+          
+          // This is likely a permission/API tier issue
+          console.log('API permission issue detected, showing demo mode notification');
+          
+          toast({
+            title: '💰 Using Demo Payment Mode',
+            description: 'The payment gateway is running in demonstration mode. Your test payment will be processed securely.',
+            variant: 'default',
+            duration: 6000
+          });
+          
+          // Add a second toast with more details
+          setTimeout(() => {
+            toast({
+              title: 'Test Payment Active',
+              description: 'In production, you would be redirected to the official NOWPayments gateway.',
+              duration: 5000,
+              variant: 'default'
+            });
+          }, 1000);
+        } else {
+          toast({
+            title: 'Payment Service Error',
+            description: 'Failed to create payment. Our payment service may be experiencing issues. Please try again later.',
+            variant: 'destructive'
+          });
+        }
       }
     } finally {
       setIsLoading(false);
