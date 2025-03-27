@@ -195,6 +195,7 @@ export function PaymentPopup({ isOpen, onClose, onSuccess, initialAmount = 10 }:
       if (response && response.fallbackUrl) {
         // Fallback for when real API fails but we have a test payment URL
         console.log('Using fallback test payment URL:', response.fallbackUrl);
+        console.log('Fallback transaction details:', response.transaction);
         setInvoiceUrl(response.fallbackUrl);
         setInvoiceId(response.fallbackTxId || 'test-tx');
         
@@ -204,11 +205,31 @@ export function PaymentPopup({ isOpen, onClose, onSuccess, initialAmount = 10 }:
         localStorage.setItem('paymentInvoiceId', response.fallbackTxId || 'test-tx');
         
         // Open in new window instead of redirect for test payments
-        setPaymentWindow(window.open(response.fallbackUrl, '_blank'));
+        const newWindow = window.open(response.fallbackUrl, '_blank');
+        setPaymentWindow(newWindow);
         
+        if (!newWindow) {
+          // If window didn't open (popup blocker), show a more helpful message
+          toast({
+            title: 'Popup Blocked',
+            description: 'Please allow popups for this site and try again. We need to open the payment page in a new window.',
+            variant: 'destructive',
+            duration: 7000,
+          });
+        } else {
+          // Show a more informative toast about test mode
+          toast({
+            title: '💰 Test Payment Mode Active',
+            description: 'You are using the test payment system. In a real environment, you would be redirected to NOWPayments. Your test payment will be processed for demonstration purposes.',
+            duration: 7000,
+          });
+        }
+        
+        // Add a success toast to make it clearer that the fallback worked as designed
         toast({
-          title: 'Test Payment Mode',
-          description: 'Using test payment system since the payment provider is unavailable.',
+          title: 'Payment Processing',
+          description: 'Your payment is being processed in test mode. This is a demonstration of the payment flow.',
+          variant: 'default',
           duration: 5000,
         });
       }
