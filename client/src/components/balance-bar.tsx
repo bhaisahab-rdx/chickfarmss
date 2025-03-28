@@ -2,18 +2,63 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { Resource } from "@shared/schema";
 import { motion } from "framer-motion";
-import React from "react";
+import React, { useState } from "react";
 import { useUIState } from "@/hooks/use-ui-state";
+import { useLocation } from "wouter";
+import { useToast } from "@/hooks/use-toast";
 
 export default function BalanceBar() {
   const { user } = useAuth();
   const { hideUIElements } = useUIState();
+  const [_, setLocation] = useLocation();
+  const { toast } = useToast();
 
   const resourcesQuery = useQuery<Resource>({
     queryKey: ["/api/resources"],
     staleTime: 0, // Always fetch fresh data
     retry: 2, // Retry failed requests twice
   });
+
+  // Click handlers for resource buttons
+  const handleWaterClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setLocation('/shop?tab=water');
+    toast({
+      title: "Water Buckets",
+      description: "Get water buckets to keep your chickens healthy!",
+      duration: 3000,
+    });
+  };
+
+  const handleWheatClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setLocation('/shop?tab=wheat');
+    toast({
+      title: "Wheat Bags",
+      description: "Buy wheat to feed your chickens!",
+      duration: 3000,
+    });
+  };
+
+  const handleEggsClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setLocation('/home');
+    toast({
+      title: "Eggs Production",
+      description: "Your chickens produce eggs over time. Feed them to get more eggs!",
+      duration: 3000,
+    });
+  };
+
+  const handleUsdtClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setLocation('/wallet');
+    toast({
+      title: "Add USDT",
+      description: "Deposit USDT to purchase resources and chickens!",
+      duration: 3000,
+    });
+  };
 
   // Hide when loading, no user, error, or when spin wheel is open
   if (!user || resourcesQuery.isLoading || resourcesQuery.error || hideUIElements) {
@@ -102,14 +147,13 @@ export default function BalanceBar() {
                 {resources.waterBuckets}
               </motion.div>
             </div>
-            <motion.a
-              href="/shop"
+            <motion.button
+              onClick={handleWaterClick}
               className="ml-1 w-6 h-6 flex-shrink-0 rounded-full flex items-center justify-center cursor-pointer"
               style={{
                 background: "linear-gradient(to bottom, #29B6F6, #29B6F6dd)",
                 boxShadow: "0 2px 4px rgba(0,0,0,0.15)",
-                border: "none",
-                textDecoration: "none"
+                border: "none"
               }}
               whileHover={{ 
                 scale: 1.2, 
@@ -119,7 +163,7 @@ export default function BalanceBar() {
               whileTap={{ scale: 0.9 }}
             >
               <span className="text-white font-bold text-xs">+</span>
-            </motion.a>
+            </motion.button>
           </div>
 
           <motion.div 
@@ -188,14 +232,13 @@ export default function BalanceBar() {
                 {resources.wheatBags}
               </motion.div>
             </div>
-            <motion.a
-              href="/shop"
+            <motion.button
+              onClick={handleWheatClick}
               className="ml-1 w-6 h-6 flex-shrink-0 rounded-full flex items-center justify-center cursor-pointer"
               style={{
                 background: "linear-gradient(to bottom, #FFC107, #FFC107dd)",
                 boxShadow: "0 2px 4px rgba(0,0,0,0.15)",
-                border: "none",
-                textDecoration: "none"
+                border: "none"
               }}
               whileHover={{ 
                 scale: 1.2, 
@@ -205,7 +248,7 @@ export default function BalanceBar() {
               whileTap={{ scale: 0.9 }}
             >
               <span className="text-white font-bold text-xs">+</span>
-            </motion.a>
+            </motion.button>
           </div>
 
           <motion.div 
@@ -277,14 +320,13 @@ export default function BalanceBar() {
                 {resources.eggs}
               </motion.div>
             </div>
-            <motion.a
-              href="/home"
+            <motion.button
+              onClick={handleEggsClick}
               className="ml-1 w-6 h-6 flex-shrink-0 rounded-full flex items-center justify-center cursor-pointer"
               style={{
                 background: "linear-gradient(to bottom, #FFB74D, #FFB74Ddd)",
                 boxShadow: "0 2px 4px rgba(0,0,0,0.15)",
-                border: "none",
-                textDecoration: "none"
+                border: "none"
               }}
               whileHover={{ 
                 scale: 1.2, 
@@ -294,7 +336,7 @@ export default function BalanceBar() {
               whileTap={{ scale: 0.9 }}
             >
               <span className="text-white font-bold text-xs">+</span>
-            </motion.a>
+            </motion.button>
           </div>
 
           <motion.div 
@@ -371,14 +413,13 @@ export default function BalanceBar() {
                 ${user.usdtBalance}
               </motion.div>
             </div>
-            <motion.a
-              href="/wallet"
+            <motion.button
+              onClick={handleUsdtClick}
               className="ml-1 w-6 h-6 flex-shrink-0 rounded-full flex items-center justify-center cursor-pointer"
               style={{
                 background: "linear-gradient(to bottom, #26A17B, #26A17Bdd)",
                 boxShadow: "0 2px 4px rgba(0,0,0,0.15)",
-                border: "none",
-                textDecoration: "none"
+                border: "none"
               }}
               whileHover={{ 
                 scale: 1.2, 
@@ -388,7 +429,7 @@ export default function BalanceBar() {
               whileTap={{ scale: 0.9 }}
             >
               <span className="text-white font-bold text-xs">+</span>
-            </motion.a>
+            </motion.button>
           </div>
 
           <motion.div 

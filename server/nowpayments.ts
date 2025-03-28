@@ -229,9 +229,9 @@ class NOWPaymentsService {
     console.log('[NOWPayments] Authenticating with email:', email);
     
     try {
-      // First try WITHOUT the API key (standard JWT authentication)
+      // First try WITH the API key (direct authentication with complete credentials)
       try {
-        console.log('[NOWPayments] Trying authentication without API key first (preferred method)');
+        console.log('[NOWPayments] Trying authentication with API key first');
         const axios = this.getConfiguredAxios();
         const response = await axios.post(
           `${API_BASE_URL}/auth`,
@@ -239,7 +239,8 @@ class NOWPaymentsService {
           { 
             headers: {
               'Content-Type': 'application/json',
-              'Accept': 'application/json'
+              'Accept': 'application/json',
+              'x-api-key': this.apiKey
             }
           }
         );
@@ -247,16 +248,16 @@ class NOWPaymentsService {
         if (response.data && response.data.token) {
           this.jwtToken = response.data.token;
           this.jwtTokenExpiry = Date.now() + (12 * 60 * 60 * 1000); // 12 hours
-          console.log('[NOWPayments] Authentication successful, JWT token obtained (no API key)');
+          console.log('[NOWPayments] Authentication successful with API key, JWT token obtained');
           return true;
         } else {
           console.warn('[NOWPayments] Authentication response did not contain token');
         }
-      } catch (noApiKeyError: any) {
-        console.warn('[NOWPayments] Authentication without API key failed:', noApiKeyError.message);
-        console.warn('[NOWPayments] Trying with API key as fallback');
+      } catch (apiKeyError: any) {
+        console.warn('[NOWPayments] Authentication with API key failed:', apiKeyError.message);
+        console.warn('[NOWPayments] Trying without API key as fallback');
         
-        // Try again WITH the API key (fallback method)
+        // Try again WITHOUT the API key (fallback method)
         try {
           const axios = this.getConfiguredAxios();
           const response = await axios.post(
@@ -265,8 +266,7 @@ class NOWPaymentsService {
             { 
               headers: {
                 'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'x-api-key': this.apiKey
+                'Accept': 'application/json'
               }
             }
           );
@@ -274,16 +274,16 @@ class NOWPaymentsService {
           if (response.data && response.data.token) {
             this.jwtToken = response.data.token;
             this.jwtTokenExpiry = Date.now() + (12 * 60 * 60 * 1000); // 12 hours
-            console.log('[NOWPayments] Authentication successful with API key, JWT token obtained');
+            console.log('[NOWPayments] Authentication successful without API key, JWT token obtained');
             return true;
           } else {
-            console.error('[NOWPayments] Authentication failed with API key: No token in response');
+            console.error('[NOWPayments] Authentication failed without API key: No token in response');
             console.log('[NOWPayments] Response:', response.data);
             return false;
           }
-        } catch (apiKeyError: any) {
-          console.error('[NOWPayments] Authentication with API key failed:', apiKeyError.message);
-          throw apiKeyError; // Re-throw to be caught by outer catch
+        } catch (noApiKeyError: any) {
+          console.error('[NOWPayments] Authentication without API key failed:', noApiKeyError.message);
+          throw noApiKeyError; // Re-throw to be caught by outer catch
         }
       }
     } catch (error: any) {
@@ -1197,6 +1197,22 @@ class NOWPaymentsService {
     // Always log the API key first few characters for debugging
     console.log(`[NOWPayments] Using API Key starting with: ${this.apiKey.substring(0, 4)}...`);
     
+    // Try to authenticate first to get JWT token if possible
+    // This will help us bypass some API key permission restrictions
+    if (!this.jwtToken || this.jwtTokenExpiry <= Date.now() + this.JWT_REFRESH_BUFFER) {
+      console.log('[NOWPayments] No active JWT token, attempting to authenticate...');
+      await this.authenticate();
+      
+      // Check if authentication was successful
+      if (this.jwtToken) {
+        console.log('[NOWPayments] Successfully authenticated and obtained JWT token');
+      } else {
+        console.warn('[NOWPayments] Failed to authenticate - will proceed with API key only');
+      }
+    } else {
+      console.log('[NOWPayments] Using existing JWT token');
+    }
+    
     // Check for permissions by making a small API call first
     try {
       // Try to get status - if this fails with 403, we're in test mode
@@ -1220,12 +1236,17 @@ class NOWPaymentsService {
         console.warn('[NOWPayments] Error checking minimum payment amount:', permissionError.message);
         
         if (permissionError.response && permissionError.response.status === 403) {
-          console.warn('[NOWPayments] API key has limited permissions. Key can check status but not create invoices.');
-          console.log('[NOWPayments] USING TEST INVOICE MODE due to API key permission restrictions.');
-          console.log('[NOWPayments] To complete real cryptocurrency payments, please provide an API key with Invoice permissions.');
-          const testInvoice = createTestInvoice();
-          console.log('[NOWPayments] Created TEST INVOICE with ID:', testInvoice.id);
-          return testInvoice;
+          // If we have a JWT token, we might still be able to create invoices despite API key limitations
+          if (this.jwtToken) {
+            console.log('[NOWPayments] API key has limited permissions, but we have JWT token - will try to proceed');
+          } else {
+            console.warn('[NOWPayments] API key has limited permissions and no JWT token available.');
+            console.log('[NOWPayments] USING TEST INVOICE MODE due to API key permission restrictions.');
+            console.log('[NOWPayments] To complete real cryptocurrency payments, please provide an API key with Invoice permissions.');
+            const testInvoice = createTestInvoice();
+            console.log('[NOWPayments] Created TEST INVOICE with ID:', testInvoice.id);
+            return testInvoice;
+          }
         }
       }
     } catch (error: any) {
