@@ -1,0 +1,2 @@
+} catch (altJwtError: any) {
+} catch (altApiKeyError: any) {

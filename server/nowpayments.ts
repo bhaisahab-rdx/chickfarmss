@@ -906,17 +906,46 @@ class NOWPaymentsService {
       throw new Error(`Payment with ID ${paymentId} not found in mock mode`);
     }
     
+    // Make sure we have a valid JWT token before proceeding
+    if (!this.jwtToken || this.jwtTokenExpiry <= Date.now() + this.JWT_REFRESH_BUFFER) {
+      console.log('[NOWPayments] No active JWT token for payment status check, authenticating...');
+      await this.authenticate();
+    }
+    
+    // Use our configured axios instance for better error handling
+    const axios = this.getConfiguredAxios();
+    
     try {
-      console.log(`[NOWPayments] Checking status for payment ID: ${paymentId}`);
+      // First try with JWT authentication if available
+      if (this.jwtToken && this.jwtTokenExpiry > Date.now()) {
+        console.log(`[NOWPayments] Checking status for payment ID: ${paymentId} with JWT auth`);
+        try {
+          const jwtResponse = await axios.get(
+            `${API_BASE_URL}/payment/${paymentId}`,
+            { headers: this.getHeaders(true) } // Use JWT token
+          );
+          
+          console.log(`[NOWPayments] Payment status for ${paymentId} (JWT auth):`, {
+            status: jwtResponse.data.payment_status,
+            updated_at: jwtResponse.data.updated_at
+          });
+          
+          return jwtResponse.data;
+        } catch (jwtError: any) {
+          console.warn(`[NOWPayments] JWT auth failed for payment status check: ${paymentId}`, jwtError.message);
+          console.log('[NOWPayments] Falling back to API key for payment status check');
+          // Fall through to API key method
+        }
+      }
       
-      // Use our configured axios instance for better error handling
-      const axios = this.getConfiguredAxios();
+      // Fall back to API key authentication
+      console.log(`[NOWPayments] Checking status for payment ID: ${paymentId} with API key`);
       const response = await axios.get(
         `${API_BASE_URL}/payment/${paymentId}`,
-        { headers: this.getHeaders() }
+        { headers: this.getHeaders(false) } // Use API key
       );
       
-      console.log(`[NOWPayments] Payment status for ${paymentId}:`, {
+      console.log(`[NOWPayments] Payment status for ${paymentId} (API key):`, {
         status: response.data.payment_status,
         updated_at: response.data.updated_at
       });
@@ -932,6 +961,34 @@ class NOWPaymentsService {
           statusText: error.response.statusText,
           data: error.response.data
         });
+        
+        // Attempt to re-authenticate if we get a 401 or 403 error
+        if (error.response.status === 401 || error.response.status === 403) {
+          console.log('[NOWPayments] Authentication error - attempting to refresh JWT token');
+          this.jwtToken = null; // Force re-authentication
+          await this.authenticate();
+          
+          if (this.jwtToken) {
+            console.log('[NOWPayments] Successfully refreshed JWT token, retrying payment status check');
+            // Try one more time with the new JWT token
+            try {
+              const retryResponse = await axios.get(
+                `${API_BASE_URL}/payment/${paymentId}`,
+                { headers: this.getHeaders(true) } // Use new JWT token
+              );
+              
+              console.log(`[NOWPayments] Payment status for ${paymentId} (retry with new JWT):`, {
+                status: retryResponse.data.payment_status,
+                updated_at: retryResponse.data.updated_at
+              });
+              
+              return retryResponse.data;
+            } catch (retryError: any) {
+              console.error('[NOWPayments] Still failed after JWT refresh:', retryError.message);
+              throw retryError;
+            }
+          }
+        }
       }
       
       throw error;
@@ -980,23 +1037,55 @@ class NOWPaymentsService {
       return minAmount;
     }
     
+    // Make sure we have a valid JWT token before proceeding
+    if (!this.jwtToken || this.jwtTokenExpiry <= Date.now() + this.JWT_REFRESH_BUFFER) {
+      console.log('[NOWPayments] No active JWT token for minimum amount check, authenticating...');
+      await this.authenticate();
+    }
+    
     try {
       console.log(`[NOWPayments] Getting minimum payment amount for currency: ${currency}`);
+      const axios = this.getConfiguredAxios();
       
-      // First try with standard API key authentication
+      // First try with JWT authentication if available
+      if (this.jwtToken && this.jwtTokenExpiry > Date.now()) {
+        try {
+          console.log(`[NOWPayments] Checking minimum amount for ${currency} with JWT auth`);
+          const jwtResponse = await axios.get(
+            `${API_BASE_URL}/min-amount?currency_from=${currency}&currency_to=usd`,
+            { headers: this.getHeaders(true) } // Use JWT token
+          );
+          
+          if (jwtResponse.data && jwtResponse.data.min_amount !== undefined) {
+            const minAmount = jwtResponse.data.min_amount || 1;
+            console.log(`[NOWPayments] Minimum payment amount for ${currency} (JWT auth): ${minAmount}`);
+            
+            // Cache this value to reduce future API calls
+            this.minAmountCache[currencyKey] = {
+              amount: minAmount,
+              timestamp: Date.now()
+            };
+            
+            return minAmount;
+          }
+        } catch (jwtError: any) {
+          console.warn(`[NOWPayments] JWT auth failed for minimum amount check: ${jwtError.message}`);
+          console.log('[NOWPayments] Falling back to API key for minimum amount check');
+          // Fall through to API key method
+        }
+      }
+      
+      // Fall back to API key authentication
       try {
-        // Use our configured axios instance for better error handling
-        const axios = this.getConfiguredAxios();
-        
-        // The API requires both currency_from and currency_to parameters
+        console.log(`[NOWPayments] Checking minimum amount for ${currency} with API key`);
         const response = await axios.get(
           `${API_BASE_URL}/min-amount?currency_from=${currency}&currency_to=usd`,
-          { headers: this.getHeaders() }
+          { headers: this.getHeaders(false) } // Use API key
         );
         
         if (response.data && response.data.min_amount !== undefined) {
           const minAmount = response.data.min_amount || 1;
-          console.log(`[NOWPayments] Minimum payment amount for ${currency}: ${minAmount}`);
+          console.log(`[NOWPayments] Minimum payment amount for ${currency} (API key): ${minAmount}`);
           
           // Cache this value to reduce future API calls
           this.minAmountCache[currencyKey] = {
@@ -1006,27 +1095,26 @@ class NOWPaymentsService {
           
           return minAmount;
         }
-      } catch (error: any) {
-        // If we get a 403 error, try with JWT authentication
-        if (error.response && error.response.status === 403) {
-          console.log('[NOWPayments] API key not authorized for min-amount endpoint. Trying JWT authentication...');
-          // Try to authenticate with JWT
-          const authenticated = await this.authenticate();
+      } catch (apiKeyError: any) {
+        console.warn(`[NOWPayments] API key failed for minimum amount check: ${apiKeyError.message}`);
+        
+        // If we get a 403 error, try with alternate endpoint format
+        if (apiKeyError.response && apiKeyError.response.status === 403) {
+          console.log('[NOWPayments] API key not authorized for min-amount endpoint. Trying alternate format...');
           
-          if (authenticated) {
+          // Try alternate endpoint format with JWT first
+          if (this.jwtToken && this.jwtTokenExpiry > Date.now()) {
             try {
-              // Try again with JWT token
-              const axios = this.getConfiguredAxios();
-              const response = await axios.get(
-                `${API_BASE_URL}/min-amount?currency_from=${currency}&currency_to=usd`,
-                { headers: this.getHeaders(true) } // Include JWT token
+              const altJwtResponse = await axios.get(
+                `${API_BASE_URL}/min-amount/${currency}?currency_to=usd`,
+                { headers: this.getHeaders(true) } // Use JWT token
               );
               
-              if (response.data && response.data.min_amount !== undefined) {
-                const minAmount = response.data.min_amount || 1;
-                console.log(`[NOWPayments] Minimum payment amount for ${currency} with JWT auth: ${minAmount}`);
+              if (altJwtResponse.data && altJwtResponse.data.min_amount !== undefined) {
+                const minAmount = altJwtResponse.data.min_amount || 1;
+                console.log(`[NOWPayments] Minimum payment amount for ${currency} (alt endpoint with JWT): ${minAmount}`);
                 
-                // Cache this value to reduce future API calls
+                // Cache this value
                 this.minAmountCache[currencyKey] = {
                   amount: minAmount,
                   timestamp: Date.now()
@@ -1034,50 +1122,51 @@ class NOWPaymentsService {
                 
                 return minAmount;
               }
-            } catch (jwtError: any) {
-              console.error('[NOWPayments] Failed to get min amount even with JWT:', jwtError.message);
-              // Fall back to default value
+            } catch (altJwtError: any) {
+              console.warn(`[NOWPayments] Alternate endpoint with JWT also failed: ${altJwtError.message}`);
+              // Fall through to API key with alternate endpoint
             }
           }
           
-          // If JWT authentication fails or API call fails, use default value
-          console.warn(`[NOWPayments] Using default minimum amount for ${currency} due to auth issues.`);
-          const defaultAmount = defaultMinAmounts[currencyKey] || 1;
-          
-          // Cache the default value for this currency
-          this.minAmountCache[currencyKey] = {
-            amount: defaultAmount,
-            timestamp: Date.now() 
-          };
-          
-          return defaultAmount;
-        } else {
-          // For non-403 errors, try alternate approach before giving up
-          throw error;
+          // Try alternate endpoint format with API key
+          try {
+            const altResponse = await axios.get(
+              `${API_BASE_URL}/min-amount/${currency}?currency_to=usd`,
+              { headers: this.getHeaders(false) } // Use API key
+            );
+            
+            if (altResponse.data && altResponse.data.min_amount !== undefined) {
+              const minAmount = altResponse.data.min_amount || 1;
+              console.log(`[NOWPayments] Minimum payment amount for ${currency} (alt endpoint with API key): ${minAmount}`);
+              
+              // Cache this value
+              this.minAmountCache[currencyKey] = {
+                amount: minAmount,
+                timestamp: Date.now()
+              };
+              
+              return minAmount;
+            }
+          } catch (altApiKeyError: any) {
+            console.error(`[NOWPayments] All attempts failed for ${currency}: ${altApiKeyError.message}`);
+            // Fall through to default values
+          }
         }
       }
       
-      // If we reach here, both the above methods failed, so we'll try one more time
-      // with the alternate endpoint format
-      const axios = this.getConfiguredAxios();
-      let response; // Declare the response variable
-      response = await axios.get(
-        `${API_BASE_URL}/min-amount/${currency}?currency_to=usd`,
-        { headers: this.getHeaders() }
-      );
+      // If all API attempts failed, use default values
+      console.warn(`[NOWPayments] Using default minimum amount for ${currency} as all API attempts failed`);
+      const defaultAmount = defaultMinAmounts[currencyKey] || 1;
       
-      const minAmount = response.data.min_amount || 1;
-      console.log(`[NOWPayments] Minimum payment amount for ${currency}: ${minAmount}`);
-      
-      // Cache this value to reduce future API calls
+      // Cache the default value for this currency
       this.minAmountCache[currencyKey] = {
-        amount: minAmount,
+        amount: defaultAmount,
         timestamp: Date.now()
       };
       
-      return minAmount;
+      return defaultAmount;
     } catch (error: any) {
-      console.error(`[NOWPayments] Error getting minimum payment amount for ${currency}:`, error);
+      console.error(`[NOWPayments] Unexpected error getting minimum payment amount for ${currency}:`, error.message);
       
       // Log more detailed error information
       if (error.response) {
@@ -1088,41 +1177,17 @@ class NOWPaymentsService {
         });
       }
       
-      // Try with a different approach if the first attempt failed
-      try {
-        console.log(`[NOWPayments] Retrying with different parameters for currency: ${currency}`);
-        
-        // Try with both parameters explicitly set
-        const retryResponse = await axios.get(
-          `${API_BASE_URL}/min-amount/${currency}?currency_to=usd`,
-          { headers: this.getHeaders() }
-        );
-        
-        const minAmount = retryResponse.data.min_amount || 1;
-        console.log(`Retry successful - Minimum payment amount for ${currency}: ${minAmount}`);
-        
-        // Cache the result
-        this.minAmountCache[currencyKey] = {
-          amount: minAmount,
-          timestamp: Date.now()
-        };
-        
-        return minAmount;
-      } catch (retryError) {
-        console.error(`[NOWPayments] Retry also failed for ${currency}:`, retryError);
-        
-        // Use the default minimum amount for this currency or fallback to 1
-        const defaultAmount = defaultMinAmounts[currencyKey] || 1;
-        console.warn(`[NOWPayments] Using default minimum amount for ${currency}: ${defaultAmount}`);
-        
-        // Cache the default value
-        this.minAmountCache[currencyKey] = {
-          amount: defaultAmount,
-          timestamp: Date.now() // Cache for less time when using defaults
-        };
-        
-        return defaultAmount;
-      }
+      // Use the default minimum amount for this currency or fallback to 1
+      const defaultAmount = defaultMinAmounts[currencyKey] || 1;
+      console.warn(`[NOWPayments] Using default minimum amount for ${currency}: ${defaultAmount}`);
+      
+      // Cache the default value
+      this.minAmountCache[currencyKey] = {
+        amount: defaultAmount,
+        timestamp: Date.now()
+      };
+      
+      return defaultAmount;
     }
   }
   
