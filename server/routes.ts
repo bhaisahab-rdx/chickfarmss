@@ -1707,8 +1707,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       currency: z.string().optional().default("USDT"),
       payCurrency: z.string().optional().default("USDTTRC20"),
       useDirectPayment: z.boolean().optional().default(true), // Use direct payment approach
-      useInvoice: z.boolean().optional(), // For backward compatibility
-      useFallback: z.boolean().optional().default(false) // Whether to enable fallback to test mode
+      useInvoice: z.boolean().optional() // For backward compatibility
     });
 
     const result = schema.safeParse(req.body);
@@ -1729,60 +1728,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`[NOWPayments] API Key exists: ${!!config.nowpayments.apiKey}`);
       console.log(`[NOWPayments] Using direct payment: ${result.data.useDirectPayment}`);
       console.log(`[NOWPayments] Using invoice: ${result.data.useInvoice}`);
-      console.log(`[NOWPayments] Fallback enabled: ${result.data.useFallback}`);
       console.log(`[NOWPayments] Pay currency requested: ${result.data.payCurrency}`);
       
       if (!config.nowpayments.apiKey) {
-        // If API key is missing, log warning but still use the mock mode of nowPaymentsService
-        console.warn("[NOWPayments] API Key is missing, using mock NOWPayments mode");
-        // Force fallback mode when API key is missing
-        result.data.useFallback = true;
-      }
-      
-      // Check if we should use fallback immediately due to configuration issues
-      const useFallback = result.data.useFallback || !config.nowpayments.apiKey || nowPaymentsService.isMockMode;
-      
-      if (useFallback) {
-        console.log(`[NOWPayments] Using fallback test invoice due to configuration or client request`);
-        
-        // Create a test transaction ID
-        const fallbackTxId = `TEST-${Date.now()}-${req.user!.id}`;
-        
-        // Generate a test payment URL
-        const fallbackUrl = `/dev-payment.html?invoice=${fallbackTxId}&amount=${result.data.amount}&currency=${result.data.currency}&success=${encodeURIComponent(successUrl)}&cancel=${encodeURIComponent(cancelUrl)}`;
-        
-        console.log(`[NOWPayments] Generated fallback URL: ${fallbackUrl}`);
-        
-        // Create a pending transaction in our database
-        const transaction = await storage.createTransaction(
-          req.user!.id,
-          "recharge",
-          result.data.amount,
-          fallbackTxId,
-          undefined,
-          JSON.stringify({ 
-            paymentMethod: "test_payment",
-            status: "pending" 
-          })
-        );
-        
-        console.log(`[NOWPayments] Created test transaction with ID: ${fallbackTxId}`);
-        
-        // Return the fallback response in a format client expects
-        return res.json({ 
-          success: true,
-          transaction,
-          fallbackTxId,
-          fallbackUrl,
-          invoice: {
-            id: fallbackTxId,
-            status: "pending",
-            invoiceUrl: fallbackUrl,
-            amount: result.data.amount,
-            currency: result.data.currency,
-            createdAt: new Date().toISOString(),
-          },
-          message: 'Using fallback test payment mode'
+        // If API key is missing, return an error
+        console.error("[NOWPayments] API Key is missing, cannot proceed with payment");
+        return res.status(503).json({
+          error: "NOWPayments API Key Required",
+          message: "The payment system requires a NOWPayments API key to be configured. Please contact support to enable cryptocurrency payments."
         });
       }
       
@@ -1790,39 +1743,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Use direct payment method which is more likely to work with basic API permissions
         console.log(`[NOWPayments] Using direct payment method with NOWPayments`);
         
-        // Create a test transaction ID for fallback use
-        const fallbackTxId = `TEST-${Date.now()}-${req.user!.id}`;
-        const fallbackUrl = `/dev-payment.html?invoice=${fallbackTxId}&amount=${result.data.amount}&currency=${result.data.currency}&success=${encodeURIComponent(successUrl)}&cancel=${encodeURIComponent(cancelUrl)}`;
-        
-        // Create a pending transaction with the fallback info
-        const transaction = await storage.createTransaction(
-          req.user!.id,
-          "recharge",
-          result.data.amount,
-          fallbackTxId,
-          undefined,
-          JSON.stringify({ 
-            status: "pending",
-            paymentMethod: "nowpayments_direct_fallback" 
-          })
-        );
-        
-        console.log(`[NOWPayments] Created test transaction with ID:`, transaction.id);
-        
-        // Return the fallback information
-        return res.json({
-          success: true,
-          transaction,
-          fallbackTxId,
-          fallbackUrl,
-          message: "Using direct payment method with fallback",
-          payment: {
-            status: "pending",
-            amount: result.data.amount,
-            currency: result.data.currency,
-            createdAt: new Date().toISOString(),
-          }
-        });
+        try {
+          // First, attempt to create a real payment via the NOWPayments API
+          const paymentResponse = await nowPaymentsService.createPayment(
+            result.data.amount,
+            req.user!.id,
+            result.data.currency,
+            result.data.payCurrency,
+            undefined, // Let the service generate an order ID
+            `ChickFarms deposit for user ${req.user!.id}`,
+            callbackUrl
+          );
+          
+          console.log(`[NOWPayments] Successfully created payment:`, paymentResponse);
+          
+          // Create a transaction record in our database
+          const transaction = await storage.createTransaction(
+            req.user!.id,
+            "recharge",
+            result.data.amount,
+            paymentResponse.payment_id,
+            undefined,
+            JSON.stringify({
+              status: paymentResponse.payment_status,
+              paymentMethod: "nowpayments_direct",
+              payAddress: paymentResponse.pay_address,
+              payCurrency: paymentResponse.pay_currency,
+              payAmount: paymentResponse.pay_amount
+            })
+          );
+          
+          console.log(`[NOWPayments] Created transaction record with ID:`, transaction.id);
+          
+          // Return the payment information
+          return res.json({
+            success: true,
+            transaction,
+            payment: {
+              payment_id: paymentResponse.payment_id,
+              status: paymentResponse.payment_status,
+              pay_address: paymentResponse.pay_address,
+              pay_amount: paymentResponse.pay_amount,
+              pay_currency: paymentResponse.pay_currency,
+              price_amount: paymentResponse.price_amount,
+              price_currency: paymentResponse.price_currency,
+              created_at: paymentResponse.created_at || new Date().toISOString()
+            }
+          });
+          
+        } catch (apiError) {
+          console.error('[NOWPayments] API Error creating payment:', apiError);
+          
+          // Don't use test payment mode, return an error instead
+          console.error('[NOWPayments] Payment creation error, no fallback allowed');
+          
+          return res.status(500).json({
+            error: "Payment Processing Error",
+            message: "There was an error processing your payment. Please try again later or contact support.",
+            details: "Production NOWPayments API is required for payments."
+          });
+        }
       } catch (apiError) {
         console.error('[NOWPayments] API Error:', apiError);
         throw apiError; // Re-throw to be caught by the outer catch block

@@ -112,6 +112,7 @@ class NOWPaymentsService {
       this.isMockMode = true;
     } else {
       this.apiKey = API_KEY.trim(); // Ensure no whitespace in API key
+      // Always use production mode as requested
       this.isMockMode = false;
       
       // Check if API key looks valid (basic check)
@@ -1248,19 +1249,11 @@ class NOWPaymentsService {
     cancelUrl = cancelUrl || `${config.urls.app}/wallet?payment=cancelled`;
     callbackUrl = callbackUrl || `${config.urls.api}/api/payments/callback`;
 
-    // Helper function to create test invoices (for reuse in error handling)
-    const createTestInvoice = () => {
-      console.log('[NOWPayments] Using test mode for payment invoice creation');
-      const testInvoiceId = `TEST-${userId}-${Date.now()}`;
-      const testInvoiceUrl = `${config.urls.app}/dev-payment.html?invoice=${testInvoiceId}&amount=${amount}&currency=${currency}&success=${encodeURIComponent(successUrl)}&cancel=${encodeURIComponent(cancelUrl)}`;
-      
-      return {
-        id: testInvoiceId,
-        token_id: 'test-token',
-        invoice_url: testInvoiceUrl,
-        success: true,
-        status: 'test_mode'
-      };
+    // Helper function to create real invoices only - no test mode allowed
+    const createTestInvoice = (): CreateInvoiceResponse => {
+      // Instead of creating a test invoice, throw an error to force using real payment method
+      console.error('[NOWPayments] TEST MODE DISABLED. Only production mode is allowed.');
+      throw new Error('Payment test mode is disabled. Please check API credentials or try again later.');
     };
     
     // If explicitly in mock mode, use test invoice
