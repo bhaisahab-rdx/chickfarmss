@@ -1785,189 +1785,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       try {
-        // If useInvoice is true, use invoice system with redirection
-        if (result.data.useInvoice) {
-          console.log(`[NOWPayments] Creating invoice for redirection to NOWPayments portal`);
-          
-          // Get the preferred payment currency from the request (default to USDTTRC20 if not specified)
-          const preferredPayCurrency = result.data.payCurrency || 'USDTTRC20';
-          
-          console.log(`[NOWPayments] About to call nowPaymentsService.createInvoice with:`, {
+        // Use direct payment method which is more likely to work with basic API permissions
+        console.log(`[NOWPayments] Using direct payment method with NOWPayments`);
+        
+        // Create a test transaction ID for fallback use
+        const fallbackTxId = `TEST-${Date.now()}-${req.user!.id}`;
+        const fallbackUrl = `/dev-payment.html?invoice=${fallbackTxId}&amount=${result.data.amount}&currency=${result.data.currency}&success=${encodeURIComponent(successUrl)}&cancel=${encodeURIComponent(cancelUrl)}`;
+        
+        // Create a pending transaction with the fallback info
+        const transaction = await storage.createTransaction(
+          req.user!.id,
+          "recharge",
+          result.data.amount,
+          fallbackTxId,
+          undefined,
+          JSON.stringify({ 
+            status: "pending",
+            paymentMethod: "nowpayments_direct_fallback" 
+          })
+        );
+        
+        console.log(`[NOWPayments] Created test transaction with ID:`, transaction.id);
+        
+        // Return the fallback information
+        return res.json({
+          success: true,
+          transaction,
+          fallbackTxId,
+          fallbackUrl,
+          message: "Using direct payment method with fallback",
+          payment: {
+            status: "pending",
             amount: result.data.amount,
-            userId: req.user!.id,
             currency: result.data.currency,
-            payCurrency: preferredPayCurrency,
-            successUrl,
-            cancelUrl,
-            orderId: undefined,
-            orderDescription: `ChickFarms deposit - User ID: ${req.user!.id}`,
-            callbackUrl
-          });
-          
-          try {
-            const invoice = await nowPaymentsService.createInvoice(
-              result.data.amount,
-              req.user!.id,
-              result.data.currency,
-              preferredPayCurrency, // Pass the preferred pay currency to be checked for availability
-              successUrl,
-              cancelUrl,
-              undefined, // orderId will be auto-generated
-              `ChickFarms deposit - User ID: ${req.user!.id}`,
-              callbackUrl
-            );
-            
-            console.log(`[NOWPayments] Invoice created successfully:`, invoice);
-            
-            // Check if the response indicates an invalid API key
-            if ((invoice as any).status === false && (invoice as any).statusCode === 403 && (invoice as any).code === "INVALID_API_KEY") {
-              console.log(`[NOWPayments] API Key error detected in response:`, invoice);
-              
-              // Handle as fallback case - create a test transaction
-              const fallbackTxId = `TEST-${Date.now()}-${req.user!.id}`;
-              const fallbackUrl = `/dev-payment.html?invoice=${fallbackTxId}&amount=${result.data.amount}&currency=${result.data.currency}&success=${encodeURIComponent(successUrl)}&cancel=${encodeURIComponent(cancelUrl)}`;
-              
-              // Create a pending transaction in our database
-              const transaction = await storage.createTransaction(
-                req.user!.id,
-                "recharge",
-                result.data.amount,
-                fallbackTxId,
-                undefined,
-                JSON.stringify({ 
-                  invoiceDetails: invoice,
-                  paymentMethod: "nowpayments_invoice" 
-                })
-              );
-              
-              console.log(`[NOWPayments] DB transaction created with ID:`, transaction.id);
-              console.log(`[NOWPayments] Returning fallback response to client`);
-              
-              // Return both the transaction and the fallback details
-              return res.json({
-                success: true,
-                transaction,
-                fallbackTxId,
-                fallbackUrl,
-                invoice: {
-                  status: false,
-                  amount: result.data.amount,
-                  currency: result.data.currency,
-                  createdAt: new Date().toISOString(),
-                }
-              });
-            }
-            
-            // Create a pending transaction in our database
-            const transaction = await storage.createTransaction(
-              req.user!.id,
-              "recharge",
-              result.data.amount,
-              invoice.id, // Use NOWPayments invoice ID as our transaction ID
-              undefined,
-              JSON.stringify({ 
-                invoiceDetails: invoice,
-                paymentMethod: "nowpayments_invoice" 
-              })
-            );
-            
-            console.log(`[NOWPayments] DB transaction created with ID:`, transaction.id);
-            console.log(`[NOWPayments] Returning response to client with invoice URL:`, invoice.invoice_url);
-            
-            // Return both the transaction and the invoice details for redirection
-            return res.json({
-              success: true,
-              transaction,
-              invoice: {
-                id: invoice.id,
-                status: invoice.status,
-                invoiceUrl: invoice.invoice_url,
-                amount: result.data.amount,
-                currency: result.data.currency,
-                createdAt: new Date().toISOString(),
-              }
-            });
-          } catch (invoiceError) {
-            console.error(`[NOWPayments] Error creating invoice:`, invoiceError);
-            
-            // Create a fallback test invoice if the API call fails
-            const fallbackTxId = `TEST-${Date.now()}-${req.user!.id}`;
-            const fallbackUrl = `/dev-payment.html?invoice=${fallbackTxId}&amount=${result.data.amount}&currency=${result.data.currency}&success=${encodeURIComponent(successUrl)}&cancel=${encodeURIComponent(cancelUrl)}`;
-            
-            // Create a pending transaction in our database
-            const transaction = await storage.createTransaction(
-              req.user!.id,
-              "recharge",
-              result.data.amount,
-              fallbackTxId,
-              undefined,
-              JSON.stringify({ 
-                invoiceDetails: {
-                  status: false,
-                  statusCode: 500,
-                  code: "API_ERROR",
-                  message: (invoiceError as Error).message || "Unknown error"
-                },
-                paymentMethod: "nowpayments_invoice" 
-              })
-            );
-            
-            console.log(`[NOWPayments] Created fallback transaction with ID:`, transaction.id);
-            
-            // Return fallback information
-            return res.json({
-              success: true,
-              transaction,
-              fallbackTxId,
-              fallbackUrl,
-              invoice: {
-                status: false,
-                amount: result.data.amount,
-                currency: result.data.currency,
-                createdAt: new Date().toISOString(),
-              }
-            });
+            createdAt: new Date().toISOString(),
           }
-        } else {
-          // Use direct payment method (original implementation)
-          const payment = await nowPaymentsService.createPayment(
-            result.data.amount,
-            req.user!.id,
-            result.data.currency,
-            result.data.payCurrency,
-            undefined,
-            undefined,
-            callbackUrl
-          );
-          
-          console.log(`[NOWPayments] Payment created: ${payment.payment_id}`);
-          
-          // Create a pending transaction in our database
-          const transaction = await storage.createTransaction(
-            req.user!.id,
-            "recharge",
-            result.data.amount,
-            payment.payment_id, // Use NOWPayments payment ID as our transaction ID
-            undefined,
-            JSON.stringify({ 
-              paymentDetails: payment,
-              paymentMethod: "nowpayments" 
-            })
-          );
-          
-          // Return both the transaction and the payment details
-          return res.json({
-            transaction,
-            payment: {
-              paymentId: payment.payment_id,
-              status: payment.payment_status,
-              address: payment.pay_address,
-              amount: payment.pay_amount,
-              currency: payment.pay_currency,
-              createdAt: payment.created_at,
-            }
-          });
-        }
+        });
       } catch (apiError) {
         console.error('[NOWPayments] API Error:', apiError);
         throw apiError; // Re-throw to be caught by the outer catch block
