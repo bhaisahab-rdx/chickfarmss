@@ -25,15 +25,10 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useLocation } from "wouter";
 import { Copy, AlertTriangle } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
-// Direct payment approach used instead of popup
-// import { PaymentPopup } from "@/components/payment-popup";
 
+// Simplified schema after removing crypto payment functionality
 const rechargeSchema = z.object({
-  amount: z.number().min(1, "Amount must be at least 1 USDT"),
-  currency: z.string().default("USDTTRC20"),
-  payCurrency: z.string().default("USDTTRC20"),
-  // No longer using invoice option since we're always using direct payment with fallback
-  useDirectPayment: z.boolean().default(true)
+  amount: z.number().min(1, "Amount must be at least 1 USDT")
 });
 
 const withdrawalSchema = z.object({
@@ -82,10 +77,7 @@ export default function WalletPage() {
   const rechargeForm = useForm<z.infer<typeof rechargeSchema>>({
     resolver: zodResolver(rechargeSchema),
     defaultValues: {
-      amount: 10,
-      currency: "USDTTRC20",
-      payCurrency: "USDTTRC20", // Explicitly use USDT on Tron network
-      useDirectPayment: true,
+      amount: 10
     },
   });
 
@@ -97,144 +89,14 @@ export default function WalletPage() {
     },
   });
 
-  // Direct payment without using popup - removed popup state variables
-  
-  // Function to handle direct payment redirect to NOWPayments
-  const handleDirectPayment = async () => {
-    // Get the amount from the form
-    const currentAmount = rechargeForm.getValues().amount;
-    
-    // Validate amount
-    if (!currentAmount || currentAmount <= 0) {
-      toast({
-        title: "Invalid Amount",
-        description: "Please enter an amount greater than 0 USDT",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    console.log("Initiating direct payment with amount:", currentAmount);
-    
-    try {
-      // Show loading toast while processing
-      toast({
-        title: "Processing Payment Request",
-        description: "Preparing your deposit. Please wait...",
-      });
-      
-      // Call the recharge endpoint to get payment URL
-      const response = await apiRequest("POST", "/api/wallet/recharge", {
-        amount: currentAmount,
-        currency: "USDTTRC20", // Use network-specific format as required by NOWPayments
-        payCurrency: "USDTTRC20", // Explicitly use USDT on Tron network
-        useDirectPayment: true // Use our new direct payment approach
-      });
-      
-      console.log("Payment response:", response);
-      
-      // Check if this is a fallback/test payment
-      const isTestPayment = response?.fallbackTxId?.startsWith('TEST-');
-      
-      if (isTestPayment) {
-        toast({
-          title: "Test Payment Mode",
-          description: "Using test payment mode for development. This simulates a real payment.",
-        });
-      }
-      
-      // Check for fallback URL (new direct payment approach)
-      if (response?.fallbackUrl) {
-        // This is our direct payment fallback
-        console.log("Using fallback payment URL:", response.fallbackUrl);
-        
-        toast({
-          title: "Redirecting to Payment",
-          description: "Please complete your payment on the payment page.",
-        });
-        
-        // Redirect to the fallback URL
-        window.location.href = response.fallbackUrl;
-      }
-      // Check for traditional invoice URL (backward compatibility)
-      else if (response?.invoice?.invoiceUrl) {
-        toast({
-          title: "Redirecting to Payment Portal",
-          description: "Please complete your payment on the NOWPayments page.",
-        });
-        
-        // Redirect user to NOWPayments invoice URL
-        window.location.href = response.invoice.invoiceUrl;
-      } 
-      else {
-        toast({
-          title: "Payment Processing Error",
-          description: "Could not generate payment link. The payment gateway may be temporarily unavailable.",
-          variant: "destructive"
-        });
-      }
-    } catch (error: any) {
-      console.error("Payment error:", error);
-      
-      let errorMessage = error.message || "Failed to initiate payment. Please try again.";
-      
-      // Check for specific error messages from the API
-      if (error.data?.error && typeof error.data.error === 'string') {
-        errorMessage = error.data.error;
-      }
-      
-      // Check for minimum amount errors
-      if (errorMessage.includes('minimal amount') || errorMessage.includes('minimum payment')) {
-        // Try to extract the minimum amount from the error message
-        const minAmountMatch = errorMessage.match(/([0-9]+\.?[0-9]*)/);
-        const minAmount = minAmountMatch ? minAmountMatch[0] : "higher";
-        
-        errorMessage = `Minimum payment amount is ${minAmount} USDT. Please increase your amount.`;
-      }
-      
-      toast({
-        title: "Payment Failed",
-        description: errorMessage,
-        variant: "destructive",
-      });
-    }
+  // Manual deposit handling function (placeholder after removing NOWPayments)
+  const handleManualDeposit = () => {
+    toast({
+      title: "Payment Feature Removed",
+      description: "The cryptocurrency payment feature has been removed from this application.",
+      variant: "default"
+    });
   };
-
-  // Recharge mutation for form submission (not currently used, but kept for future reference)
-  // We're using direct payment with handleDirectPayment() instead
-  const rechargeMutation = useMutation({
-    mutationFn: async (data: z.infer<typeof rechargeSchema>) => {
-      // Direct payment with NOWPayments portal
-      console.log("NOWPayments invoice payment initiated:", data.amount, data.currency);
-      return await apiRequest("POST", "/api/wallet/recharge", {
-        amount: data.amount,
-        currency: data.currency || "USDTTRC20",
-        payCurrency: data.payCurrency || "USDTTRC20", // Explicitly use USDT on Tron network
-        useDirectPayment: true // Use direct payment approach
-      });
-    },
-    onSuccess: (response) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
-
-      // With direct payment approach, we're handling the redirect in handleDirectPayment()
-      // This code is kept for reference but not actively used
-      toast({
-        title: "Payment Initiated",
-        description: "Please complete the payment to add funds to your account.",
-      });
-      
-      // Reset the form
-      rechargeForm.reset({ amount: 10, currency: "USDTTRC20", payCurrency: "USDTTRC20", useDirectPayment: true });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Payment Failed",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
 
   const withdrawalMutation = useMutation({
     mutationFn: async (data: z.infer<typeof withdrawalSchema>) => {
@@ -323,52 +185,27 @@ export default function WalletPage() {
                       
                       <div>
                         <h3 className="font-semibold text-base sm:text-lg">
-                          Deposit USDT
+                          Cryptocurrency Payment Feature Removed
                         </h3>
                         <p className="text-xs sm:text-sm text-muted-foreground max-w-xs mx-auto mt-1">
-                          Securely deposit USDT using our cryptocurrency payment partner NOWPayments.
+                          The cryptocurrency payment feature has been removed from this application.
                         </p>
                       </div>
                       
-                      <Form {...rechargeForm}>
-                        <form
-                          className="space-y-3 sm:space-y-4 max-w-sm mx-auto"
-                        >
-                          <FormField
-                            control={rechargeForm.control}
-                            name="amount"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel className="text-xs sm:text-sm">Amount (USDT)</FormLabel>
-                                <FormControl>
-                                  <Input
-                                    type="number"
-                                    {...field}
-                                    className="h-8 sm:h-10 text-sm text-center"
-                                    onChange={(e) =>
-                                      field.onChange(parseFloat(e.target.value) || 0)
-                                    }
-                                  />
-                                </FormControl>
-                                <FormMessage className="text-xs" />
-                              </FormItem>
-                            )}
-                          />
-                          
-                          <Button
-                            type="button"
-                            className="w-full h-10 text-sm sm:text-base"
-                            onClick={handleDirectPayment}
-                            disabled={rechargeForm.getValues().amount <= 0}
-                          >
-                            💳 Pay with USDT-TRC20
-                          </Button>
-                          
-                          <p className="text-xs text-center text-muted-foreground">
-                            Powered by NOWPayments - Secure Cryptocurrency Payment Processing
-                          </p>
-                        </form>
-                      </Form>
+                      <div className="bg-amber-50 p-4 rounded-lg border border-amber-200 mb-4 mt-4">
+                        <p className="text-sm text-amber-800">
+                          The external cryptocurrency payment processor integration has been removed. 
+                          Please contact support for alternative payment options.
+                        </p>
+                      </div>
+                      
+                      <Button
+                        type="button"
+                        className="w-full max-w-xs mx-auto h-10 text-sm sm:text-base"
+                        onClick={handleManualDeposit}
+                      >
+                        Contact Support
+                      </Button>
                     </div>
                   </div>
                 </div>

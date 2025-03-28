@@ -1,5 +1,6 @@
 import express, { type Request, Response, NextFunction } from "express";
-import { registerRoutes } from "./routes";
+// Changed to use the updated routes with NOWPayments removed
+import { registerRoutes } from "../new-routes";
 import { setupVite, serveStatic, log } from "./vite";
 import cors from 'cors';
 import * as pathModule from 'path';

@@ -4,9 +4,39 @@ import { setupAuth, isAuthenticated } from "./auth";
 import { storage, mysteryBoxTypes } from "./storage";
 import { z } from "zod";
 import { dailySpinRewards, superJackpotRewards, referralCommissionRates } from "@shared/schema";
-import { nowPaymentsService, PaymentStatusResponse, StandardizedPaymentStatus, isNOWPaymentsConfigured, isIPNSecretConfigured } from "./nowpayments";
 import { config } from "./config";
 import crypto from 'crypto';
+
+// Removed NOWPayments integration
+const isNOWPaymentsConfigured = () => false;
+const isIPNSecretConfigured = () => false;
+
+// Create a mock nowPaymentsService that returns appropriate values and doesn't fail
+const nowPaymentsService = {
+  isMockMode: true,
+  getStatus: async () => ({ status: 'disabled', message: 'Payment service disabled' }),
+  getMinimumPaymentAmount: async () => 10,
+  createInvoice: async () => ({ 
+    id: `MOCK-${Date.now()}`, 
+    invoice_url: '/wallet?payment=disabled',
+    payment_id: null 
+  }),
+  createPayment: async () => ({
+    payment_id: `MOCK-${Date.now()}`,
+    pay_address: 'PAYMENT_DISABLED',
+    pay_amount: 0,
+    pay_currency: 'DISABLED',
+    price_amount: 0,
+    price_currency: 'DISABLED',
+    payment_status: 'disabled',
+    created_at: new Date().toISOString()
+  }),
+  // Additional mock methods to replace the removed nowpayments.ts service
+  getPaymentStatus: async () => ({ status: 'disabled' }),
+  mapPaymentStatusToTransactionStatus: () => 'failed',
+  getAvailableCurrencies: async () => [],
+  createStandardizedPaymentStatus: () => ({ status: 'disabled', final: true })
+};
 
 export async function registerRoutes(app: Express): Promise<Server> {
   setupAuth(app);
@@ -1699,130 +1729,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post("/api/wallet/recharge", isAuthenticated, async (req, res) => {
-    console.log(`[NOWPayments] ===== PAYMENT REQUEST STARTED =====`);
-    console.log(`[NOWPayments] Request body:`, req.body);
+    console.log(`[Wallet] ===== PAYMENT REQUEST STARTED =====`);
+    console.log(`[Wallet] Request body:`, req.body);
     
     const schema = z.object({
       amount: z.number().positive(),
-      currency: z.string().optional().default("USDT"),
-      payCurrency: z.string().optional().default("USDTTRC20"),
-      useDirectPayment: z.boolean().optional().default(true), // Use direct payment approach
-      useInvoice: z.boolean().optional() // For backward compatibility
+      currency: z.string().optional().default("USDT")
     });
 
     const result = schema.safeParse(req.body);
     if (!result.success) {
-      console.error(`[NOWPayments] Invalid request body:`, req.body);
-      console.error(`[NOWPayments] Validation error:`, result.error);
+      console.error(`[Wallet] Invalid request body:`, req.body);
+      console.error(`[Wallet] Validation error:`, result.error);
       return res.status(400).json(result.error);
     }
 
     try {
-      // Create payment via NOWPayments API for automatic payments
-      const callbackUrl = `${config.urls.api}/api/payments/callback`;
-      const successUrl = `${config.urls.app}/wallet?payment=success`;
-      const cancelUrl = `${config.urls.app}/wallet?payment=cancelled`;
+      console.log(`[Wallet] Processing deposit request for $${result.data.amount} from user ${req.user!.id}`);
       
-      console.log(`[NOWPayments] Creating payment for $${result.data.amount} from user ${req.user!.id}`);
-      console.log(`[NOWPayments] Callback URL: ${callbackUrl}`);
-      console.log(`[NOWPayments] API Key exists: ${!!config.nowpayments.apiKey}`);
-      console.log(`[NOWPayments] Using direct payment: ${result.data.useDirectPayment}`);
-      console.log(`[NOWPayments] Using invoice: ${result.data.useInvoice}`);
-      console.log(`[NOWPayments] Pay currency requested: ${result.data.payCurrency}`);
-      
-      if (!config.nowpayments.apiKey) {
-        // If API key is missing, return an error
-        console.error("[NOWPayments] API Key is missing, cannot proceed with payment");
-        return res.status(503).json({
-          error: "NOWPayments API Key Required",
-          message: "The payment system requires a NOWPayments API key to be configured. Please contact support to enable cryptocurrency payments."
-        });
-      }
-      
-      try {
-        // Use direct payment method which is more likely to work with basic API permissions
-        console.log(`[NOWPayments] Using direct payment method with NOWPayments`);
-        
-        try {
-          // First, attempt to create a real payment via the NOWPayments API
-          const paymentResponse = await nowPaymentsService.createPayment(
-            result.data.amount,
-            req.user!.id,
-            result.data.currency,
-            result.data.payCurrency,
-            undefined, // Let the service generate an order ID
-            `ChickFarms deposit for user ${req.user!.id}`,
-            callbackUrl
-          );
-          
-          console.log(`[NOWPayments] Successfully created payment:`, paymentResponse);
-          
-          // Create a transaction record in our database
-          const transaction = await storage.createTransaction(
-            req.user!.id,
-            "recharge",
-            result.data.amount,
-            paymentResponse.payment_id,
-            undefined,
-            JSON.stringify({
-              status: paymentResponse.payment_status,
-              paymentMethod: "nowpayments_direct",
-              payAddress: paymentResponse.pay_address,
-              payCurrency: paymentResponse.pay_currency,
-              payAmount: paymentResponse.pay_amount
-            })
-          );
-          
-          console.log(`[NOWPayments] Created transaction record with ID:`, transaction.id);
-          
-          // Return the payment information
-          return res.json({
-            success: true,
-            transaction,
-            payment: {
-              payment_id: paymentResponse.payment_id,
-              status: paymentResponse.payment_status,
-              pay_address: paymentResponse.pay_address,
-              pay_amount: paymentResponse.pay_amount,
-              pay_currency: paymentResponse.pay_currency,
-              price_amount: paymentResponse.price_amount,
-              price_currency: paymentResponse.price_currency,
-              created_at: paymentResponse.created_at || new Date().toISOString()
-            }
-          });
-          
-        } catch (apiError) {
-          console.error('[NOWPayments] API Error creating payment:', apiError);
-          
-          // Don't use test payment mode, return an error instead
-          console.error('[NOWPayments] Payment creation error, no fallback allowed');
-          
-          return res.status(500).json({
-            error: "Payment Processing Error",
-            message: "There was an error processing your payment. Please try again later or contact support.",
-            details: "Production NOWPayments API is required for payments."
-          });
-        }
-      } catch (apiError) {
-        console.error('[NOWPayments] API Error:', apiError);
-        throw apiError; // Re-throw to be caught by the outer catch block
-      }
+      // Return an informative message that payment processing has been disabled
+      return res.status(503).json({
+        error: "Payment Processing Disabled",
+        message: "The payment processing feature has been disabled in this application. Please contact support for alternative payment options.",
+        status: "disabled"
+      });
     } catch (err) {
-      console.error("[Payment Error]", err);
-      
-      // Return a clear error message about the NOWPayments API being needed
-      if (!config.nowpayments.apiKey) {
-        return res.status(503).json({
-          error: "NOWPayments API Key Required",
-          message: "The payment system requires a NOWPayments API key to be configured. Please contact support to enable cryptocurrency payments."
-        });
-      } else {
-        // Some other error occurred with the configured NOWPayments API
-        return res.status(500).json({
-          error: "Payment Processing Error",
-          message: "There was an error processing your payment request. Please try again later or contact support."
-        });
-      }
+      console.error("[Wallet] Error:", err);
+      return res.status(500).json({
+        error: "Payment Processing Error",
+        message: "There was an error processing your payment request. Please try again later or contact support."
+      });
     }
   });
 
@@ -2123,6 +2059,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Update existing recharge endpoint to handle referral commissions
   app.post("/api/wallet/recharge/complete", isAuthenticated, async (req, res) => {
+    console.log("[Wallet] Manual recharge completion request");
+    
     const schema = z.object({
       transactionId: z.string(),
     });
