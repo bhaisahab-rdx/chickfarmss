@@ -27,6 +27,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
   
+  // Test health endpoint to verify application is working
+  app.get("/api/test-health", (req, res) => {
+    console.log("[API] Health test endpoint accessed");
+    res.json({
+      status: "OK",
+      message: "Application is running correctly",
+      timestamp: new Date().toISOString(),
+      version: "1.0.0",
+      paymentServiceAvailable: isNOWPaymentsConfigured(),
+      environment: process.env.NODE_ENV || "development"
+    });
+  });
+  
   // NOWPayments API is fully configured for production use
   
   // NOWPayments API endpoints

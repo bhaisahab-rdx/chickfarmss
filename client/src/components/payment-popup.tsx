@@ -139,6 +139,14 @@ export function PaymentPopup({ isOpen, onClose, onSuccess, initialAmount = 10 }:
             useFallback: true // Enable fallback to dev mode if API fails
           });
           
+          // Display a toast to indicate we're trying to connect to payment gateway
+          toast({
+            title: 'Creating Payment',
+            description: 'Connecting to payment service...',
+            variant: 'default',
+            duration: 3000,
+          });
+          
           response = await apiRequest('POST', '/api/wallet/recharge', {
             amount, 
             currency: 'USD',
@@ -196,6 +204,21 @@ export function PaymentPopup({ isOpen, onClose, onSuccess, initialAmount = 10 }:
         // Fallback for when real API fails but we have a test payment URL
         console.log('Using fallback test payment URL:', response.fallbackUrl);
         console.log('Fallback transaction details:', response.transaction);
+        
+        // Extract any error information if available for better debug messages
+        let apiErrorDetails = '';
+        if (response.transaction?.bankDetails) {
+          try {
+            const bankDetails = JSON.parse(response.transaction.bankDetails);
+            if (bankDetails.invoiceDetails?.status === false) {
+              apiErrorDetails = `(${bankDetails.invoiceDetails.statusCode || ''}${bankDetails.invoiceDetails.message ? ': ' + bankDetails.invoiceDetails.message : ''})`;
+              console.log('API Error details extracted:', apiErrorDetails);
+            }
+          } catch (e) {
+            console.error('Failed to parse transaction bank details:', e);
+          }
+        }
+        
         setInvoiceUrl(response.fallbackUrl);
         setInvoiceId(response.fallbackTxId || 'test-tx');
         
@@ -234,9 +257,9 @@ export function PaymentPopup({ isOpen, onClose, onSuccess, initialAmount = 10 }:
         } else {
           // Show a clearer and more positive toast about test mode
           toast({
-            title: '💰 Demo Payment Active',
+            title: '💰 Demo Payment Mode Activated',
             description: 'The system is using a demonstration payment page. Your test payment will be processed successfully.',
-            duration: 7000,
+            duration: 6000,
             variant: 'default',
           });
           
@@ -244,7 +267,9 @@ export function PaymentPopup({ isOpen, onClose, onSuccess, initialAmount = 10 }:
           setTimeout(() => {
             toast({
               title: 'About Demo Mode',
-              description: 'In production, you would be redirected to the official NOWPayments gateway for cryptocurrency processing.',
+              description: apiErrorDetails ? 
+                `The payment API returned: ${apiErrorDetails}. Using demo mode for testing purposes.` : 
+                'In production, you would be redirected to the official NOWPayments gateway.',
               duration: 8000,
               variant: 'default',
             });

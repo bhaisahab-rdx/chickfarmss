@@ -189,11 +189,21 @@ class NOWPaymentsService {
       'User-Agent': 'ChickFarms-Payment-Client/1.0'
     };
     
+    // For logging purposes, truncate the keys/tokens
+    const logToken = this.jwtToken ? 
+      `${this.jwtToken.substring(0, 6)}...${this.jwtToken.substring(this.jwtToken.length - 6)}` : 
+      'none';
+    const logApiKey = this.apiKey ? 
+      `${this.apiKey.substring(0, 4)}...${this.apiKey.substring(this.apiKey.length - 4)}` : 
+      'none';
+    
     // When using JWT authentication, DO NOT include the API key
     if (includeJWT && this.jwtToken) {
+      console.log(`[NOWPayments] Using JWT token for request: ${logToken}`);
       headers['Authorization'] = `Bearer ${this.jwtToken}`;
     } else {
       // Only include API key when not using JWT authentication
+      console.log(`[NOWPayments] Using API key for request: ${logApiKey}`);
       headers['x-api-key'] = this.apiKey;
     }
     
