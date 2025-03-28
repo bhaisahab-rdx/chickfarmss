@@ -1,153 +1,100 @@
-# Complete Vercel Deployment Guide for ChickFarms
+# ChickFarms Vercel Deployment Guide
 
-This guide will walk you through the complete process of deploying ChickFarms to Vercel, including database setup with Supabase and NOWPayments integration.
+This guide provides step-by-step instructions for deploying ChickFarms to Vercel.
 
 ## Prerequisites
 
-Before you start, make sure you have:
+1. A GitHub repository with your ChickFarms code
+2. A Vercel account (sign up at [vercel.com](https://vercel.com))
+3. A Supabase database (see `supabase_setup_guide.md`)
+4. Your NOWPayments API credentials
 
-1. Your ChickFarms repository on GitHub
-2. A [Vercel](https://vercel.com) account
-3. A [Supabase](https://supabase.com) account
-4. A [NOWPayments](https://nowpayments.io) account
+## Step 1: Prepare Your Project
 
-## Step 1: Set Up Your Database on Supabase
+1. Ensure your code is in a GitHub repository
+2. Make sure all files in this guide are included in your repository:
+   - `vercel.json`
+   - `build-vercel.js`
 
-Follow the steps in the `supabase_setup_guide.md` to:
-1. Create a new Supabase project
-2. Execute the database setup script
-3. Get your DATABASE_URL connection string
+## Step 2: Connect to Vercel
 
-## Step 2: Configure NOWPayments API
+1. Log in to your Vercel account
+2. Click "Add New" > "Project"
+3. Select your GitHub repository
+4. Authorize Vercel to access your repository if prompted
 
-Follow the steps in the `nowpayments_setup_guide.md` to:
-1. Create a NOWPayments account
-2. Generate an API key
-3. Configure accepted currencies
+## Step 3: Configure Project Settings
 
-## Step 3: Prepare Your Code for Vercel
+1. Project Name: `chickfarms` (or your preferred name)
+2. Framework Preset: Select "Other"
+3. Root Directory: Keep as default (the root of your repository)
+4. Build Command: `npm run build:vercel`
+5. Output Directory: `dist`
 
-Make sure your repository has these files for Vercel deployment:
-1. `vercel.json` - Configures build settings and routes
-2. `vercel-build.sh` - Build script for Vercel
-3. `server/config.ts` - Configuration file for environment variables
+## Step 4: Set Environment Variables
 
-## Step 4: Deploy to Vercel
+Add the following environment variables:
 
-1. **Import Your GitHub Repository**
-   - Go to [Vercel Dashboard](https://vercel.com/dashboard)
-   - Click "Add New" > "Project"
-   - Select your GitHub repository
+| Name | Value |
+|------|-------|
+| DATABASE_URL | Your Supabase connection string |
+| NOWPAYMENTS_API_KEY | Your NOWPayments API key |
+| NOWPAYMENTS_EMAIL | Your NOWPayments email |
+| NOWPAYMENTS_PASSWORD | Your NOWPayments password |
+| IPN_SECRET_KEY | Your IPN secret key |
+| NODE_ENV | production |
 
-2. **Configure Project Settings**
-   - Project Name: Choose a name for your project
-   - Framework Preset: Leave as "Other"
-   - Root Directory: Leave as default (/)
-   - Build Command: `sh vercel-build.sh`
-   - Output Directory: `dist`
+## Step 5: Deploy
 
-3. **Add Environment Variables**
-   - Click "Environment Variables" section
-   - Add the following variables:
-     ```
-     DATABASE_URL: [Your Supabase Connection String]
-     NOWPAYMENTS_API_KEY: [Your NOWPayments API Key]
-     NODE_ENV: production
-     ```
-
-4. **Deploy**
-   - Click "Deploy"
-   - Wait for the deployment to complete
-
-## Step 5: Post-Deployment Configuration
-
-After the first deployment:
-
-1. **Update API_URL Environment Variable**
-   - Get your Vercel deployment URL (e.g., `https://chickfarms.vercel.app`)
-   - Go to your project settings > Environment Variables
-   - Add a new variable:
-     ```
-     API_URL: [Your Vercel Deployment URL]
-     ```
-   - Save and trigger a new deployment
-
-2. **Configure NOWPayments IPN Callback**
-   - Go to NOWPayments dashboard > Store Settings > IPN
-   - Set the IPN callback URL:
-     ```
-     [Your Vercel URL]/api/payments/callback
-     ```
-   - Save settings
+1. Click "Deploy"
+2. Wait for the deployment to complete (this may take a few minutes)
 
 ## Step 6: Verify Deployment
 
-1. **Check Your Application**
-   - Visit your Vercel URL
-   - Verify that you can sign up and log in
-   - Make sure the UI loads correctly
+1. Once deployed, Vercel will provide a URL for your application
+2. Visit the URL to make sure everything is working correctly
+3. Test the following:
+   - User registration and login
+   - Game mechanics
+   - Wallet recharge with cryptocurrency payments
+   - Other core features
 
-2. **Test Database Connection**
-   - Verify that user data is saved correctly
-   - Check that the admin account works
+## Step 7: Set Up Custom Domain (Optional)
 
-3. **Test NOWPayments Integration**
-   - Make a small test deposit
-   - Verify that the payment flow works
+1. In your Vercel dashboard, go to your project
+2. Click on "Domains"
+3. Add your custom domain
+4. Follow Vercel's instructions to configure DNS settings
 
-## Step 7: Domain and Production Settings
+## Step 8: Set Up CI/CD (Optional)
 
-For a production deployment:
+Vercel automatically sets up continuous deployment from your GitHub repository:
 
-1. **Custom Domain**
-   - Go to Vercel project settings > Domains
-   - Add your custom domain
-   - Follow Vercel's instructions to configure DNS
+1. Every push to your main branch will trigger a new deployment
+2. Pull requests will create preview deployments
 
-2. **Security**
-   - Change the admin password from the default
-   - Enable 2FA on your Vercel, Supabase, and NOWPayments accounts
-
-3. **Analytics and Monitoring**
-   - Set up Vercel Analytics
-   - Consider adding error tracking (like Sentry)
+To disable automatic deployments:
+1. Go to your project in Vercel
+2. Navigate to Settings > Git
+3. Under "Ignored Build Step", you can configure when to skip builds
 
 ## Troubleshooting
 
-If you encounter issues with your deployment:
+If you encounter issues during deployment:
 
-1. **Build Errors**
-   - Check the build logs in Vercel
-   - Verify your dependencies and build script
+1. Check Vercel deployment logs for errors
+2. Verify your environment variables are set correctly
+3. Make sure your Supabase database is accessible from Vercel
+4. Test your NOWPayments API credentials
 
-2. **Database Connection Issues**
-   - Ensure DATABASE_URL is correct
-   - Check if the database is accessible from Vercel's servers
+For database connectivity issues:
+1. Ensure your Supabase IP allow list includes Vercel's IP ranges
+2. Try connecting to Supabase from your local environment with the same connection string
 
-3. **API Errors**
-   - Check function logs in Vercel
-   - Verify environment variables are correctly set
+## Rollback (If Needed)
 
-4. **Payment Integration Issues**
-   - Follow the troubleshooting steps in the NOWPayments guide
-   - Check that your API key has the correct permissions
-
-## Ongoing Maintenance
-
-1. **Scaling**
-   - Monitor database usage and upgrade Supabase plan as needed
-   - Consider upgrading to Vercel Pro for better performance
-
-2. **Updates**
-   - Keep your libraries and dependencies updated
-   - Test updates in a staging environment before deploying to production
-
-3. **Backups**
-   - Set up regular database backups
-   - Consider exporting data periodically
-
-## Support Resources
-
-- [Vercel Documentation](https://vercel.com/docs)
-- [Supabase Documentation](https://supabase.com/docs)
-- [NOWPayments Documentation](https://nowpayments.io/help)
+To roll back to a previous deployment:
+1. Go to your project in Vercel
+2. Click on "Deployments"
+3. Find the working deployment
+4. Click on the three dots (⋮) and select "Promote to Production"
