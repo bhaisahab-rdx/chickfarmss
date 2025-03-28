@@ -116,6 +116,12 @@ export default function WalletPage() {
     console.log("Initiating direct payment with amount:", currentAmount);
     
     try {
+      // Show loading toast while processing
+      toast({
+        title: "Processing Payment Request",
+        description: "Preparing your deposit. Please wait...",
+      });
+      
       // Call the recharge endpoint to get payment URL
       const response = await apiRequest("POST", "/api/wallet/recharge", {
         amount: currentAmount,
@@ -123,6 +129,17 @@ export default function WalletPage() {
         payCurrency: "USDTTRC20", // Explicitly use USDT on Tron network
         useInvoice: true
       });
+      
+      // Check if this is a test/development payment
+      const isTestPayment = response?.invoice?.id?.startsWith('DEV-') || 
+                           response?.invoice?.id?.startsWith('TEST-');
+      
+      if (isTestPayment) {
+        toast({
+          title: "Test Payment Mode",
+          description: "Using test payment mode for development. This simulates a real payment.",
+        });
+      }
       
       // Check if invoiceDetails contains an error
       if (response?.transaction?.bankDetails) {
@@ -144,14 +161,21 @@ export default function WalletPage() {
       }
       
       if (response?.invoice?.invoiceUrl) {
+        // If test payment, show a special toast
+        if (isTestPayment) {
+          toast({
+            title: "Redirecting to Test Payment",
+            description: "This is a simulated payment for development purposes.",
+          });
+        } else {
+          toast({
+            title: "Redirecting to Payment Portal",
+            description: "Please complete your payment on the NOWPayments page.",
+          });
+        }
+        
         // Redirect user to NOWPayments invoice URL
         window.location.href = response.invoice.invoiceUrl;
-        
-        // The toast below might not be seen due to redirect
-        toast({
-          title: "Redirecting to Payment Portal",
-          description: "Please complete your payment on the NOWPayments page.",
-        });
       } else {
         toast({
           title: "Payment Processing Error",
@@ -160,9 +184,27 @@ export default function WalletPage() {
         });
       }
     } catch (error: any) {
+      console.error("Payment error:", error);
+      
+      let errorMessage = error.message || "Failed to initiate payment. Please try again.";
+      
+      // Check for specific error messages from the API
+      if (error.data?.error && typeof error.data.error === 'string') {
+        errorMessage = error.data.error;
+      }
+      
+      // Check for minimum amount errors
+      if (errorMessage.includes('minimal amount') || errorMessage.includes('minimum payment')) {
+        // Try to extract the minimum amount from the error message
+        const minAmountMatch = errorMessage.match(/([0-9]+\.?[0-9]*)/);
+        const minAmount = minAmountMatch ? minAmountMatch[0] : "higher";
+        
+        errorMessage = `Minimum payment amount is ${minAmount} USDT. Please increase your amount.`;
+      }
+      
       toast({
         title: "Payment Failed",
-        description: error.message || "Failed to initiate payment. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
     }

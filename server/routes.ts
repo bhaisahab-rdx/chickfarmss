@@ -1820,7 +1820,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             console.log(`[NOWPayments] Invoice created successfully:`, invoice);
             
             // Check if the response indicates an invalid API key
-            if (invoice.status === false && invoice.statusCode === 403 && invoice.code === "INVALID_API_KEY") {
+            if ((invoice as any).status === false && (invoice as any).statusCode === 403 && (invoice as any).code === "INVALID_API_KEY") {
               console.log(`[NOWPayments] API Key error detected in response:`, invoice);
               
               // Handle as fallback case - create a test transaction
@@ -1906,7 +1906,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   status: false,
                   statusCode: 500,
                   code: "API_ERROR",
-                  message: invoiceError.message
+                  message: (invoiceError as Error).message || "Unknown error"
                 },
                 paymentMethod: "nowpayments_invoice" 
               })
