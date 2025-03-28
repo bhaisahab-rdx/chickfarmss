@@ -1706,7 +1706,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       amount: z.number().positive(),
       currency: z.string().optional().default("USDT"),
       payCurrency: z.string().optional().default("USDTTRC20"),
-      useInvoice: z.boolean().optional().default(true), // Default to true for consistent portal-based payments
+      useDirectPayment: z.boolean().optional().default(true), // Use direct payment approach
+      useInvoice: z.boolean().optional(), // For backward compatibility
       useFallback: z.boolean().optional().default(false) // Whether to enable fallback to test mode
     });
 
@@ -1726,6 +1727,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`[NOWPayments] Creating payment for $${result.data.amount} from user ${req.user!.id}`);
       console.log(`[NOWPayments] Callback URL: ${callbackUrl}`);
       console.log(`[NOWPayments] API Key exists: ${!!config.nowpayments.apiKey}`);
+      console.log(`[NOWPayments] Using direct payment: ${result.data.useDirectPayment}`);
       console.log(`[NOWPayments] Using invoice: ${result.data.useInvoice}`);
       console.log(`[NOWPayments] Fallback enabled: ${result.data.useFallback}`);
       console.log(`[NOWPayments] Pay currency requested: ${result.data.payCurrency}`);

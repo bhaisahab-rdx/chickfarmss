@@ -7,6 +7,8 @@ import { Loader } from '@/components/ui/loader';
 import { apiRequest } from '@/lib/queryClient';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
+import { ClipboardCopy, QrCode, ExternalLink } from 'lucide-react';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface PaymentPopupProps {
   isOpen: boolean;
@@ -21,6 +23,17 @@ export function PaymentPopup({ isOpen, onClose, onSuccess, initialAmount = 10 }:
   const [invoiceUrl, setInvoiceUrl] = useState<string | undefined>(undefined);
   const [invoiceId, setInvoiceId] = useState<string | undefined>(undefined);
   const [paymentWindow, setPaymentWindow] = useState<Window | null>(null);
+  const [directPaymentActive, setDirectPaymentActive] = useState<boolean>(false);
+  const [directPaymentData, setDirectPaymentData] = useState<{
+    payment_id?: string;
+    pay_address?: string;
+    pay_amount?: number;
+    pay_currency?: string;
+    price_amount?: number;
+    price_currency?: string;
+    payment_status?: string;
+    created_at?: string;
+  } | null>(null);
   const [serviceStatus, setServiceStatus] = useState<{
     apiConfigured: boolean;
     ipnConfigured: boolean;
@@ -129,13 +142,13 @@ export function PaymentPopup({ isOpen, onClose, onSuccess, initialAmount = 10 }:
       // Check if the user is authenticated
       if (auth.user) {
         // Authenticated user - use the regular endpoint
-        console.log('Creating invoice for authenticated user:', auth.user.id);
+        console.log('Creating payment for authenticated user:', auth.user.id);
         try {
           console.log('Sending request to /api/wallet/recharge with data:', {
             amount, 
             currency: 'USD',
             payCurrency: 'USDTTRC20',
-            useInvoice: true,
+            useDirectPayment: true,  // Use direct payment instead of invoice
             useFallback: true // Enable fallback to dev mode if API fails
           });
           
@@ -151,7 +164,7 @@ export function PaymentPopup({ isOpen, onClose, onSuccess, initialAmount = 10 }:
             amount, 
             currency: 'USD',
             payCurrency: 'USDTTRC20', // Explicitly specify USDT on Tron network for payment
-            useInvoice: true, // Always use the invoice system for official NOWPayments page
+            useDirectPayment: true,  // Use direct payment instead of invoice
             useFallback: true // Enable fallback to dev mode if API fails
           });
           
@@ -359,6 +372,39 @@ export function PaymentPopup({ isOpen, onClose, onSuccess, initialAmount = 10 }:
             window.location.assign(response.invoice_url);
           }, 500);
         }
+      }
+      // Step 5: Check for direct payment response
+      else if (response && response.payment_id && response.pay_address) {
+        // Direct payment response from NOWPayments
+        console.log('Got direct payment address:', response);
+        
+        // Store direct payment data
+        setDirectPaymentActive(true);
+        setDirectPaymentData({
+          payment_id: response.payment_id,
+          pay_address: response.pay_address,
+          pay_amount: response.pay_amount,
+          pay_currency: response.pay_currency,
+          price_amount: response.price_amount,
+          price_currency: response.price_currency,
+          payment_status: response.payment_status,
+          created_at: response.created_at
+        });
+        
+        setInvoiceId(response.payment_id);
+        
+        // Save payment info
+        localStorage.setItem('paymentStarted', Date.now().toString());
+        localStorage.setItem('paymentAmount', amount.toString());
+        localStorage.setItem('paymentId', response.payment_id);
+        
+        // Show toast about direct payment
+        toast({
+          title: 'Payment Address Ready',
+          description: 'Please send your payment to the address shown on the screen.',
+          variant: 'default',
+          duration: 5000,
+        });
       } else {
         console.error('Invalid invoice response format:', response);
         // Try to create a test invoice as last resort if we got an unexpected response format
@@ -572,6 +618,8 @@ export function PaymentPopup({ isOpen, onClose, onSuccess, initialAmount = 10 }:
     setInvoiceUrl(undefined);
     setInvoiceId(undefined);
     setPaymentWindow(null);
+    setDirectPaymentActive(false);
+    setDirectPaymentData(null);
     onClose();
   };
 
@@ -658,6 +706,75 @@ export function PaymentPopup({ isOpen, onClose, onSuccess, initialAmount = 10 }:
                 <span className="text-sm">Connecting to payment service...</span>
               </div>
             )}
+          </div>
+        ) : directPaymentActive && directPaymentData ? (
+          // Direct payment panel - show crypto address and QR code
+          <div className="py-4 px-2 md:px-4 text-center">
+            <p className="mb-2 font-medium text-lg md:text-xl">Make Your Payment</p>
+            <p className="mb-4 text-sm md:text-base text-muted-foreground max-w-[90%] mx-auto">
+              Send the exact amount to the address below. Your account will be credited automatically.
+            </p>
+
+            <Card className="mb-4 bg-slate-50 border-slate-200">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base md:text-lg flex items-center justify-center">
+                  <QrCode className="w-4 h-4 mr-2" /> Payment Details
+                </CardTitle>
+                <CardDescription>Send exactly this amount to the address below</CardDescription>
+              </CardHeader>
+              <CardContent className="pb-2">
+                <div className="grid gap-3">
+                  <div className="rounded-md bg-white p-3 border border-slate-200">
+                    <p className="text-xs text-slate-500 mb-1">Amount to Send:</p>
+                    <p className="font-mono text-base md:text-lg font-medium">
+                      {directPaymentData.pay_amount} {directPaymentData.pay_currency}
+                    </p>
+                  </div>
+                  
+                  <div className="rounded-md bg-white p-3 border border-slate-200 relative">
+                    <p className="text-xs text-slate-500 mb-1">Send to Address:</p>
+                    <p className="font-mono text-sm break-all">{directPaymentData.pay_address}</p>
+                    <Button 
+                      className="absolute right-2 top-2 h-8 w-8 p-0" 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={() => {
+                        navigator.clipboard.writeText(directPaymentData.pay_address || '');
+                        toast({
+                          title: "Address Copied",
+                          description: "Payment address copied to clipboard",
+                          duration: 3000,
+                        });
+                      }}
+                    >
+                      <ClipboardCopy className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  
+                  <div className="rounded-md bg-white p-3 border border-slate-200">
+                    <p className="text-xs text-slate-500 mb-1">Payment ID:</p>
+                    <p className="font-mono text-sm">{directPaymentData.payment_id}</p>
+                  </div>
+                </div>
+              </CardContent>
+              <CardFooter className="pt-0">
+                <div className="w-full text-xs text-left text-slate-500">
+                  <p>Status: <span className="capitalize">{directPaymentData.payment_status || 'waiting'}</span></p>
+                  {directPaymentData.created_at && (
+                    <p>Created: {new Date(directPaymentData.created_at).toLocaleString()}</p>
+                  )}
+                </div>
+              </CardFooter>
+            </Card>
+            
+            <div className="bg-amber-50 text-amber-700 p-3 md:p-4 rounded-md mb-4 text-sm">
+              <p className="font-medium flex items-center justify-center">
+                <span className="mr-2">💡</span> Important Payment Information
+              </p>
+              <p className="text-xs md:text-sm mt-2 text-center">Send the <strong>exact</strong> amount shown above. Sending less or more may delay processing.</p>
+              <p className="text-xs md:text-sm mt-2 font-medium text-center">Make sure you're sending on the correct network: {directPaymentData.pay_currency}</p>
+              <p className="text-xs md:text-sm mt-2 text-center">Your game wallet will be credited automatically once the payment is confirmed.</p>
+            </div>
           </div>
         ) : (
           <div className="py-4 px-2 md:px-4 text-center">

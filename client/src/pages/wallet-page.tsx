@@ -32,7 +32,8 @@ const rechargeSchema = z.object({
   amount: z.number().min(1, "Amount must be at least 1 USDT"),
   currency: z.string().default("USDTTRC20"),
   payCurrency: z.string().default("USDTTRC20"),
-  useInvoice: z.boolean().default(true)
+  // No longer using invoice option since we're always using direct payment with fallback
+  useDirectPayment: z.boolean().default(true)
 });
 
 const withdrawalSchema = z.object({
@@ -84,7 +85,7 @@ export default function WalletPage() {
       amount: 10,
       currency: "USDTTRC20",
       payCurrency: "USDTTRC20", // Explicitly use USDT on Tron network
-      useInvoice: true,
+      useDirectPayment: true,
     },
   });
 
@@ -127,12 +128,13 @@ export default function WalletPage() {
         amount: currentAmount,
         currency: "USDTTRC20", // Use network-specific format as required by NOWPayments
         payCurrency: "USDTTRC20", // Explicitly use USDT on Tron network
-        useInvoice: true
+        useDirectPayment: true // Use our new direct payment approach
       });
       
-      // Check if this is a test/development payment
-      const isTestPayment = response?.invoice?.id?.startsWith('DEV-') || 
-                           response?.invoice?.id?.startsWith('TEST-');
+      console.log("Payment response:", response);
+      
+      // Check if this is a fallback/test payment
+      const isTestPayment = response?.fallbackTxId?.startsWith('TEST-');
       
       if (isTestPayment) {
         toast({
@@ -141,42 +143,30 @@ export default function WalletPage() {
         });
       }
       
-      // Check if invoiceDetails contains an error
-      if (response?.transaction?.bankDetails) {
-        try {
-          // Parse the bank details to check for API error
-          const bankDetails = JSON.parse(response.transaction.bankDetails);
-          
-          if (bankDetails?.invoiceDetails?.code === "INVALID_API_KEY") {
-            toast({
-              title: "Payment Gateway Error",
-              description: "The payment system is currently unavailable. Please contact support.",
-              variant: "destructive"
-            });
-            return;
-          }
-        } catch (err) {
-          console.error("Error parsing bank details:", err);
-        }
+      // Check for fallback URL (new direct payment approach)
+      if (response?.fallbackUrl) {
+        // This is our direct payment fallback
+        console.log("Using fallback payment URL:", response.fallbackUrl);
+        
+        toast({
+          title: "Redirecting to Payment",
+          description: "Please complete your payment on the payment page.",
+        });
+        
+        // Redirect to the fallback URL
+        window.location.href = response.fallbackUrl;
       }
-      
-      if (response?.invoice?.invoiceUrl) {
-        // If test payment, show a special toast
-        if (isTestPayment) {
-          toast({
-            title: "Redirecting to Test Payment",
-            description: "This is a simulated payment for development purposes.",
-          });
-        } else {
-          toast({
-            title: "Redirecting to Payment Portal",
-            description: "Please complete your payment on the NOWPayments page.",
-          });
-        }
+      // Check for traditional invoice URL (backward compatibility)
+      else if (response?.invoice?.invoiceUrl) {
+        toast({
+          title: "Redirecting to Payment Portal",
+          description: "Please complete your payment on the NOWPayments page.",
+        });
         
         // Redirect user to NOWPayments invoice URL
         window.location.href = response.invoice.invoiceUrl;
-      } else {
+      } 
+      else {
         toast({
           title: "Payment Processing Error",
           description: "Could not generate payment link. The payment gateway may be temporarily unavailable.",
@@ -220,7 +210,7 @@ export default function WalletPage() {
         amount: data.amount,
         currency: data.currency || "USDTTRC20",
         payCurrency: data.payCurrency || "USDTTRC20", // Explicitly use USDT on Tron network
-        useInvoice: true // Always use the invoice-based payment
+        useDirectPayment: true // Use direct payment approach
       });
     },
     onSuccess: (response) => {
@@ -235,7 +225,7 @@ export default function WalletPage() {
       });
       
       // Reset the form
-      rechargeForm.reset({ amount: 10, currency: "USDTTRC20", payCurrency: "USDTTRC20", useInvoice: true });
+      rechargeForm.reset({ amount: 10, currency: "USDTTRC20", payCurrency: "USDTTRC20", useDirectPayment: true });
     },
     onError: (error: Error) => {
       toast({
