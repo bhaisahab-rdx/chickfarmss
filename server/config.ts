@@ -25,9 +25,9 @@ export const config = {
     isDevelopment: process.env.NODE_ENV !== 'production',
   },
   
-  // Dummy nowpayments configuration (keeping for compatibility)
+  // NOWPayments configuration
   nowpayments: {
-    apiKey: null,
-    ipnSecretKey: null
+    apiKey: process.env.NOWPAYMENTS_API_KEY || null,
+    ipnSecretKey: process.env.NOWPAYMENTS_IPN_SECRET_KEY || null
   }
 };

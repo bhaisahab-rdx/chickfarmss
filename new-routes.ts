@@ -106,7 +106,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Create user
-      const user = await storage.createUser(username, password, referrerId);
+      const userData = {
+        username,
+        password,
+        referredBy: referrerId,
+        isAdmin: false
+      };
+      
+      const user = await storage.createUser(userData);
       
       // Log the user in automatically
       req.login(user, (err) => {
@@ -182,6 +189,116 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching user data:", error);
       res.status(500).json({ error: "Failed to fetch user data" });
+    }
+  });
+
+  // Resources endpoint
+  app.get("/api/resources", isAuthenticated, async (req, res) => {
+    try {
+      const resources = await storage.getResourcesByUserId(req.user!.id);
+      res.json(resources);
+    } catch (error) {
+      console.error("Error fetching resources:", error);
+      res.status(500).json({ error: "Failed to fetch resources" });
+    }
+  });
+  
+  // Prices endpoint
+  app.get("/api/prices", async (req, res) => {
+    try {
+      const prices = await storage.getPrices();
+      res.json(prices);
+    } catch (error) {
+      console.error("Error fetching prices:", error);
+      res.status(500).json({ error: "Failed to fetch prices" });
+    }
+  });
+
+  // Chickens endpoints
+  app.get("/api/chickens", isAuthenticated, async (req, res) => {
+    try {
+      const chickens = await storage.getChickensByUserId(req.user!.id);
+      // Ensure we're returning a proper array
+      res.json(Array.isArray(chickens) ? chickens : []);
+    } catch (error) {
+      console.error("Error fetching chickens:", error);
+      res.status(500).json({ error: "Failed to fetch chickens" });
+    }
+  });
+
+  app.get("/api/chickens/counts", async (req, res) => {
+    try {
+      const counts = await storage.getChickenCountsByType();
+      res.json(counts);
+    } catch (error) {
+      console.error("Error fetching chicken counts:", error);
+      res.status(500).json({ error: "Failed to fetch chicken counts" });
+    }
+  });
+
+  app.post("/api/chickens/buy", isAuthenticated, async (req, res) => {
+    try {
+      const { type } = req.body;
+      if (!type) {
+        return res.status(400).json({ error: "Chicken type is required" });
+      }
+
+      const chicken = await storage.createChicken(req.user!.id, type);
+      res.json(chicken);
+    } catch (error) {
+      console.error("Error buying chicken:", error);
+      res.status(500).json({ error: "Failed to buy chicken" });
+    }
+  });
+
+  app.post("/api/chickens/:id/hatch", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.updateChickenHatchTime(id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error hatching chicken:", error);
+      res.status(500).json({ error: "Failed to hatch chicken" });
+    }
+  });
+
+  app.post("/api/chickens/sell/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteChicken(id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error selling chicken:", error);
+      res.status(500).json({ error: "Failed to sell chicken" });
+    }
+  });
+
+  // Spin wheel endpoints
+  app.get("/api/spin/status", isAuthenticated, async (req, res) => {
+    try {
+      const user = await storage.getUser(req.user!.id);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      const now = new Date();
+      const lastSpinTime = user.lastSpinAt ? new Date(user.lastSpinAt) : null;
+      
+      // Default daily spin configuration
+      const spinsAvailable = user.extraSpinsAvailable || 0;
+      const canSpin = lastSpinTime === null || 
+                     (now.getTime() - lastSpinTime.getTime() >= 24 * 60 * 60 * 1000);
+
+      res.json({
+        canSpin,
+        lastSpinAt: user.lastSpinAt,
+        spinsAvailable,
+        rewards: dailySpinRewards,
+        superJackpotRewards
+      });
+    } catch (error) {
+      console.error("Error checking spin status:", error);
+      res.status(500).json({ error: "Failed to check spin status" });
     }
   });
 

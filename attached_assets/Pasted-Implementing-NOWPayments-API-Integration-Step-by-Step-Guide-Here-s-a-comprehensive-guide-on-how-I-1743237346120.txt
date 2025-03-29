@@ -1,0 +1,434 @@
+Implementing NOWPayments API Integration - Step by Step Guide
+Here's a comprehensive guide on how I implemented the NOWPayments API integration with proper USDTTRC20 support and the invoice method:
+
+Step 1: Environment Setup and Secret Management
+Make sure you have both required environment variables:
+
+NOWPAYMENTS_API_KEY - This is your API key from the NOWPayments dashboard
+NOWPAYMENTS_IPN_SECRET - This is used to verify callback integrity
+Check that these are correctly configured using the check_secrets tool:
+
+check_secrets(["NOWPAYMENTS_API_KEY", "NOWPAYMENTS_IPN_SECRET"])
+Step 2: Create the NOWPayments Service
+Create the following interfaces in server/services/nowpayments.ts:
+
+// Make sure to include all required fields
+export interface CreatePaymentResponse {
+  payment_id: string;
+  payment_status: string;
+  pay_address: string;
+  price_amount: number;
+  price_currency: string;
+  pay_amount: number;
+  pay_currency: string;
+  order_id: string;
+  order_description: string;
+  ipn_callback_url: string;
+  created_at: string;
+  updated_at: string;
+  purchase_id: string;
+  payment_url: string;
+  invoice_id?: string; // Added for invoice method
+}
+export interface IPNPayload {
+  // All required IPN fields
+  payment_id: string;
+  payment_status: string;
+  pay_address: string;
+  price_amount: number;
+  price_currency: string;
+  pay_amount: number;
+  pay_currency: string;
+  order_id: string;
+  order_description: string;
+  ipn_callback_url: string;
+  created_at: string;
+  updated_at: string;
+  purchase_id: string;
+  amount_received: number;
+  payin_hash: string;
+  currency_sent: string;
+  amount_sent: number;
+}
+Create the NOWPayments service class, specifically for the deposit functionality:
+
+export class NOWPaymentsService {
+  private readonly apiKey: string;
+  private readonly ipnSecret: string;
+  private readonly baseUrl: string;
+  private readonly sandboxMode: boolean;
+  constructor() {
+    this.apiKey = process.env.NOWPAYMENTS_API_KEY || '';
+    this.ipnSecret = process.env.NOWPAYMENTS_IPN_SECRET || '';
+    
+    // Always use production mode per user requirement
+    this.sandboxMode = false;
+    this.baseUrl = 'https://api.nowpayments.io/v1';
+    
+    if (!this.apiKey) {
+      console.error('NOWPayments API key is missing');
+    }
+    
+    if (!this.ipnSecret) {
+      console.error('NOWPayments IPN secret is missing');
+    }
+  }
+  private getHeaders() {
+    return {
+      'x-api-key': this.apiKey,
+      'Content-Type': 'application/json'
+    };
+  }
+}
+Step 3: Implement the Create Invoice Method
+Add the createPayment method using the invoice API (crucial change):
+async createPayment(userId: number, amount: number, description: string): Promise<CreatePaymentResponse> {
+  try {
+    const user = await storage.getUser(userId);
+    if (!user) {
+      throw new Error('User not found');
+    }
+    
+    // Use actual NOWPayments API in production - using the invoice endpoint
+    const callbackUrl = `${process.env.APP_URL || 'http://localhost:5000'}/api/ipn/nowpayments`;
+    const successUrl = `${process.env.APP_URL || 'http://localhost:5000'}/dashboard`;
+    const orderId = `user_${userId}_${Date.now()}`;
+    
+    console.log('Creating invoice with NOWPayments API', { 
+      amount, 
+      callbackUrl,
+      orderId,
+      successUrl
+    });
+    
+    try {
+      // First create an invoice - IMPORTANT: Only use supported parameters
+      const invoiceResponse = await axios.post(
+        `${this.baseUrl}/invoice`,
+        {
+          price_amount: amount,
+          price_currency: 'usd',
+          pay_currency: 'usdttrc20',  // IMPORTANT: Use usdttrc20 not USDT
+          order_id: orderId,
+          order_description: description,
+          ipn_callback_url: callbackUrl,
+          success_url: successUrl,
+          cancel_url: successUrl,
+          is_fee_paid_by_user: true,
+          is_fixed_rate: true  // Fixes exchange rate
+        },
+        { headers: this.getHeaders() }
+      );
+      
+      console.log('NOWPayments invoice response:', invoiceResponse.data);
+      
+      // Convert invoice response to payment response format
+      // This ensures backward compatibility with existing code
+      const paymentResponse: CreatePaymentResponse = {
+        payment_id: invoiceResponse.data.id,
+        payment_status: 'waiting',
+        pay_address: invoiceResponse.data.pay_address || '',
+        price_amount: invoiceResponse.data.price_amount,
+        price_currency: invoiceResponse.data.price_currency,
+        pay_amount: invoiceResponse.data.pay_amount || 0,
+        pay_currency: invoiceResponse.data.pay_currency,
+        order_id: orderId,
+        order_description: description,
+        ipn_callback_url: callbackUrl,
+        created_at: invoiceResponse.data.created_at,
+        updated_at: invoiceResponse.data.created_at,
+        purchase_id: invoiceResponse.data.id,
+        payment_url: invoiceResponse.data.invoice_url,  // Use invoice_url here
+        invoice_id: invoiceResponse.data.id
+      };
+      
+      return paymentResponse;
+    } catch (apiError: any) {
+      console.error('NOWPayments API error:', apiError.response?.data || apiError.message);
+      throw new Error(`NOWPayments API error: ${apiError.response?.data?.message || apiError.message}`);
+    }
+  } catch (error: any) {
+    console.error('Error creating payment invoice:', error);
+    throw new Error(error.message || 'Failed to create payment invoice');
+  }
+}
+Step 4: Implement the IPN Handler
+Create the processIPNNotification method to handle callbacks:
+
+async processIPNNotification(payload: IPNPayload): Promise<Transaction> {
+  try {
+    // Extract order ID to get user ID
+    const orderIdParts = payload.order_id.split('_');
+    if (orderIdParts.length < 2) {
+      throw new Error('Invalid order ID format');
+    }
+    
+    const userId = parseInt(orderIdParts[1], 10);
+    if (isNaN(userId)) {
+      throw new Error('Invalid user ID in order ID');
+    }
+    
+    // Get the user
+    const user = await storage.getUser(userId);
+    if (!user) {
+      throw new Error(`User with ID ${userId} not found`);
+    }
+    
+    // Check if we already have a transaction for this payment
+    const existingTransaction = await this.findTransactionByPaymentId(payload.payment_id);
+    
+    // Process based on payment status
+    let transactionType = 'DEPOSIT';
+    let status = 'PENDING';
+    
+    switch (payload.payment_status) {
+      case 'finished':
+      case 'confirmed':
+        status = 'COMPLETED';
+        
+        // Only update user balance if this is a new completion
+        if (!existingTransaction || existingTransaction.status !== 'COMPLETED') {
+          // Update user balance
+          await storage.updateUser(userId, {
+            balance: (Number(user.balance) + payload.price_amount).toString(),
+          });
+        }
+        break;
+        
+      case 'failed':
+      case 'expired':
+      case 'refunded':
+        status = 'FAILED';
+        break;
+        
+      default:
+        // Keep as pending
+        break;
+    }
+    
+    if (existingTransaction) {
+      // Update the existing transaction
+      const updatedTransaction = await storage.updateTransaction(existingTransaction.id, {
+        status,
+        txHash: payload.payin_hash || existingTransaction.txHash,
+        details: JSON.stringify({
+          ...JSON.parse(existingTransaction.details as string || '{}'),
+          ipnUpdate: payload
+        })
+      });
+      return updatedTransaction;
+    } else {
+      // Create a new transaction record
+      const transactionData: InsertTransaction = {
+        userId,
+        type: transactionType,
+        amount: payload.price_amount.toString(),
+        status,
+        txHash: payload.payin_hash || null,
+        paymentId: payload.payment_id,
+        paymentAddress: payload.pay_address,
+        details: JSON.stringify(payload),
+      };
+      
+      const transaction = await storage.createTransaction(transactionData);
+      return transaction;
+    }
+  } catch (error) {
+    console.error('Error processing IPN notification:', error);
+    throw new Error('Failed to process IPN notification');
+  }
+}
+Add a method to verify IPN signatures for security:
+
+verifyIPNSignature(payload: string, signature: string): boolean {
+  try {
+    const hmac = CryptoJS.HmacSHA512(payload, this.ipnSecret);
+    const calculatedSignature = hmac.toString(CryptoJS.enc.Hex);
+    
+    return calculatedSignature === signature;
+  } catch (error) {
+    console.error('Error verifying IPN signature:', error);
+    return false;
+  }
+}
+Step 5: Create the API Routes
+Add the deposit route in server/routes.ts:
+
+app.post('/api/deposit', isAuthenticated, async (req, res) => {
+  try {
+    // Validate request using depositSchema
+    const validationResult = depositSchema.safeParse(req.body);
+    if (!validationResult.success) {
+      return res.status(400).json({ message: "Invalid deposit data", errors: validationResult.error });
+    }
+    const userId = req.user!.id;
+    const { amount } = req.body;
+    
+    // Validate amount to ensure it's a positive number
+    if (amount <= 0) {
+      return res.status(400).json({ message: "Deposit amount must be greater than zero" });
+    }
+    
+    // Check if NOWPayments API key is available
+    if (!process.env.NOWPAYMENTS_API_KEY) {
+      console.error('NOWPayments API key missing');
+      return res.status(503).json({ 
+        message: "Payment service unavailable. Please contact support.",
+        error: "API key configuration error"
+      });
+    }
+    
+    try {
+      // Log the deposit attempt
+      console.log(`Initiating deposit of ${amount} USD for user ${userId} (${req.user!.username})`);
+      
+      // Create payment request with NOWPayments
+      const payment = await nowPaymentsService.createPayment(
+        userId, 
+        amount, 
+        `Deposit for user ${req.user!.username}`
+      );
+      
+      // Create pending deposit transaction in our system
+      const transaction = await storage.createTransaction({
+        userId,
+        amount: amount.toString(),
+        type: 'DEPOSIT',
+        status: 'PENDING',
+        paymentId: payment.payment_id,
+        paymentAddress: payment.pay_address,
+        details: JSON.stringify(payment)
+      });
+      
+      console.log(`Deposit initiated successfully: Payment ID ${payment.payment_id}`);
+      
+      // Send successful response with payment details
+      res.status(200).json({ 
+        message: "Deposit initiated successfully",
+        transaction,
+        paymentUrl: payment.payment_url, // Invoice URL for checkout
+        paymentId: payment.payment_id,
+        invoiceId: payment.invoice_id,
+        paymentAddress: payment.pay_address,
+        payAmount: payment.pay_amount,
+        payCurrency: payment.pay_currency
+      });
+    } catch (paymentError: any) {
+      // Handle specific payment provider errors
+      console.error('Payment creation error:', paymentError);
+      
+      let statusCode = 503;
+      let errorMessage = "Payment service unavailable. Please try again later.";
+      
+      if (paymentError.message?.includes('API key')) {
+        errorMessage = "Payment service configuration error. Please contact support.";
+      }
+      
+      res.status(statusCode).json({ 
+        message: errorMessage,
+        error: paymentError.message
+      });
+    }
+  } catch (error: any) {
+    console.error('Deposit error:', error);
+    res.status(500).json({ 
+      message: "Failed to initiate deposit", 
+      error: error.message 
+    });
+  }
+});
+Add the IPN callback endpoint:
+
+app.post('/api/ipn/nowpayments', async (req, res) => {
+  try {
+    // Get the signature from the request header
+    const signature = req.headers['x-nowpayments-sig'] as string;
+    const payload = JSON.stringify(req.body);
+    
+    // Verify the signature
+    if (!signature || !nowPaymentsService.verifyIPNSignature(payload, signature)) {
+      return res.status(403).json({ message: "Invalid signature" });
+    }
+    
+    // Process the payment notification
+    const paymentData = req.body;
+    
+    try {
+      // Update the transaction in our database
+      await nowPaymentsService.processIPNNotification(paymentData);
+      res.status(200).send('OK');
+    } catch (processError) {
+      console.error('Error processing IPN:', processError);
+      res.status(500).send('Error processing payment');
+    }
+  } catch (error) {
+    console.error('IPN error:', error);
+    res.status(500).send('Internal server error');
+  }
+});
+Step 6: Update the Withdrawal Functionality
+Make sure withdrawal is using USDTTRC20:
+app.post('/api/withdraw', isAuthenticated, async (req, res) => {
+  try {
+    // Validate request
+    const validationResult = withdrawalSchema.safeParse(req.body);
+    if (!validationResult.success) {
+      return res.status(400).json({ message: "Invalid withdrawal data", errors: validationResult.error });
+    }
+    const userId = req.user!.id;
+    const { address, amount } = req.body;
+    
+    // Get withdrawal fee and minimum withdrawal settings
+    const feeSettingResult = await storage.getSetting('withdrawalFee');
+    const minWithdrawalResult = await storage.getSetting('minWithdrawal');
+    
+    const fee = feeSettingResult?.value || 5; // Default 5%
+    const minWithdrawal = minWithdrawalResult?.value || 50; // Default 50 USDTTRC20
+    
+    // Check minimum withdrawal
+    if (amount < minWithdrawal) {
+      return res.status(400).json({ message: `Minimum withdrawal is ${minWithdrawal} USDTTRC20` });
+    }
+    // Calculate fee amount
+    const feeAmount = (amount * Number(fee) / 100);
+    const amountAfterFee = amount - feeAmount;
+    
+    // Create withdrawal request to NOWPayments
+    const withdrawal = await nowPaymentsService.createWithdrawal(address, amountAfterFee, 'usdttrc20');
+    
+    // Update user balance, create transaction record, etc.
+  } catch (error) {
+    console.error('Withdrawal error:', error);
+    res.status(500).json({ message: "Failed to process withdrawal" });
+  }
+});
+Step 7: Common Issues and How to Fix Them
+Issue: Parameter Not Allowed
+
+Error: "is_fee_paid_by_user_visible is not allowed"
+Solution: Remove the unsupported parameter from the request body
+Check the API documentation for supported parameters
+Issue: Authentication Errors
+
+Error: "Invalid API key"
+Solution: Ensure the NOWPAYMENTS_API_KEY environment variable is set correctly
+Issue: IPN Not Working
+
+Problem: Payments complete but user balance doesn't update
+Solution:
+Ensure the IPN callback URL is accessible from the internet
+Check that NOWPAYMENTS_IPN_SECRET is correctly set
+Add detailed logging in the IPN handler
+Issue: Currency Not Supported
+
+Error: "Currency not supported"
+Solution: Always use usdttrc20 for USDT transactions, not just usdt
+Summary of Key Points
+Always use 'usdttrc20' as the currency parameter, not just 'usdt'
+Use the invoice API endpoint for a better user experience
+Remove any unsupported parameters from API requests
+Implement proper IPN handling for automatic balance updates
+Add detailed error logging to troubleshoot issues
+Verify IPN signatures for security
+Use consistent casing in transaction status values
+Handle edge cases like payment expiration or refunds

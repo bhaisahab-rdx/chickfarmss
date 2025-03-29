@@ -6,37 +6,11 @@ import { z } from "zod";
 import { dailySpinRewards, superJackpotRewards, referralCommissionRates } from "@shared/schema";
 import { config } from "./config";
 import crypto from 'crypto';
+import { nowPaymentsService } from "./services/nowpayments";
 
-// Removed NOWPayments integration
-const isNOWPaymentsConfigured = () => false;
-const isIPNSecretConfigured = () => false;
-
-// Create a mock nowPaymentsService that returns appropriate values and doesn't fail
-const nowPaymentsService = {
-  isMockMode: true,
-  getStatus: async () => ({ status: 'disabled', message: 'Payment service disabled' }),
-  getMinimumPaymentAmount: async () => 10,
-  createInvoice: async () => ({ 
-    id: `MOCK-${Date.now()}`, 
-    invoice_url: '/wallet?payment=disabled',
-    payment_id: null 
-  }),
-  createPayment: async () => ({
-    payment_id: `MOCK-${Date.now()}`,
-    pay_address: 'PAYMENT_DISABLED',
-    pay_amount: 0,
-    pay_currency: 'DISABLED',
-    price_amount: 0,
-    price_currency: 'DISABLED',
-    payment_status: 'disabled',
-    created_at: new Date().toISOString()
-  }),
-  // Additional mock methods to replace the removed nowpayments.ts service
-  getPaymentStatus: async () => ({ status: 'disabled' }),
-  mapPaymentStatusToTransactionStatus: () => 'failed',
-  getAvailableCurrencies: async () => [],
-  createStandardizedPaymentStatus: () => ({ status: 'disabled', final: true })
-};
+// Helper functions to check configuration
+const isNOWPaymentsConfigured = () => !!config.nowpayments.apiKey;
+const isIPNSecretConfigured = () => !!config.nowpayments.ipnSecretKey;
 
 export async function registerRoutes(app: Express): Promise<Server> {
   setupAuth(app);
@@ -194,10 +168,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const cancelUrl = `${config.urls.app}/wallet?payment=cancelled`;
       
       // Set up callback URL for NOWPayments IPN webhook
-      const callbackUrl = `${config.urls.api}/api/payments/callback`;
+      const callbackUrl = `${config.urls.api}/api/ipn/nowpayments`;
       
-      // Use fallback/test payment if requested or if in mock mode
-      if (useFallback || nowPaymentsService.isMockMode) {
+      // Use fallback/test payment if requested or if NOWPayments is not configured
+      if (useFallback || !nowPaymentsService.isConfigured()) {
         console.log(`Creating fallback test payment for amount: ${amount} ${currency}`);
         
         // Generate a fallback test payment using our local dev-payment.html
@@ -216,34 +190,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       try {
-        console.log(`Creating NOWPayments invoice for anonymous user, amount: ${amount} ${currency}`);
+        console.log(`Creating NOWPayments payment for test user, amount: ${amount} ${currency}`);
         
-        // Create the invoice using NOWPayments API
-        const invoice = await nowPaymentsService.createInvoice(
+        // Create a test payment using NOWPayments API
+        const payment = await nowPaymentsService.createPayment(
+          0, // Use 0 as user ID for test payments
           amount,
-          0, // Use 0 as user ID for test invoices
-          currency,
-          'USDTTRC20', // Specifically use USDT on Tron (TRC20) network
-          successUrl,
-          cancelUrl,
-          `TEST-${Date.now()}`, // Generate a unique order ID
-          `ChickFarms test payment - ${amount} ${currency}`,
-          callbackUrl
+          `ChickFarms test payment - ${amount} ${currency}`
         );
         
-        console.log(`Created test invoice with ID ${invoice.id}, popup URL: ${invoice.invoice_url}`);
+        console.log(`Created test payment with ID ${payment.payment_id}, payment URL: ${payment.payment_url}`);
         
-        // Return the NOWPayments invoice URL to open in a popup/iframe
+        // Return the NOWPayments payment URL to open in a popup/iframe
         return res.json({
           success: true,
           invoice: {
-            id: invoice.id,
+            id: payment.payment_id,
             status: 'created',
-            invoiceUrl: invoice.invoice_url
+            invoiceUrl: payment.payment_url
           }
         });
       } catch (apiError) {
-        console.error("Error creating NOWPayments invoice:", apiError);
+        console.error("Error creating NOWPayments payment:", apiError);
         
         // If the API fails, create a fallback test payment
         console.log("Falling back to test payment due to API error");
@@ -267,11 +235,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Development endpoint to simulate a successful payment
-  // This is only active when running in dev/mock mode
+  // This is only active when we're not in production mode
   app.get("/api/dev/simulate-payment/:invoiceId", async (req, res) => {
     try {
-      // First, check if we're running in mock mode
-      if (!nowPaymentsService.isMockMode) {
+      // Check if we're running in development mode
+      if (config.env.isProduction) {
         return res.status(403).json({ 
           error: "Forbidden",
           message: "This endpoint is only available in development mode" 
@@ -381,7 +349,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Create a NOWPayments invoice for popup checkout
+  // Create a NOWPayments payment for popup checkout
   app.post("/api/payments/create-invoice", isAuthenticated, async (req, res) => {
     try {
       const schema = z.object({
@@ -397,26 +365,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { amount, currency = 'USD' } = result.data;
       const user = req.user as any;
       
-      // Generate success and cancel URLs with the app URL
-      const successUrl = `${config.urls.app}/wallet?payment=success`;
-      const cancelUrl = `${config.urls.app}/wallet?payment=cancelled`;
+      console.log(`Creating NOWPayments payment for user ${user.id}, amount: ${amount} ${currency}`);
       
-      // Set up callback URL for NOWPayments IPN webhook
-      const callbackUrl = `${config.urls.api}/api/payments/callback`;
-      
-      console.log(`Creating NOWPayments invoice for user ${user.id}, amount: ${amount} ${currency}`);
-      
-      // Create the invoice using NOWPayments API
-      const invoice = await nowPaymentsService.createInvoice(
-        amount,
+      // Create the payment using NOWPayments API
+      const payment = await nowPaymentsService.createPayment(
         user.id,
-        currency,
-        'USDTTRC20', // Specifically use USDT on Tron (TRC20) network
-        successUrl,
-        cancelUrl,
-        undefined, // Generate a unique order ID
-        `ChickFarms deposit - User ID: ${user.id}`,
-        callbackUrl
+        amount,
+        `ChickFarms deposit - User ID: ${user.id}`
       );
       
       // Create a transaction record in pending state
@@ -424,22 +379,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         user.id,
         'recharge',
         amount,
-        invoice.id, // Use the invoice ID as the transaction ID
+        payment.payment_id, // Use the payment ID as the transaction ID
         undefined,
-        JSON.stringify({ method: 'nowpayments_popup', invoiceId: invoice.id })
+        JSON.stringify({ method: 'nowpayments', paymentId: payment.payment_id })
       );
       
-      console.log(`Created invoice with ID ${invoice.id}, popup URL: ${invoice.invoice_url}`);
+      console.log(`Created payment with ID ${payment.payment_id}, payment URL: ${payment.payment_url}`);
       
-      // Return the NOWPayments invoice URL to open in a popup/iframe
+      // Return the NOWPayments payment URL to open in a popup/iframe
       res.json({
         success: true,
-        invoiceId: invoice.id,
-        invoiceUrl: invoice.invoice_url
+        invoiceId: payment.payment_id,
+        invoiceUrl: payment.payment_url
       });
     } catch (error) {
-      console.error("Error creating NOWPayments invoice:", error);
-      res.status(500).json({ error: "Failed to create payment invoice" });
+      console.error("Error creating NOWPayments payment:", error);
+      res.status(500).json({ error: "Failed to create payment" });
     }
   });
   
@@ -613,7 +568,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // NOWPayments IPN callback endpoint
-  app.post("/api/payments/callback", async (req, res) => {
+  app.post("/api/ipn/nowpayments", async (req, res) => {
     try {
       console.log("[NOWPayments Callback] Received payment callback:", JSON.stringify(req.body));
       
@@ -621,12 +576,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const ipnData = req.body;
       
       // Verify the IPN signature if NOWPayments IPN secret is provided
-      const ipnSecret = config.nowpayments.ipnSecret;
+      const ipnSecretKey = config.nowpayments.ipnSecretKey;
       const isIpnConfigured = isIPNSecretConfigured();
       
       console.log("[NOWPayments Callback] IPN Secret configured:", isIpnConfigured ? "YES" : "NO");
       
-      if (ipnSecret && isIpnConfigured) {
+      if (ipnSecretKey && isIpnConfigured) {
         // Get the signature from headers
         const ipnSignature = req.headers['x-nowpayments-sig'];
         
@@ -637,7 +592,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         
         // Verify the signature using the imported crypto module
-        const hmac = crypto.createHmac('sha512', ipnSecret);
+        const hmac = crypto.createHmac('sha512', ipnSecretKey);
         const rawBody = typeof ipnData === 'string' ? ipnData : JSON.stringify(ipnData);
         const computedSignature = hmac.update(rawBody).digest('hex');
         
@@ -870,24 +825,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // For NOWPayments payments, check the status via API
           try {
             const apiPaymentStatus = await nowPaymentsService.getPaymentStatus(paymentId);
-            // Use the standard helper to create a properly formatted payment status object
-            // Create a typed version using our interface to ensure compatibility
-            const standardizedStatus = nowPaymentsService.createStandardizedPaymentStatus(
-              transaction.transactionId || '',
-              transaction,
-              apiPaymentStatus
-            );
+            // Use the API status directly
             
             // Assign properties individually to ensure type safety
             paymentStatus = {
-              payment_id: standardizedStatus.payment_id,
-              payment_status: standardizedStatus.payment_status,
-              pay_address: standardizedStatus.pay_address,
-              price_amount: standardizedStatus.price_amount,
-              price_currency: standardizedStatus.price_currency,
-              pay_amount: standardizedStatus.pay_amount,
-              pay_currency: standardizedStatus.pay_currency,
-              created_at: standardizedStatus.created_at,
+              payment_id: apiPaymentStatus.payment_id,
+              payment_status: apiPaymentStatus.payment_status,
+              pay_address: apiPaymentStatus.pay_address || '',
+              price_amount: apiPaymentStatus.price_amount,
+              price_currency: apiPaymentStatus.price_currency,
+              pay_amount: apiPaymentStatus.pay_amount,
+              pay_currency: apiPaymentStatus.pay_currency,
+              created_at: apiPaymentStatus.created_at,
               actually_paid: null, // Keep as null for type compatibility
               actually_paid_at: null, // Keep as null for type compatibility
               updated_at: null // Keep as null for type compatibility
