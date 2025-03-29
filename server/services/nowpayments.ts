@@ -174,8 +174,15 @@ export class NOWPaymentsService {
     userId: number, 
     amount: number, 
     description: string, 
-    currency: string = 'USD'
+    currency: string = 'USDT'
   ): Promise<CreatePaymentResponse> {
+    // Convert currency to lowercase for NOWPayments API
+    currency = currency.toLowerCase();
+    
+    // Convert USDT to usdttrc20 for consistency with NOWPayments API
+    if (currency === 'usdt') {
+      currency = 'usdttrc20';
+    }
     try {
       const user = await storage.getUser(userId);
       if (!user) {

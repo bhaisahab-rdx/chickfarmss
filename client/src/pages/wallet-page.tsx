@@ -11,10 +11,11 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, UseQueryResult } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
@@ -30,8 +31,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Badge } from "@/components/ui/badge";
 
 const rechargeSchema = z.object({
-  amount: z.number().min(10, "Amount must be at least 10 USDT"),
-  currency: z.string().default("USD")
+  amount: z.number().min(10, "Amount must be at least 10 USDT")
 });
 
 const withdrawalSchema = z.object({
@@ -64,6 +64,16 @@ const paymentStatusLabels: Record<string, string> = {
   expired: "Payment Expired",
 };
 
+// Define types for API responses
+interface PaymentServiceStatus {
+  apiConfigured: boolean;
+  ipnConfigured: boolean;
+  serviceStatus: string;
+  error?: string;
+  ready: boolean;
+  minAmount: number;
+}
+
 export default function WalletPage() {
   // State for payment flow
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
@@ -82,7 +92,7 @@ export default function WalletPage() {
   const { user } = useAuth();
 
   // Check payment service status
-  const paymentServiceQuery = useQuery({
+  const paymentServiceQuery = useQuery<PaymentServiceStatus>({
     queryKey: ["/api/public/payments/service-status"],
     refetchOnWindowFocus: false,
   });
@@ -101,8 +111,7 @@ export default function WalletPage() {
   const rechargeForm = useForm<z.infer<typeof rechargeSchema>>({
     resolver: zodResolver(rechargeSchema),
     defaultValues: {
-      amount: minPaymentAmount,
-      currency: "USD"
+      amount: minPaymentAmount
     },
   });
 
@@ -351,7 +360,7 @@ export default function WalletPage() {
                           Deposit Funds
                         </h3>
                         <p className="text-xs sm:text-sm text-muted-foreground max-w-xs mx-auto mt-1">
-                          Add funds to your wallet using your preferred currency. Pay with any supported cryptocurrency. Minimum deposit amount is {minPaymentAmount} {rechargeForm.getValues().currency || "USD"}.
+                          Add funds to your wallet using USDT TRC20. Pay with any supported cryptocurrency. Minimum deposit amount is {minPaymentAmount} USDT.
                         </p>
                       </div>
                       
@@ -395,41 +404,13 @@ export default function WalletPage() {
                               )}
                             />
                             
-                            <FormField
-                              control={rechargeForm.control}
-                              name="currency"
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel className="text-xs sm:text-sm">Currency</FormLabel>
-                                  <FormControl>
-                                    <Select
-                                      onValueChange={field.onChange}
-                                      defaultValue={field.value}
-                                    >
-                                      <SelectTrigger className="h-8 sm:h-10 text-sm">
-                                        <SelectValue placeholder="Select currency" />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        <SelectItem value="USD">USD (US Dollar)</SelectItem>
-                                        <SelectItem value="EUR">EUR (Euro)</SelectItem>
-                                        <SelectItem value="GBP">GBP (British Pound)</SelectItem>
-                                        <SelectItem value="JPY">JPY (Japanese Yen)</SelectItem>
-                                        <SelectItem value="CAD">CAD (Canadian Dollar)</SelectItem>
-                                        <SelectItem value="AUD">AUD (Australian Dollar)</SelectItem>
-                                        <SelectItem value="CNY">CNY (Chinese Yuan)</SelectItem>
-                                      </SelectContent>
-                                    </Select>
-                                  </FormControl>
-                                  <FormMessage className="text-xs" />
-                                </FormItem>
-                              )}
-                            />
+
                             
                             <div className="bg-amber-50 p-3 rounded-lg border border-amber-200 text-xs text-amber-800 text-left">
                               <p className="font-medium">Important Information:</p>
                               <ul className="list-disc pl-4 mt-1 space-y-1">
                                 <li>Make payments using any supported cryptocurrency</li>
-                                <li>Minimum deposit: {minPaymentAmount} {rechargeForm.getValues().currency || "USD"}</li>
+                                <li>Minimum deposit: {minPaymentAmount} USDT</li>
                                 <li>Deposits are typically credited within 10-30 minutes</li>
                                 <li>Exchange rates are fixed at the time of payment</li>
                                 <li>Save the payment link for your records</li>
@@ -447,7 +428,7 @@ export default function WalletPage() {
                                   Creating Payment...
                                 </>
                               ) : (
-                                `Create ${rechargeForm.getValues().currency || "USD"} Deposit`
+                                "Create USDT Deposit"
                               )}
                             </Button>
                           </form>
@@ -552,7 +533,7 @@ export default function WalletPage() {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="text-center">
-              {rechargeForm.getValues().currency || "USD"} Payment
+              USDT Payment
             </DialogTitle>
             <DialogDescription className="text-center">
               Complete your payment to add funds to your account

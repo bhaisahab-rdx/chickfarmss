@@ -62,7 +62,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
             // If we got a valid status, let's also try to get minimum amount
             if (serviceStatus !== "unknown" && serviceStatus !== "error") {
               try {
-                console.log("[Payment Service Status] Getting minimum payment amount for USDTTRC20...");
+                console.log("[Payment Service Status] Getting minimum payment amount for usdttrc20...");
                 minAmount = await nowPaymentsService.getMinimumPaymentAmount("usdttrc20");
                 console.log("[Payment Service Status] Minimum payment amount:", minAmount);
               } catch (minAmountError) {

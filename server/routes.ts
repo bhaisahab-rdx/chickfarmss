@@ -97,8 +97,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             // If we got a valid status, let's also try to get minimum amount
             if (serviceStatus !== "unknown" && serviceStatus !== "error") {
               try {
-                console.log("[Payment Service Status] Getting minimum payment amount for USDTTRC20...");
-                minAmount = await nowPaymentsService.getMinimumPaymentAmount("USDTTRC20");
+                console.log("[Payment Service Status] Getting minimum payment amount for usdttrc20...");
+                minAmount = await nowPaymentsService.getMinimumPaymentAmount("usdttrc20");
                 console.log("[Payment Service Status] Minimum payment amount:", minAmount);
               } catch (minAmountError) {
                 console.error("[Payment Service Status] Failed to get minimum amount:", minAmountError);
@@ -161,7 +161,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Invalid request parameters", details: result.error });
       }
 
-      const { amount, currency = 'USD', useFallback = false } = result.data;
+      const { amount, useFallback = false } = result.data;
+      const currency = 'USDT';
       
       // Generate success and cancel URLs with the app URL
       const successUrl = `${config.urls.app}/wallet?payment=success`;
@@ -322,7 +323,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           // Try to get minimum amount
           try {
-            minAmount = await nowPaymentsService.getMinimumPaymentAmount("USDTTRC20");
+            minAmount = await nowPaymentsService.getMinimumPaymentAmount("usdttrc20");
           } catch (minAmountError) {
             console.error("Failed to get minimum amount:", minAmountError);
           }
@@ -353,8 +354,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/payments/create-invoice", isAuthenticated, async (req, res) => {
     try {
       const schema = z.object({
-        amount: z.number().positive(),
-        currency: z.string().optional()
+        amount: z.number().positive()
       });
       
       const result = schema.safeParse(req.body);
@@ -362,7 +362,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Invalid request parameters", details: result.error });
       }
 
-      const { amount, currency = 'USD' } = result.data;
+      const { amount } = result.data;
+      const currency = 'USDT';
       const user = req.user as any;
       
       console.log(`Creating NOWPayments payment for user ${user.id}, amount: ${amount} ${currency}`);
@@ -555,9 +556,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       let currency = req.query.currency as string || "USDT";
       
-      // Convert USDT to USDTTRC20 for consistency
+      // Convert USDT to usdttrc20 for consistency (lowercase for NOWPayments API)
       if (currency.toUpperCase() === 'USDT') {
-        currency = 'USDTTRC20';
+        currency = 'usdttrc20';
       }
       
       const minAmount = await nowPaymentsService.getMinimumPaymentAmount(currency);
