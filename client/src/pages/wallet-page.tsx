@@ -483,7 +483,17 @@ export default function WalletPage() {
       </div>
       
       {/* Payment Dialog */}
-      <Dialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
+      <Dialog open={paymentDialogOpen} onOpenChange={(open) => {
+        // Only allow closing if we're not in the middle of processing
+        if (!createPaymentMutation.isPending) {
+          setPaymentDialogOpen(open);
+          // Reset state when closing dialog
+          if (!open) {
+            setCurrentPayment(null);
+            if (paymentPollingInterval) clearInterval(paymentPollingInterval);
+          }
+        }
+      }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="text-center">USDT Payment</DialogTitle>
@@ -492,7 +502,16 @@ export default function WalletPage() {
             </DialogDescription>
           </DialogHeader>
           
-          {currentPayment && (
+          {/* Show loading spinner when payment is being created */}
+          {createPaymentMutation.isPending && (
+            <div className="py-8 flex flex-col items-center justify-center gap-4">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <p className="text-sm text-center">Creating payment...</p>
+            </div>
+          )}
+          
+          {/* Show payment details once payment is created */}
+          {!createPaymentMutation.isPending && currentPayment && (
             <div className="space-y-4">
               {/* Payment Status */}
               <div className="text-center space-y-2">
@@ -585,6 +604,23 @@ export default function WalletPage() {
                   For technical assistance, please contact support with your payment ID: <span className="font-mono bg-gray-100 px-1 rounded">{currentPayment.id}</span>
                 </p>
               </div>
+            </div>
+          )}
+          
+          {/* Error state */}
+          {!createPaymentMutation.isPending && !currentPayment && createPaymentMutation.isError && (
+            <div className="py-6 flex flex-col items-center justify-center gap-4">
+              <div className="bg-red-100 text-red-800 p-4 rounded-lg flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5" />
+                <p className="text-sm">Failed to create payment. Please try again.</p>
+              </div>
+              <Button 
+                variant="outline" 
+                className="mt-2"
+                onClick={handlePaymentDialogClose}
+              >
+                Close
+              </Button>
             </div>
           )}
         </DialogContent>
