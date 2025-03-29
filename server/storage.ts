@@ -10,12 +10,15 @@ import {
   DailyReward, InsertDailyReward, ActiveBoost, InsertActiveBoost,
   milestoneThresholds, referralCommissionRates, SALARY_PER_REFERRAL,
   dailyRewardsByDay, boostTypes, SpinHistory, InsertSpinHistory,
+  AchievementBadge, InsertAchievementBadge, UserAchievement, InsertUserAchievement,
+  DEFAULT_ACHIEVEMENT_BADGES,
 } from "@shared/schema";
 import {
   users, chickens, resources, transactions, prices,
   userProfiles, gameSettings as gameSettingsTable,
   mysteryBoxRewards, referralEarnings, milestoneRewards,
-  salaryPayments, dailyRewards, activeBoosts, spinHistory
+  salaryPayments, dailyRewards, activeBoosts, spinHistory,
+  achievementBadges, userAchievements
 } from "@shared/schema";
 import session from "express-session";
 import createMemoryStore from "memorystore";
@@ -128,6 +131,17 @@ export interface IStorage {
   getSpinHistoryByUserId(userId: number): Promise<SpinHistory[]>;
   updateUserLastSpin(userId: number): Promise<void>;
   updateUserExtraSpins(userId: number, spins: number): Promise<void>;
+  
+  // Achievement operations
+  getAllAchievementBadges(): Promise<AchievementBadge[]>;
+  getAchievementBadgeByCode(code: string): Promise<AchievementBadge | undefined>;
+  createAchievementBadge(badge: InsertAchievementBadge): Promise<AchievementBadge>;
+  getUserAchievements(userId: number): Promise<UserAchievement[]>;
+  getUserAchievementsByBadgeId(userId: number, badgeId: number): Promise<UserAchievement | undefined>;
+  createUserAchievement(achievement: InsertUserAchievement): Promise<UserAchievement>;
+  updateUserAchievement(id: number, updates: Partial<UserAchievement>): Promise<UserAchievement>;
+  getCompletedUserAchievements(userId: number): Promise<UserAchievement[]>;
+  initializeAchievementBadges(): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -150,6 +164,7 @@ export class DatabaseStorage implements IStorage {
       await this.initializePrices();
       await this.initializeAdminUser(); // Make sure admin is initialized
       await this.initializeGameSettings();
+      await this.initializeAchievementBadges(); // Initialize achievement badges
     } catch (error) {
       console.error("Error in initializeDefaults:", error);
       throw error;
@@ -1549,6 +1564,126 @@ export class DatabaseStorage implements IStorage {
         .where(eq(users.id, userId));
     } catch (error) {
       console.error('[Storage] Error updating extra spins:', error);
+      throw error;
+    }
+  }
+
+  // Achievement badge methods
+  async getAllAchievementBadges(): Promise<AchievementBadge[]> {
+    try {
+      return db.select().from(achievementBadges);
+    } catch (error) {
+      console.error("[Storage] Error getting all achievement badges:", error);
+      throw error;
+    }
+  }
+
+  async getAchievementBadgeByCode(code: string): Promise<AchievementBadge | undefined> {
+    try {
+      const [badge] = await db.select().from(achievementBadges).where(eq(achievementBadges.code, code));
+      return badge;
+    } catch (error) {
+      console.error(`[Storage] Error getting achievement badge by code ${code}:`, error);
+      throw error;
+    }
+  }
+
+  async createAchievementBadge(badge: InsertAchievementBadge): Promise<AchievementBadge> {
+    try {
+      const [newBadge] = await db.insert(achievementBadges).values(badge).returning();
+      return newBadge;
+    } catch (error) {
+      console.error("[Storage] Error creating achievement badge:", error);
+      throw error;
+    }
+  }
+
+  async getUserAchievements(userId: number): Promise<UserAchievement[]> {
+    try {
+      return db.select().from(userAchievements).where(eq(userAchievements.userId, userId));
+    } catch (error) {
+      console.error(`[Storage] Error getting achievements for user ${userId}:`, error);
+      throw error;
+    }
+  }
+
+  async getUserAchievementsByBadgeId(userId: number, badgeId: number): Promise<UserAchievement | undefined> {
+    try {
+      const [achievement] = await db.select().from(userAchievements)
+        .where(and(
+          eq(userAchievements.userId, userId),
+          eq(userAchievements.badgeId, badgeId)
+        ));
+      return achievement;
+    } catch (error) {
+      console.error(`[Storage] Error getting user achievement for user ${userId} and badge ${badgeId}:`, error);
+      throw error;
+    }
+  }
+
+  async createUserAchievement(achievement: InsertUserAchievement): Promise<UserAchievement> {
+    try {
+      const [newAchievement] = await db.insert(userAchievements).values(achievement).returning();
+      return newAchievement;
+    } catch (error) {
+      console.error("[Storage] Error creating user achievement:", error);
+      throw error;
+    }
+  }
+
+  async updateUserAchievement(id: number, updates: Partial<UserAchievement>): Promise<UserAchievement> {
+    try {
+      const [updatedAchievement] = await db.update(userAchievements)
+        .set(updates)
+        .where(eq(userAchievements.id, id))
+        .returning();
+      return updatedAchievement;
+    } catch (error) {
+      console.error(`[Storage] Error updating user achievement ${id}:`, error);
+      throw error;
+    }
+  }
+
+  async getCompletedUserAchievements(userId: number): Promise<UserAchievement[]> {
+    try {
+      return db.select().from(userAchievements)
+        .where(and(
+          eq(userAchievements.userId, userId),
+          eq(userAchievements.isComplete, true)
+        ));
+    } catch (error) {
+      console.error(`[Storage] Error getting completed achievements for user ${userId}:`, error);
+      throw error;
+    }
+  }
+
+  async initializeAchievementBadges(): Promise<void> {
+    try {
+      console.log("[Storage] Initializing achievement badges...");
+      
+      // Check if badges already exist
+      const existingBadges = await this.getAllAchievementBadges();
+      if (existingBadges.length > 0) {
+        console.log(`[Storage] ${existingBadges.length} achievement badges already exist, skipping initialization`);
+        return;
+      }
+      
+      // Initialize default badges
+      for (const badgeDef of DEFAULT_ACHIEVEMENT_BADGES) {
+        await this.createAchievementBadge({
+          code: badgeDef.code,
+          name: badgeDef.name,
+          description: badgeDef.description,
+          category: badgeDef.category,
+          rarity: badgeDef.rarity,
+          threshold: badgeDef.threshold,
+          iconSvg: badgeDef.iconSvg
+        });
+      }
+      
+      console.log(`[Storage] Successfully initialized ${DEFAULT_ACHIEVEMENT_BADGES.length} achievement badges`);
+    } catch (error) {
+      console.error("[Storage] Error initializing achievement badges:", error);
       throw error;
     }
   }

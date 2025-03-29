@@ -307,6 +307,7 @@ export const userProfiles = pgTable("user_profiles", {
   tutorialStep: integer("tutorial_step").notNull().default(0),
   tutorialDisabled: boolean("tutorial_disabled").notNull().default(false),
   lastUpdated: timestamp("last_updated").notNull().defaultNow(),
+  displayedBadgeId: integer("displayed_badge_id"),
 });
 
 export const referralEarnings = pgTable("referral_earnings", {
@@ -575,4 +576,165 @@ export const boostTypes = [
   { id: "2x_1h", name: "2x Egg Production (1 Hour)", multiplier: 2.0, hours: 1, price: 10 },
   { id: "1.5x_6h", name: "1.5x Egg Production (6 Hours)", multiplier: 1.5, hours: 6, price: 20 },
   { id: "1.2x_24h", name: "1.2x Egg Production (24 Hours)", multiplier: 1.2, hours: 24, price: 30 }
+];
+
+// Achievement badge system
+export const achievementBadges = pgTable("achievement_badges", {
+  id: serial("id").primaryKey(),
+  code: text("code").notNull().unique(), // Unique identifier code for the badge
+  name: text("name").notNull(),
+  description: text("description").notNull(),
+  category: text("category").notNull(), // 'investment', 'farming', 'social', 'milestone'
+  iconSvg: text("icon_svg").notNull(), // SVG string for the badge icon
+  rarity: text("rarity").notNull(), // 'common', 'rare', 'epic', 'legendary'
+  threshold: integer("threshold").notNull(), // Value needed to unlock
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// User achievement records
+export const userAchievements = pgTable("user_achievements", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  badgeId: integer("badge_id").notNull(),
+  unlockedAt: timestamp("unlocked_at").notNull().defaultNow(),
+  progress: integer("progress").notNull().default(0), // Current progress towards threshold
+  isComplete: boolean("is_complete").notNull().default(false),
+});
+
+// Create insert schemas for the badges tables
+export const insertAchievementBadgeSchema = createInsertSchema(achievementBadges).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertUserAchievementSchema = createInsertSchema(userAchievements).omit({
+  id: true,
+  unlockedAt: true,
+});
+
+// Achievement badge types
+export type AchievementBadge = typeof achievementBadges.$inferSelect;
+export type InsertAchievementBadge = z.infer<typeof insertAchievementBadgeSchema>;
+export type UserAchievement = typeof userAchievements.$inferSelect;
+export type InsertUserAchievement = z.infer<typeof insertUserAchievementSchema>;
+
+// Achievement badge definitions with crypto themes
+export interface AchievementBadgeDefinition {
+  code: string;
+  name: string;
+  description: string;
+  category: 'investment' | 'farming' | 'social' | 'milestone';
+  rarity: 'common' | 'rare' | 'epic' | 'legendary';
+  threshold: number;
+  iconSvg: string; // Will be actual SVG content
+}
+
+// Default achievement badges
+export const DEFAULT_ACHIEVEMENT_BADGES: AchievementBadgeDefinition[] = [
+  // Investment category badges
+  {
+    code: "first_deposit",
+    name: "Crypto Initiate",
+    description: "Made your first USDT deposit",
+    category: "investment",
+    rarity: "common",
+    threshold: 1,
+    iconSvg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><circle cx="32" cy="32" r="30" fill="#26a17b"/><path fill="#fff" d="M36.5,17.2h-9v18.6h9V17.2z"/><path fill="#fff" d="M32,11.6c-8.1,0-14.6,6.6-14.6,14.6s6.6,14.6,14.6,14.6s14.6-6.6,14.6-14.6S40.1,11.6,32,11.6z M32,37.1c-6,0-10.9-4.9-10.9-10.9c0-6,4.9-10.9,10.9-10.9c6,0,10.9,4.9,10.9,10.9C42.9,32.2,38,37.1,32,37.1z"/><path fill="#fff" d="M42.1,39.6c-0.5,0-0.9,0.4-0.9,0.9v2.2c0,0.5,0.4,0.9,0.9,0.9s0.9-0.4,0.9-0.9v-2.2C43,40,42.6,39.6,42.1,39.6z"/></svg>'
+  },
+  {
+    code: "hodler",
+    name: "HODL Champion", 
+    description: "Held a balance of 100+ USDT",
+    category: "investment",
+    rarity: "rare",
+    threshold: 100,
+    iconSvg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><circle cx="32" cy="32" r="30" fill="#f9aa4b"/><path fill="#fff" d="M32,12.4l-8.9,15.3L32,33.1l8.9-5.4L32,12.4z"/><path fill="#fff" d="M32,35.2L23.1,29.8L32,51.6l8.9-21.8L32,35.2z"/><path fill="#fff" d="M32,33.1l8.9-5.4l-8.9-5.3V33.1z"/><path fill="#fff" d="M23.1,22.4l8.9,5.3v-10.7L23.1,22.4z"/></svg>'
+  },
+  {
+    code: "crypto_whale",
+    name: "Crypto Whale",
+    description: "Achieved a balance of 1000+ USDT",
+    category: "investment",
+    rarity: "epic",
+    threshold: 1000,
+    iconSvg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><circle cx="32" cy="32" r="30" fill="#627eea"/><path fill="#fff" d="M32,13v14l11.9,5.3L32,13z"/><path fill="#fff" fill-opacity="0.8" d="M32,13l-11.9,19.3L32,27V13z"/><path fill="#fff" d="M32,41.7v9.3l11.9-16.5L32,41.7z"/><path fill="#fff" fill-opacity="0.8" d="M32,51v-9.3l-11.9-7.2L32,51z"/><path fill="#fff" d="M32,39.3l11.9-7.2L32,27V39.3z"/><path fill="#fff" fill-opacity="0.8" d="M20.1,32.1L32,39.3V27L20.1,32.1z"/></svg>'
+  },
+  
+  // Farming category badges
+  {
+    code: "egg_collector",
+    name: "Egg Collector",
+    description: "Collected 100 eggs from your chickens",
+    category: "farming",
+    rarity: "common",
+    threshold: 100,
+    iconSvg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><circle cx="32" cy="32" r="30" fill="#f0b90b"/><ellipse cx="32" cy="35" rx="14" ry="16" fill="#fff"/><path fill="#f0b90b" d="M32,20c-7.7,0-14,6.7-14,15s6.3,15,14,15s14-6.7,14-15S39.7,20,32,20z M32,45c-5.5,0-10-4.5-10-10s4.5-10,10-10s10,4.5,10,10S37.5,45,32,45z"/><circle cx="32" cy="35" r="6" fill="#f0b90b"/></svg>'
+  },
+  {
+    code: "chicken_master",
+    name: "Chicken Master",
+    description: "Owned 10 or more chickens simultaneously",
+    category: "farming",
+    rarity: "rare",
+    threshold: 10,
+    iconSvg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><circle cx="32" cy="32" r="30" fill="#ff9900"/><path fill="#fff" d="M42,27c0,5.5-4.5,10-10,10s-10-4.5-10-10s4.5-10,10-10S42,21.5,42,27z"/><path fill="#fff" d="M24,35c0,0-4,4-4,8s2,6,2,6h20c0,0,2-2,2-6s-4-8-4-8"/><circle cx="28" cy="26" r="2" fill="#ff9900"/><circle cx="36" cy="26" r="2" fill="#ff9900"/><path fill="#ff9900" d="M29,30h6c0,0,0,2-3,2S29,30,29,30z"/></svg>'
+  },
+  {
+    code: "golden_farm",
+    name: "Golden Farm",
+    description: "Owned 5 golden chickens simultaneously",
+    category: "farming",
+    rarity: "legendary",
+    threshold: 5,
+    iconSvg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><circle cx="32" cy="32" r="30" fill="#f7931a"/><path fill="#fff" d="M42,32c0,5.5-4.5,10-10,10s-10-4.5-10-10s4.5-10,10-10S42,26.5,42,32z"/><path fill="#f7931a" d="M39,37c0,0-4,10-16,10c0,0,10-4,10-10H39z"/><path fill="#f7931a" d="M25,37c0,0,4,10,16,10c0,0-10-4-10-10H25z"/><path fill="#f7931a" d="M37,25c0,0-3-5-5-5s-5,5-5,5s2-3,5-3S37,25,37,25z"/><path fill="#fff" d="M32,27l-4,5h8L32,27z"/></svg>'
+  },
+
+  // Social category badges
+  {
+    code: "referral_starter",
+    name: "Blockchain Ambassador",
+    description: "Invited your first referral",
+    category: "social",
+    rarity: "common",
+    threshold: 1,
+    iconSvg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><circle cx="32" cy="32" r="30" fill="#3c3c3d"/><circle cx="24" cy="26" r="6" fill="#fff"/><circle cx="40" cy="26" r="6" fill="#fff"/><circle cx="32" cy="42" r="6" fill="#fff"/><path stroke="#fff" stroke-width="2" d="M24,26L32,42L40,26" fill="none"/><path stroke="#fff" stroke-width="2" d="M24,26L40,26" fill="none"/></svg>'
+  },
+  {
+    code: "network_builder",
+    name: "Network Builder",
+    description: "Built a referral network of 10+ users",
+    category: "social",
+    rarity: "epic",
+    threshold: 10,
+    iconSvg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><circle cx="32" cy="32" r="30" fill="#8247e5"/><circle cx="32" cy="22" r="5" fill="#fff"/><circle cx="22" cy="38" r="5" fill="#fff"/><circle cx="42" cy="38" r="5" fill="#fff"/><path stroke="#fff" stroke-width="2" d="M32,27L22,33" fill="none"/><path stroke="#fff" stroke-width="2" d="M32,27L42,33" fill="none"/><path stroke="#fff" stroke-width="2" d="M22,43L42,43" fill="none"/></svg>'
+  },
+
+  // Milestone category badges
+  {
+    code: "daily_streak",
+    name: "Blockchain Miner",
+    description: "Maintained a login streak of 7 days",
+    category: "milestone",
+    rarity: "common",
+    threshold: 7,
+    iconSvg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><circle cx="32" cy="32" r="30" fill="#4285f4"/><rect x="22" y="22" width="20" height="20" rx="2" fill="#fff"/><path fill="#4285f4" d="M36,28h-8c-1.1,0-2,0.9-2,2v4c0,1.1,0.9,2,2,2h8c1.1,0,2-0.9,2-2v-4C38,28.9,37.1,28,36,28z M35,33h-6v-2h6V33z"/><path fill="#4285f4" d="M30,22v-4h4v4H30z"/><path fill="#4285f4" d="M30,46v-4h4v4H30z"/><path fill="#4285f4" d="M46,30h-4v4h4V30z"/><path fill="#4285f4" d="M22,30h-4v4h4V30z"/></svg>'
+  },
+  {
+    code: "super_spinner",
+    name: "Super Spinner",
+    description: "Spun the super jackpot wheel 10 times",
+    category: "milestone",
+    rarity: "rare",
+    threshold: 10,
+    iconSvg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><circle cx="32" cy="32" r="30" fill="#2a71d0"/><circle cx="32" cy="32" r="20" fill="#fff"/><path fill="#2a71d0" d="M32,12v40c11,0,20-9,20-20S43,12,32,12z"/><path fill="#fff" d="M32,22v20c-5.5,0-10-4.5-10-10S26.5,22,32,22z"/><path fill="#2a71d0" d="M32,22v20c5.5,0,10-4.5,10-10S37.5,22,32,22z"/><circle cx="27" cy="27" r="3" fill="#fff"/><circle cx="37" cy="37" r="3" fill="#fff"/></svg>'
+  },
+  {
+    code: "mystery_master",
+    name: "Mystery Box Master",
+    description: "Opened 25 mystery boxes",
+    category: "milestone",
+    rarity: "epic",
+    threshold: 25,
+    iconSvg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><circle cx="32" cy="32" r="30" fill="#eb8c39"/><rect x="18" y="24" width="28" height="20" rx="2" fill="#fff"/><path fill="#eb8c39" d="M32,20l-10,4h20L32,20z"/><path fill="#eb8c39" d="M24,30h16v4H24V30z"/><circle cx="32" cy="38" r="2" fill="#eb8c39"/></svg>'
+  }
 ];

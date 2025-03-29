@@ -2,6 +2,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes as registerNowPaymentsRoutes } from "./routes-nowpayments";
 import { registerRoutes as registerMainRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import achievementsRoutes from "./routes-achievements";
 import cors from 'cors';
 import * as pathModule from 'path';
 
@@ -59,6 +60,9 @@ app.use((req, res, next) => {
   
   // Then register NOWPayments routes (which will use the same HTTP server)
   await registerNowPaymentsRoutes(app);
+  
+  // Register achievement routes
+  app.use('/api/achievements', achievementsRoutes);
   
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;

@@ -46,7 +46,7 @@ export function FloatingSpinButton() {
 
   const handleNavigateToSpin = () => {
     // Play sound effect
-    spinButtonSound.play();
+    spinButtonSound.play(); // Our updated hook handles errors internally
     
     // Navigate to the spin page
     console.log("Navigating to spin page...");

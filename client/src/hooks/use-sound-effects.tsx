@@ -8,7 +8,7 @@ interface SoundEffectOptions {
 
 // Interface for Sound Effect Controls
 export interface SoundControls {
-  play: () => void;
+  play: () => Promise<void> | undefined;
   stop: () => void;
   setVolume: (volume: number) => void;
 }
@@ -66,9 +66,22 @@ export function useSoundEffect(
     if (audio) {
       // Reset to beginning if already playing
       audio.currentTime = 0;
-      audio.play().catch(e => console.error("Failed to play audio:", e));
+      const playPromise = audio.play();
+      
+      // Handle browsers that return a promise from audio.play()
+      if (playPromise !== undefined) {
+        playPromise.catch((e: Error) => {
+          console.error("Failed to play audio:", e);
+        });
+      }
+      
       setIsPlaying(true);
+      
+      // Return the promise for chaining or error handling
+      return playPromise;
     }
+    // Return a resolved promise if no audio
+    return Promise.resolve();
   }, [audio]);
 
   // Stop sound

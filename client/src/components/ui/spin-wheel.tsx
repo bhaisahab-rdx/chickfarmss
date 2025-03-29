@@ -38,7 +38,7 @@ export function SpinWheel({ onSpin, rewards, isSpinning, spinType }: SpinWheelPr
     if (isSpinningLocal || isSpinning) return;
     
     try {
-      // Play spin start sound
+      // Play spin start sound - our hook handles errors
       spinStartSound.play();
       
       setIsSpinningLocal(true);
@@ -84,7 +84,7 @@ export function SpinWheel({ onSpin, rewards, isSpinning, spinType }: SpinWheelPr
       // Play win sound and show confetti after spin completes
       setTimeout(() => {
         if (!isMuted) {
-          winSound.play();
+          winSound.play(); // Our updated hook handles errors internally
         }
         setShowConfetti(true);
         setIsSpinningLocal(false);
