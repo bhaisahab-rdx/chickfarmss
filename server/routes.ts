@@ -371,7 +371,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const payment = await nowPaymentsService.createPayment(
         user.id,
         amount,
-        `ChickFarms deposit - User ID: ${user.id}`
+        `ChickFarms deposit - User ID: ${user.id}`,
+        currency
       );
       
       // Create a transaction record in pending state

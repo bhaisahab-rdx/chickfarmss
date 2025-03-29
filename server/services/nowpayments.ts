@@ -170,7 +170,12 @@ export class NOWPaymentsService {
   /**
    * Create a payment using the invoice API
    */
-  public async createPayment(userId: number, amount: number, description: string): Promise<CreatePaymentResponse> {
+  public async createPayment(
+    userId: number, 
+    amount: number, 
+    description: string, 
+    currency: string = 'USD'
+  ): Promise<CreatePaymentResponse> {
     try {
       const user = await storage.getUser(userId);
       if (!user) {
@@ -186,6 +191,7 @@ export class NOWPaymentsService {
       
       console.log('[NOWPayments] Creating invoice with NOWPayments API', { 
         amount, 
+        currency,
         callbackUrl,
         orderId,
         successUrl,
@@ -198,8 +204,8 @@ export class NOWPaymentsService {
           `${this.baseUrl}/invoice`,
           {
             price_amount: amount,
-            price_currency: 'usd',
-            pay_currency: 'usdttrc20',  // IMPORTANT: Use usdttrc20 not USDT
+            price_currency: currency.toLowerCase(),
+            // No pay_currency parameter to allow user to pay in any cryptocurrency
             order_id: orderId,
             order_description: description,
             ipn_callback_url: callbackUrl,
