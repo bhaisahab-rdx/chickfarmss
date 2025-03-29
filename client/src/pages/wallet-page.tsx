@@ -121,22 +121,33 @@ export default function WalletPage() {
   // Mutation for creating a new payment
   const createPaymentMutation = useMutation({
     mutationFn: async (data: z.infer<typeof rechargeSchema>) => {
-      return await apiRequest("POST", "/api/payments/create-payment", data);
+      return await apiRequest("POST", "/api/payments/create-invoice", data);
     },
     onSuccess: (data) => {
       // Open payment dialog with the payment details
-      setCurrentPayment(data.payment);
+      // The server returns invoiceId and invoiceUrl, so we need to format it for our UI
+      const payment = {
+        id: data.invoiceId,
+        paymentUrl: data.invoiceUrl,
+        status: "pending",
+        amount: rechargeForm.getValues().amount.toString()
+      };
+      
+      setCurrentPayment(payment);
       setPaymentDialogOpen(true);
       
       // Start polling for payment status
       if (paymentPollingInterval) clearInterval(paymentPollingInterval);
       const interval = setInterval(() => {
-        checkPaymentStatus(data.payment.id);
+        checkPaymentStatus(data.invoiceId);
       }, 10000); // Check every 10 seconds
       setPaymentPollingInterval(interval);
       
       // Invalidate user data query to refresh balance
       queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+      
+      // Automatically open the payment URL in a new tab
+      window.open(data.invoiceUrl, '_blank');
     },
     onError: (error: Error) => {
       toast({
@@ -151,13 +162,17 @@ export default function WalletPage() {
   const checkPaymentStatus = async (paymentId: string) => {
     try {
       const response = await apiRequest("GET", `/api/payments/status/${paymentId}`);
+      console.log("[API Response] Status Data:", response);
+      
+      // The response comes directly as payment data, not nested under a 'payment' property
       setCurrentPayment({
         ...currentPayment,
-        ...response.payment,
+        ...response,
+        id: paymentId // Ensure we keep the ID
       });
       
       // If payment is completed, stop polling and show success message
-      if (response.payment.status === "finished" || response.payment.mappedStatus === "completed") {
+      if (response.status === "finished" || response.status === "completed") {
         if (paymentPollingInterval) clearInterval(paymentPollingInterval);
         toast({
           title: "Payment Completed",
@@ -203,8 +218,14 @@ export default function WalletPage() {
     // Check for payment ID in the URL
     if (paymentId) {
       // Show payment dialog with the payment details from transaction query
-      if (transactionQuery.isSuccess && transactionQuery.data?.payment) {
-        setCurrentPayment(transactionQuery.data.payment);
+      if (transactionQuery.isSuccess && transactionQuery.data) {
+        // The transaction data comes directly, not nested under 'payment'
+        const paymentData = {
+          ...transactionQuery.data,
+          id: paymentId // Ensure we have the ID
+        };
+        
+        setCurrentPayment(paymentData);
         setPaymentDialogOpen(true);
         
         // Start polling for payment status
