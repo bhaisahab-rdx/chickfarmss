@@ -1,6 +1,5 @@
 import type { Express } from "express";
-import { createServer, type Server } from "http";
-import { setupAuth, isAuthenticated } from "./auth";
+import { isAuthenticated } from "./auth";
 import { storage } from "./storage";
 import { z } from "zod";
 import { config } from "./config";
@@ -10,24 +9,8 @@ import { nowPaymentsService } from "./services/nowpayments";
 const isNOWPaymentsConfigured = () => !!config.nowpayments.apiKey;
 const isIPNSecretConfigured = () => !!config.nowpayments.ipnSecretKey;
 
-export async function registerRoutes(app: Express): Promise<Server> {
-  setupAuth(app);
-
-  // Health endpoint for monitoring
-  app.get("/api/health", (req, res) => {
-    res.json({ status: "ok" });
-  });
-  
-  // Test endpoint for API testing
-  app.get("/api/test", (req, res) => {
-    console.log("[API] Test endpoint accessed");
-    res.json({ 
-      status: "ok",
-      message: "API is working properly",
-      timestamp: new Date().toISOString(),
-      apiVersion: "1.0.0"
-    });
-  });
+export async function registerRoutes(app: Express): Promise<Express> {
+  // Auth and health endpoints are already set up in main routes
   
   // NOWPayments API - check service status
   app.get("/api/payments/status", async (req, res) => {
@@ -332,7 +315,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Create HTTP server
-  const server = createServer(app);
-  return server;
+  // No need to create a new server, just use the existing one
+  return app;
 }

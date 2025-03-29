@@ -23,12 +23,13 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useLocation } from "wouter";
-import { Copy, AlertTriangle } from "lucide-react";
+import { Copy, AlertTriangle, Loader2, ExternalLink, RefreshCw } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
 
-// Simplified schema after removing crypto payment functionality
 const rechargeSchema = z.object({
-  amount: z.number().min(1, "Amount must be at least 1 USDT")
+  amount: z.number().min(10, "Amount must be at least 10 USDT")
 });
 
 const withdrawalSchema = z.object({
@@ -36,17 +37,150 @@ const withdrawalSchema = z.object({
   usdtAddress: z.string().min(5, "Enter a valid USDT address"),
 });
 
+// Payment status mapping
+const paymentStatusColors: Record<string, string> = {
+  waiting: "bg-blue-100 text-blue-800 border-blue-200",
+  confirming: "bg-amber-100 text-amber-800 border-amber-200",
+  confirmed: "bg-green-100 text-green-800 border-green-200",
+  sending: "bg-violet-100 text-violet-800 border-violet-200",
+  partially_paid: "bg-amber-100 text-amber-800 border-amber-200",
+  finished: "bg-green-100 text-green-800 border-green-200",
+  failed: "bg-red-100 text-red-800 border-red-200",
+  refunded: "bg-gray-100 text-gray-800 border-gray-200",
+  expired: "bg-gray-100 text-gray-800 border-gray-200",
+};
+
+const paymentStatusLabels: Record<string, string> = {
+  waiting: "Waiting for Payment",
+  confirming: "Confirming Transaction",
+  confirmed: "Payment Confirmed",
+  sending: "Processing Payment",
+  partially_paid: "Partially Paid",
+  finished: "Payment Complete",
+  failed: "Payment Failed",
+  refunded: "Payment Refunded",
+  expired: "Payment Expired",
+};
+
 export default function WalletPage() {
+  // State for payment flow
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [currentPayment, setCurrentPayment] = useState<any>(null);
+  const [paymentPollingInterval, setPaymentPollingInterval] = useState<NodeJS.Timeout | null>(null);
+
   // Get URL parameter for the active tab
   const [_, setLocation] = useLocation();
   const searchParams = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
   const paymentStatus = searchParams.get('payment');
+  const paymentId = searchParams.get('payment_id');
   const defaultTab = searchParams.get('tab') === 'withdraw' ? 'withdraw' : 'recharge';
 
   // Show payment success/failure message based on URL parameter
   const { toast } = useToast();
   const { user } = useAuth();
 
+  // Check payment service status
+  const paymentServiceQuery = useQuery({
+    queryKey: ["/api/public/payments/service-status"],
+    refetchOnWindowFocus: false,
+  });
+
+  const isPaymentServiceReady = paymentServiceQuery.data?.ready === true;
+  const minPaymentAmount = paymentServiceQuery.data?.minAmount || 10;
+
+  // Transaction query - used when returning from payment
+  const transactionQuery = useQuery({
+    queryKey: ["/api/payments/status", paymentId],
+    enabled: !!paymentId,
+    refetchInterval: paymentId ? 5000 : false, // Poll every 5 seconds if we have a payment ID
+  });
+
+  // Form setup with dynamic minimum amount from API
+  const rechargeForm = useForm<z.infer<typeof rechargeSchema>>({
+    resolver: zodResolver(rechargeSchema),
+    defaultValues: {
+      amount: minPaymentAmount
+    },
+  });
+
+  // Update the minimum amount when we get it from the API
+  useEffect(() => {
+    if (paymentServiceQuery.isSuccess && paymentServiceQuery.data?.minAmount) {
+      rechargeForm.setValue('amount', paymentServiceQuery.data.minAmount);
+    }
+  }, [paymentServiceQuery.isSuccess, paymentServiceQuery.data?.minAmount]);
+
+  const withdrawalForm = useForm<z.infer<typeof withdrawalSchema>>({
+    resolver: zodResolver(withdrawalSchema),
+    defaultValues: {
+      amount: 10,
+      usdtAddress: "",
+    },
+  });
+
+  // Mutation for creating a new payment
+  const createPaymentMutation = useMutation({
+    mutationFn: async (data: z.infer<typeof rechargeSchema>) => {
+      return await apiRequest("POST", "/api/payments/create-payment", data);
+    },
+    onSuccess: (data) => {
+      // Open payment dialog with the payment details
+      setCurrentPayment(data.payment);
+      setPaymentDialogOpen(true);
+      
+      // Start polling for payment status
+      if (paymentPollingInterval) clearInterval(paymentPollingInterval);
+      const interval = setInterval(() => {
+        checkPaymentStatus(data.payment.id);
+      }, 10000); // Check every 10 seconds
+      setPaymentPollingInterval(interval);
+      
+      // Invalidate user data query to refresh balance
+      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Payment Creation Failed",
+        description: error.message || "Failed to create payment. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Check payment status directly
+  const checkPaymentStatus = async (paymentId: string) => {
+    try {
+      const response = await apiRequest("GET", `/api/payments/status/${paymentId}`);
+      setCurrentPayment({
+        ...currentPayment,
+        ...response.payment,
+      });
+      
+      // If payment is completed, stop polling and show success message
+      if (response.payment.status === "finished" || response.payment.mappedStatus === "completed") {
+        if (paymentPollingInterval) clearInterval(paymentPollingInterval);
+        toast({
+          title: "Payment Completed",
+          description: "Your payment has been processed successfully!",
+        });
+        queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+      }
+      
+      return response;
+    } catch (error) {
+      console.error("Error checking payment status:", error);
+      return null;
+    }
+  };
+
+  // Handle manual refresh of payment status
+  const handleRefreshPaymentStatus = () => {
+    if (currentPayment?.id) {
+      checkPaymentStatus(currentPayment.id);
+    }
+  };
+
+  // Effect to check URL parameters for payment status
   useEffect(() => {
     // Check for payment status in the URL
     if (paymentStatus === 'success') {
@@ -65,39 +199,44 @@ export default function WalletPage() {
       // Remove the query parameter
       window.history.replaceState({}, document.title, window.location.pathname);
     }
-  }, [paymentStatus]);
+    
+    // Check for payment ID in the URL
+    if (paymentId) {
+      // Show payment dialog with the payment details from transaction query
+      if (transactionQuery.isSuccess && transactionQuery.data?.payment) {
+        setCurrentPayment(transactionQuery.data.payment);
+        setPaymentDialogOpen(true);
+        
+        // Start polling for payment status
+        if (paymentPollingInterval) clearInterval(paymentPollingInterval);
+        const interval = setInterval(() => {
+          checkPaymentStatus(paymentId);
+        }, 10000); // Check every 10 seconds
+        setPaymentPollingInterval(interval);
+      }
+    }
+  }, [paymentStatus, paymentId, transactionQuery.isSuccess, transactionQuery.data]);
 
-  // Get wallet addresses
-  const walletAddressesQuery = useQuery({
-    queryKey: ["/api/wallet/addresses"],
-    enabled: false, // We're using NOWPayments instead
-  });
+  // Clean up polling interval on unmount
+  useEffect(() => {
+    return () => {
+      if (paymentPollingInterval) clearInterval(paymentPollingInterval);
+    };
+  }, [paymentPollingInterval]);
 
-  // Form setup
-  const rechargeForm = useForm<z.infer<typeof rechargeSchema>>({
-    resolver: zodResolver(rechargeSchema),
-    defaultValues: {
-      amount: 10
-    },
-  });
-
-  const withdrawalForm = useForm<z.infer<typeof withdrawalSchema>>({
-    resolver: zodResolver(withdrawalSchema),
-    defaultValues: {
-      amount: 0,
-      usdtAddress: "",
-    },
-  });
-
-  // Manual deposit handling function (placeholder after removing NOWPayments)
-  const handleManualDeposit = () => {
-    toast({
-      title: "Payment Feature Removed",
-      description: "The cryptocurrency payment feature has been removed from this application.",
-      variant: "default"
-    });
+  // Handle close of payment dialog
+  const handlePaymentDialogClose = () => {
+    if (paymentPollingInterval) clearInterval(paymentPollingInterval);
+    setPaymentDialogOpen(false);
+    setCurrentPayment(null);
+    
+    // Remove payment_id from URL if present
+    if (paymentId) {
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
   };
 
+  // Withdrawal mutation
   const withdrawalMutation = useMutation({
     mutationFn: async (data: z.infer<typeof withdrawalSchema>) => {
       return await apiRequest("POST", "/api/wallet/withdraw", data);
@@ -119,7 +258,7 @@ export default function WalletPage() {
     },
   });
 
-  // Add scroll reset effect
+  // Scroll to top on page load
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
@@ -185,27 +324,80 @@ export default function WalletPage() {
                       
                       <div>
                         <h3 className="font-semibold text-base sm:text-lg">
-                          Cryptocurrency Payment Feature Removed
+                          USDT Deposit (TRC20)
                         </h3>
                         <p className="text-xs sm:text-sm text-muted-foreground max-w-xs mx-auto mt-1">
-                          The cryptocurrency payment feature has been removed from this application.
+                          Add funds to your wallet using USDT TRC20. Minimum deposit amount is {minPaymentAmount} USDT.
                         </p>
                       </div>
                       
-                      <div className="bg-amber-50 p-4 rounded-lg border border-amber-200 mb-4 mt-4">
-                        <p className="text-sm text-amber-800">
-                          The external cryptocurrency payment processor integration has been removed. 
-                          Please contact support for alternative payment options.
-                        </p>
-                      </div>
-                      
-                      <Button
-                        type="button"
-                        className="w-full max-w-xs mx-auto h-10 text-sm sm:text-base"
-                        onClick={handleManualDeposit}
-                      >
-                        Contact Support
-                      </Button>
+                      {/* Status indicator */}
+                      {paymentServiceQuery.isLoading ? (
+                        <div className="bg-gray-100 text-gray-700 px-4 py-3 rounded-lg border border-gray-200 flex items-center gap-2 justify-center">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          <span className="text-sm">Checking payment service status...</span>
+                        </div>
+                      ) : !isPaymentServiceReady ? (
+                        <div className="bg-red-100 text-red-800 px-4 py-3 rounded-lg border border-red-200">
+                          <p className="text-sm font-medium">Payment Service Unavailable</p>
+                          <p className="text-xs mt-1">Please try again later or contact support for assistance.</p>
+                        </div>
+                      ) : (
+                        <Form {...rechargeForm}>
+                          <form
+                            onSubmit={rechargeForm.handleSubmit((data) =>
+                              createPaymentMutation.mutate(data)
+                            )}
+                            className="space-y-4"
+                          >
+                            <FormField
+                              control={rechargeForm.control}
+                              name="amount"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel className="text-xs sm:text-sm">Deposit Amount (USDT)</FormLabel>
+                                  <FormControl>
+                                    <Input
+                                      type="number"
+                                      {...field}
+                                      className="h-8 sm:h-10 text-sm"
+                                      onChange={(e) =>
+                                        field.onChange(parseFloat(e.target.value) || minPaymentAmount)
+                                      }
+                                    />
+                                  </FormControl>
+                                  <FormMessage className="text-xs" />
+                                </FormItem>
+                              )}
+                            />
+                            
+                            <div className="bg-amber-50 p-3 rounded-lg border border-amber-200 text-xs text-amber-800 text-left">
+                              <p className="font-medium">Important Information:</p>
+                              <ul className="list-disc pl-4 mt-1 space-y-1">
+                                <li>Use only USDT on the Tron (TRC20) network</li>
+                                <li>Minimum deposit: {minPaymentAmount} USDT</li>
+                                <li>Deposits are typically credited within 10-30 minutes</li>
+                                <li>Save the payment link for your records</li>
+                              </ul>
+                            </div>
+                            
+                            <Button
+                              type="submit"
+                              className="w-full h-10 text-sm sm:text-base"
+                              disabled={createPaymentMutation.isPending || !isPaymentServiceReady}
+                            >
+                              {createPaymentMutation.isPending ? (
+                                <>
+                                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                  Creating Payment...
+                                </>
+                              ) : (
+                                "Create USDT Deposit"
+                              )}
+                            </Button>
+                          </form>
+                        </Form>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -289,6 +481,114 @@ export default function WalletPage() {
           </TabsContent>
         </Tabs>
       </div>
+      
+      {/* Payment Dialog */}
+      <Dialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-center">USDT Payment</DialogTitle>
+            <DialogDescription className="text-center">
+              Complete your payment to add funds to your account
+            </DialogDescription>
+          </DialogHeader>
+          
+          {currentPayment && (
+            <div className="space-y-4">
+              {/* Payment Status */}
+              <div className="text-center space-y-2">
+                <Badge 
+                  className={`${paymentStatusColors[currentPayment.status] || 'bg-gray-100 text-gray-800 border-gray-200'} py-1 px-4 text-sm border`}
+                >
+                  {paymentStatusLabels[currentPayment.status] || currentPayment.status}
+                </Badge>
+                
+                <p className="text-sm text-gray-500">
+                  Amount: <span className="font-semibold">{currentPayment.amount} USDT</span>
+                </p>
+              </div>
+              
+              {/* QR Code and Payment Address (if available) */}
+              {currentPayment.payAddress && (
+                <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+                  <div className="flex justify-center">
+                    <QRCodeSVG 
+                      value={`tron:${currentPayment.payAddress}?amount=${currentPayment.amount}`}
+                      size={180}
+                      className="mx-auto border-4 border-white rounded-lg"
+                    />
+                  </div>
+                  
+                  <div className="text-center space-y-1">
+                    <p className="text-xs text-gray-500">Send exactly <span className="font-semibold">{currentPayment.amount} USDT</span> to:</p>
+                    <p className="text-xs bg-white p-2 rounded-md border overflow-hidden overflow-ellipsis font-mono">
+                      {currentPayment.payAddress}
+                    </p>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="text-xs h-7"
+                      onClick={() => {
+                        navigator.clipboard.writeText(currentPayment.payAddress);
+                        toast({
+                          title: "Address Copied",
+                          description: "Payment address copied to clipboard",
+                        });
+                      }}
+                    >
+                      <Copy className="h-3 w-3 mr-1" /> Copy Address
+                    </Button>
+                  </div>
+                </div>
+              )}
+              
+              {/* Payment Link */}
+              {currentPayment.paymentUrl && (
+                <div className="space-y-2">
+                  <p className="text-xs text-center text-gray-500">Or complete your payment through our payment processor:</p>
+                  <Button
+                    className="w-full text-xs h-9"
+                    onClick={() => window.open(currentPayment.paymentUrl, '_blank')}
+                  >
+                    <ExternalLink className="h-3 w-3 mr-1" /> Open Payment Page
+                  </Button>
+                </div>
+              )}
+              
+              {/* Actions */}
+              <div className="flex justify-between">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="text-xs"
+                  onClick={handleRefreshPaymentStatus}
+                >
+                  <RefreshCw className="h-3 w-3 mr-1" /> Refresh Status
+                </Button>
+                
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="text-xs"
+                  onClick={handlePaymentDialogClose}
+                >
+                  Close
+                </Button>
+              </div>
+              
+              {/* Help Text */}
+              <div className="text-xs text-gray-500 space-y-1 pt-2 border-t">
+                <p className="font-medium">Need help?</p>
+                <p>
+                  If you've already sent the payment but it's not showing up, please wait a few minutes for the transaction to be confirmed on the blockchain.
+                </p>
+                <p>
+                  For technical assistance, please contact support with your payment ID: <span className="font-mono bg-gray-100 px-1 rounded">{currentPayment.id}</span>
+                </p>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
