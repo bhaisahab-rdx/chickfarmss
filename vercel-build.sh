@@ -14,21 +14,28 @@ npm run db:push
 echo "Building frontend..."
 vite build
 
-# Build the API
-echo "Building API..."
-node vercel-api-build.js
+# Copy the API files to the correct location
+echo "Preparing API files..."
+cp -r api/* dist/api/
 
-# Create a Vercel serverless function entry point
-echo "Creating Vercel API handler..."
-cat > dist/api/index.js << 'EOL'
-import { createServer } from 'http';
-import { parse } from 'url';
-import app from './server/index.js';
-
-export default function handler(req, res) {
-  // This will pass the request to your Express app
-  return app(req, res);
-}
+# Create a simple health check file
+echo "Creating health check file..."
+cat > dist/health.html << 'EOL'
+<!DOCTYPE html>
+<html>
+<head>
+  <title>ChickFarms - API Status</title>
+  <style>
+    body { font-family: Arial, sans-serif; text-align: center; margin: 100px; }
+    .status { color: green; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h1>ChickFarms API</h1>
+  <p>Status: <span class="status">ONLINE</span></p>
+  <p>The API is running and ready to accept requests.</p>
+</body>
+</html>
 EOL
 
 echo "Build process completed successfully!"

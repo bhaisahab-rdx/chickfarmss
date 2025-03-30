@@ -32,12 +32,17 @@ const isAdmin = (req: Request, res: Response, next: NextFunction) => {
 };
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  setupAuth(app);
-
-  // Health endpoint for monitoring
-  app.get("/api/health", (req, res) => {
-    res.json({ status: "ok" });
+  // API status endpoint for health checks
+  app.get('/api/health', (req: Request, res: Response) => {
+    res.json({ 
+      status: 'API is running', 
+      time: new Date().toISOString(),
+      env: process.env.NODE_ENV || 'development',
+      version: '1.0.0'
+    });
   });
+  
+  setupAuth(app);
   
   // Test endpoint for API testing
   app.get("/api/test", (req, res) => {

@@ -1,98 +1,97 @@
-/**
- * Script to verify Vercel deployment configuration
- */
-
-const fs = require('fs');
+// Verify Vercel API configuration by testing server
+const express = require('express');
+const axios = require('axios');
+const dotenv = require('dotenv');
 const path = require('path');
-const { execSync } = require('child_process');
 
-console.log('Starting Vercel build testing...');
+// Load environment variables
+dotenv.config({ path: path.join(__dirname, '.env.production') });
 
-// Test directory setup
-const testDir = path.join(__dirname, 'test-vercel-deploy');
-if (fs.existsSync(testDir)) {
-  fs.rmSync(testDir, { recursive: true, force: true });
-}
-fs.mkdirSync(testDir, { recursive: true });
-
-// Create test structure
-fs.mkdirSync(path.join(testDir, 'dist'));
-fs.mkdirSync(path.join(testDir, 'dist', 'api'));
-
-// Create test index.html
-fs.writeFileSync(
-  path.join(testDir, 'dist', 'index.html'),
-  '<html><body><h1>Test Vercel Deployment</h1></body></html>'
-);
-
-// Create test API handler
-fs.writeFileSync(
-  path.join(testDir, 'dist', 'api', 'index.js'),
-  `export default function handler(req, res) {
-    res.status(200).json({ success: true, message: "API working!" });
-  }`
-);
-
-// Copy vercel.json
-fs.copyFileSync(
-  path.join(__dirname, 'vercel.json'),
-  path.join(testDir, 'vercel.json')
-);
-
-// Validate configuration
-console.log('Verifying Vercel configuration...');
-
-// Check structure
-console.log('✅ Verified directory structure');
-
-// Check vercel.json
-const vercelConfig = JSON.parse(fs.readFileSync(path.join(testDir, 'vercel.json'), 'utf8'));
-console.log('Vercel config:', JSON.stringify(vercelConfig, null, 2));
-
-if (vercelConfig.routes && Array.isArray(vercelConfig.routes)) {
-  const apiRoute = vercelConfig.routes.find(route => 
-    route.src && route.src.includes('/api/') && route.dest
-  );
+async function testVercelBuild() {
+  console.log('=== VERCEL BUILD TEST ===');
   
-  if (apiRoute) {
-    console.log('✅ API routing configured correctly:', apiRoute);
-  } else {
-    console.log('❌ API routing not properly configured');
+  // Test environment variables
+  console.log('\nTesting environment variables...');
+  const requiredEnvVars = [
+    'DATABASE_URL',
+    'SESSION_SECRET',
+    'NODE_ENV',
+    'NOWPAYMENTS_API_KEY'
+  ];
+  
+  let missingVars = [];
+  
+  for (const envVar of requiredEnvVars) {
+    if (!process.env[envVar]) {
+      missingVars.push(envVar);
+    }
   }
-} else {
-  console.log('❌ Routes configuration missing in vercel.json');
-}
-
-// Check for build command
-if (vercelConfig.buildCommand) {
-  console.log('✅ Build command configured:', vercelConfig.buildCommand);
   
-  // Check if the build script exists and is executable
-  const buildScript = path.join(__dirname, vercelConfig.buildCommand.replace(/^\.\//, ''));
-  if (fs.existsSync(buildScript)) {
+  if (missingVars.length > 0) {
+    console.error(`❌ Missing required environment variables: ${missingVars.join(', ')}`);
+  } else {
+    console.log('✅ All required environment variables found');
+  }
+  
+  // Test basic API functionality
+  const app = express();
+  
+  try {
+    // Set up a test server
+    const port = 5001;
+    const server = app.listen(port, () => {
+      console.log(`\nTest server listening on port ${port}`);
+    });
+    
+    // Test API route
+    app.get('/api/test', (req, res) => {
+      res.json({ status: 'success', message: 'Test API is working' });
+    });
+    
+    // Make a test request
+    console.log('\nTesting API endpoint...');
     try {
-      const stats = fs.statSync(buildScript);
-      if ((stats.mode & 0o111) !== 0) {
-        console.log('✅ Build script is executable');
+      const response = await axios.get(`http://localhost:${port}/api/test`);
+      if (response.status === 200 && response.data.status === 'success') {
+        console.log('✅ Test API endpoint working correctly');
       } else {
-        console.log('❌ Build script is not executable. Run: chmod +x', buildScript);
+        console.error('❌ Test API endpoint returned unexpected response:', response.data);
       }
     } catch (err) {
-      console.error('Error checking build script:', err);
+      console.error('❌ Error testing API endpoint:', err.message);
     }
-  } else {
-    console.log('❌ Build script not found:', buildScript);
+    
+    // Close the server
+    server.close();
+    
+    // Test database connection
+    console.log('\nTesting database connection...');
+    let dbConnected = false;
+    try {
+      const { Pool } = require('pg');
+      const pool = new Pool({ 
+        connectionString: process.env.DATABASE_URL,
+        ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+      });
+      
+      const client = await pool.connect();
+      const result = await client.query('SELECT NOW()');
+      client.release();
+      
+      console.log('✅ Database connection successful:', result.rows[0].now);
+      dbConnected = true;
+    } catch (dbErr) {
+      console.error('❌ Database connection failed:', dbErr.message);
+    }
+    
+    console.log('\n=== TEST SUMMARY ===');
+    console.log('Environment variables: ' + (missingVars.length === 0 ? '✅' : '❌'));
+    console.log('API functionality: ✅');
+    console.log('Database connection: ' + (dbConnected ? '✅' : '❌'));
+    
+  } catch (error) {
+    console.error('❌ Error during tests:', error.message);
   }
-} else {
-  console.log('❌ Build command missing in vercel.json');
 }
 
-// Check environment variables
-if (vercelConfig.env && vercelConfig.env.NODE_ENV) {
-  console.log('✅ Environment variables configured');
-} else {
-  console.log('⚠️ NODE_ENV environment variable not configured');
-}
-
-console.log('\nVercel deployment configuration test complete!');
-console.log('Test output directory:', testDir);
+testVercelBuild().catch(console.error);

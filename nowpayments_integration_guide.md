@@ -1,148 +1,93 @@
-# NOWPayments Integration Guide for ChickFarms (March 2025)
+# NOWPayments Integration Guide for ChickFarms
 
-This guide explains how to integrate and configure NOWPayments cryptocurrency payment processing for your ChickFarms application.
+This guide explains how the NOWPayments cryptocurrency payment system is integrated into ChickFarms for accepting USDT (TRC20) payments.
 
-> **IMPORTANT UPDATE (March 30, 2025)**: The ChickFarms payment system now features fully automated transaction processing through NOWPayments IPN webhooks. Manual approval of recharge transactions is no longer required as the system automatically credits user accounts upon confirmed payments. This streamlines the payment process and improves user experience.
+## Configuration Overview
 
-## Overview
+The integration uses both the NOWPayments API and Instant Payment Notification (IPN) system to create a secure payment flow.
 
-NOWPayments allows ChickFarms to accept cryptocurrency payments (USDT TRC20) for in-game purchases and deposits. This integration enables:
+### Environment Variables
 
-- Generation of payment invoices
-- Real-time payment notifications via webhooks (IPN)
-- Automatic crediting of user accounts upon payment completion (no admin intervention required)
-
-## Setup Requirements
-
-1. NOWPayments business account (sign up at [NOWPayments](https://nowpayments.io/))
-2. API key for making requests to NOWPayments API
-3. IPN Secret key for validating webhook notifications
-4. Server with webhook endpoint accessible from the internet
-
-## Integration Steps
-
-### Step 1: Create a NOWPayments Account
-
-1. Sign up at [NOWPayments](https://nowpayments.io/)
-2. Complete the business verification process
-3. Add a Tron (TRC20) wallet address to receive payments
-
-### Step 2: Obtain API Credentials
-
-1. Go to Store Settings → API Keys
-2. Generate a new API key
-3. Generate an IPN Secret key
-4. Save both keys in a secure location
-
-### Step 3: Configure Environment Variables
-
-Add the following to your `.env` file or deployment environment variables:
+Required environment variables for NOWPayments integration:
 
 ```
 NOWPAYMENTS_API_KEY=your_api_key_here
-NOWPAYMENTS_IPN_SECRET_KEY=your_ipn_secret_key_here
+NOWPAYMENTS_IPN_SECRET_KEY=your_ipn_secret_here
 ```
 
-### Step 4: Add API Integration Code
+These must be configured in the Vercel deployment settings and match your NOWPayments account.
 
-The integration is already implemented in the ChickFarms codebase:
+## API Integration
 
-- Payment invoice creation: `server/services/nowpayments.ts`
-- IPN (webhook) handling: `server/routes-nowpayments.ts`
+ChickFarms uses two main NOWPayments endpoints:
 
-### Step 5: Configure IPN (Webhook) in NOWPayments Dashboard
+1. **Invoice Creation Endpoint**:
+   `https://api.nowpayments.io/v1/invoice`
 
-1. Go to Store Settings → IPN Callbacks
-2. Add your endpoint URL: `https://your-domain.com/api/ipn/nowpayments`
-3. Set Status to "Active"
-4. Select "All Events" under "Events to Send"
+   Used to generate payment links with specified USDT amount and callback URLs.
 
-## Testing the Integration
+2. **IPN Callback Endpoint**:
+   `https://chiket.vercel.app/api/payments/nowpayments/ipn`
 
-### Test Invoice Creation
+   Receives payment confirmations from NOWPayments when a transaction is complete.
 
-Use the wallet deposit interface in ChickFarms to create a payment invoice. Verify:
+## Server Implementation
 
-1. Invoice is created successfully
-2. Payment URL is generated
-3. Payment status is tracked correctly
+The server-side implementation is in `server/routes-nowpayments.ts` and handles:
 
-### Test IPN (Webhook)
+1. Creating invoices for in-game purchases
+2. Processing IPN callbacks to verify payments
+3. Updating user balances and inventory once payment is confirmed
 
-1. Make a test payment using the provided payment URL
-2. Monitor server logs for incoming webhook notifications
-3. Verify user balance is updated automatically after payment confirmation (no manual approval needed)
-4. Check the admin panel to confirm the transaction is marked as "completed" automatically
+## Payment Flow
 
-## Troubleshooting Guide
+1. User requests to purchase an item (chicken, mystery box, etc.)
+2. Server creates a NOWPayments invoice with specific amount and callback URL
+3. User is redirected to NOWPayments payment page
+4. User completes payment using USDT (TRC20)
+5. NOWPayments sends IPN notification to our callback URL
+6. Server verifies the IPN signature using the IPN secret key
+7. If valid, server updates user's account with purchased items
 
-### Common Issues:
+## Vercel Deployment Considerations
 
-1. **Invoice Creation Fails**
-   - Verify API key is correct
+For the IPN system to work correctly in Vercel:
+
+1. The callback URL must be publicly accessible
+2. The endpoint must be properly configured in `vercel.json`
+3. The API route must be properly set up in the Vercel API handlers
+
+## Troubleshooting
+
+Common issues and solutions:
+
+1. **IPN Not Received**:
+   - Verify that the callback URL is publicly accessible
+   - Check the IPN endpoint is properly configured in NOWPayments dashboard
+   - Ensure the Vercel API route is correctly configured
+
+2. **Payment Verification Failures**:
+   - Confirm both API_KEY and IPN_SECRET_KEY are correct
+   - Verify that the SHA-512 signature validation is working properly
    - Check server logs for detailed error messages
-   - Ensure the NOWPayments API is operational
 
-2. **IPN Webhook Not Received**
-   - Verify your server is accessible from the internet
-   - Check IPN URL configuration in NOWPayments dashboard
-   - Verify IPN Secret key is correctly configured
+3. **CORS Issues**:
+   - Ensure proper CORS headers are set for the IPN endpoint
+   - NOWPayments IPN calls don't require CORS but browser-based API calls do
 
-3. **Payment Received But User Balance Not Updated**
-   - Check IPN signature validation in `server/routes-nowpayments.ts`
-   - Verify transaction processing logic in payment handler
-   - Check database connection and transaction records
-   - Ensure NOWPayments webhook endpoints are correctly set up
+## Testing
 
-4. **Automated Payment Processing Not Working**
-   - Verify the IPN Secret key is correctly configured in environment variables
-   - Check server logs for IPN callback validation errors
-   - Ensure the NOWPayments IPN callback status is set to "Active" in the dashboard
-   - Verify that the processIPNNotification function in server/services/nowpayments.ts is working properly
+For testing NOWPayments integration:
 
-## API Reference
-
-### Main API Endpoints Used:
-
-1. `POST /api/invoice` - Creates a payment invoice
-   - Parameters: `price_amount`, `price_currency`, `pay_currency`, `order_id`, `order_description`
-   - Response: Invoice details including payment URL
-
-2. `GET /api/payment/{payment_id}` - Checks payment status
-   - Parameters: `payment_id`
-   - Response: Current payment status and details
-
-### IPN Webhook Payload
-
-The IPN webhook sends a JSON payload with payment information:
-
-```json
-{
-  "payment_id": "5374434",
-  "payment_status": "confirmed",
-  "pay_address": "TXoSMGpSgN8FH9Y7Gx4PdQmJDv7QkLYGt5",
-  "price_amount": 10.0,
-  "price_currency": "usd",
-  "pay_amount": 10.0,
-  "actually_paid": 10.0,
-  "pay_currency": "trx",
-  "order_id": "USDT_DEPOSIT_123",
-  "order_description": "Deposit 10 USDT to user account",
-  "ipn_callback_url": "https://your-domain.com/api/ipn/nowpayments",
-  "created_at": "2023-03-30T08:13:15.230Z",
-  "updated_at": "2023-03-30T08:15:05.342Z"
-}
-```
+1. Use the test mode in NOWPayments dashboard
+2. Create small-value test transactions
+3. Monitor the server logs for IPN receipt and processing
 
 ## Security Considerations
 
-1. **Always validate IPN signature** - Verify that webhook notifications are actually from NOWPayments
-2. **Store API keys securely** - Never expose keys in client-side code
-3. **Implement idempotent processing** - Prevent duplicate crediting on repeated webhook calls
-4. **Validate payment amounts** - Ensure the paid amount matches the expected amount
+The integration implements several security measures:
 
-## Resources
-
-- [NOWPayments API Documentation](https://documenter.getpostman.com/view/7907941/S1a32n38?version=latest)
-- [NOWPayments IPN Documentation](https://nowpayments.io/help/what-is-ipn-callback-and-how-to-set-it-up)
-- Test your integration in the ChickFarms admin dashboard
+1. SHA-512 signature validation of all IPN callbacks
+2. Server-side validation of payment amounts
+3. Secure handling of API keys via environment variables
+4. Transaction ID tracking to prevent duplicate processing
