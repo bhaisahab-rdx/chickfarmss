@@ -5,6 +5,12 @@ import { setupVite, serveStatic, log } from "./vite";
 import achievementsRoutes from "./routes-achievements";
 import cors from 'cors';
 import * as pathModule from 'path';
+import { fileURLToPath } from 'url';
+import * as fs from 'fs';
+
+// Define __dirname equivalent for ESM modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = pathModule.dirname(__filename);
 
 const app = express();
 // Allow any origin in development to help with Replit preview
@@ -104,15 +110,6 @@ app.use((req, res, next) => {
     });
   });
   
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
-  if (app.get("env") === "development") {
-    await setupVite(app, server);
-  } else {
-    serveStatic(app);
-  }
-
   // ALWAYS serve the app on port 5000 for Replit compatibility
   // This serves both the API and the client
   // Replit specifically looks for port 5000 in our configuration
@@ -122,17 +119,49 @@ app.use((req, res, next) => {
   console.log("Current environment:", process.env.NODE_ENV);
   
   // Explicitly serve our static HTML file for the root path
-  app.get('/', (req, res) => {
-    res.sendFile(pathModule.join(__dirname, '../client/public/index.html'));
+  // Serve static files from the public directory first
+  app.use(express.static(pathModule.join(__dirname, '../public')));
+
+  // Handle specific HTML files that we've created for fallback
+  app.get('/login.html', (req, res) => {
+    res.sendFile(pathModule.join(__dirname, '../public/login.html'));
   });
   
-  // But let other HTML requests go to Vite, ensuring API requests are excluded
+  app.get('/register.html', (req, res) => {
+    res.sendFile(pathModule.join(__dirname, '../public/register.html'));
+  });
+  
+  app.get('/game.html', (req, res) => {
+    res.sendFile(pathModule.join(__dirname, '../public/game.html'));
+  });
+  
+  // Default route for the main application
+  app.get('/', (req, res, next) => {
+    // First try our custom index.html
+    const fallbackPath = pathModule.join(__dirname, '../public/index.html');
+    if (fs.existsSync(fallbackPath)) {
+      return res.sendFile(fallbackPath);
+    }
+    // Otherwise, let Vite handle it
+    next();
+  });
+  
+  // importantly only setup vite in development and after
+  // setting up all the other routes so the catch-all route
+  // doesn't interfere with the other routes
+  if (app.get("env") === "development") {
+    await setupVite(app, server);
+  } else {
+    serveStatic(app);
+  }
+  
+  // Let other HTML requests go to Vite, ensuring API requests are excluded
   app.get(/^(?!\/api\/).*$/, (req, res, next) => {
     if (req.headers.accept && req.headers.accept.includes('text/html')) {
       return next();
     }
     
-    // For non-HTML requests, try static files
+    // For non-HTML requests, try client static files as a fallback
     express.static(pathModule.join(__dirname, '../client/public'))(req, res, next);
   });
   

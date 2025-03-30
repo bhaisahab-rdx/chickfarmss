@@ -1,252 +1,328 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ChickFarms</title>
-  <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-    body {
-      font-family: 'Arial', sans-serif;
-      background-color: #fffaf0;
-      color: #333;
-      line-height: 1.6;
-    }
-    header {
-      background-color: #f8931f;
-      color: white;
-      text-align: center;
-      padding: 1rem;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-    }
-    main {
-      max-width: 800px;
-      margin: 2rem auto;
-      padding: 1rem;
-    }
-    .app-container {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      margin-top: 2rem;
-    }
-    .logo {
-      width: 150px;
-      height: 150px;
-      border-radius: 50%;
-      background-color: #f8931f;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin-bottom: 1.5rem;
-      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-    }
-    .logo-inner {
-      font-size: 3rem;
-      color: white;
-      font-weight: bold;
-    }
-    .buttons {
-      display: flex;
-      gap: 1rem;
-      margin: 2rem 0;
-      flex-wrap: wrap;
-      justify-content: center;
-    }
-    .button {
-      padding: 0.8rem 1.5rem;
-      background-color: #f8931f;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      font-size: 1rem;
-      cursor: pointer;
-      transition: background-color 0.3s;
-      text-decoration: none;
-      display: inline-block;
-    }
-    .button:hover {
-      background-color: #e67e00;
-    }
-    .button.secondary {
-      background-color: #8c52ff;
-    }
-    .button.secondary:hover {
-      background-color: #7a3bff;
-    }
-    .status {
-      background-color: white;
-      border-radius: 8px;
-      padding: 1.5rem;
-      margin-top: 2rem;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-      width: 100%;
-      max-width: 500px;
-    }
-    .status h3 {
-      margin-bottom: 1rem;
-      color: #f8931f;
-      border-bottom: 1px solid #f0f0f0;
-      padding-bottom: 0.5rem;
-    }
-    .status-item {
-      display: flex;
-      justify-content: space-between;
-      margin-bottom: 0.8rem;
-    }
-    .status-label {
-      font-weight: bold;
-    }
-    .status-value {
-      color: #2ecc71;
-    }
-    .status-value.error {
-      color: #e74c3c;
-    }
-    .loading {
-      border: 4px solid #f3f3f3;
-      border-top: 4px solid #f8931f;
-      border-radius: 50%;
-      width: 30px;
-      height: 30px;
-      animation: spin 1s linear infinite;
-      margin: 0 auto;
-    }
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-    .hidden {
-      display: none;
-    }
-    @media (max-width: 600px) {
-      main {
-        padding: 1rem;
-      }
-      .status {
-        padding: 1rem;
-      }
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChickFarms - Chicken Farming Simulation Game</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 0;
+            color: #333;
+            background-color: #fff9e6;
+        }
+        
+        .hero {
+            background: linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)), url('background.png');
+            background-size: cover;
+            background-position: center;
+            height: 70vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            color: white;
+        }
+        
+        .hero-content {
+            max-width: 800px;
+            padding: 20px;
+        }
+        
+        .logo {
+            width: 200px;
+            margin-bottom: 20px;
+        }
+        
+        h1 {
+            font-size: 3rem;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 5px rgba(0, 0, 0, 0.5);
+        }
+        
+        .tagline {
+            font-size: 1.5rem;
+            margin-bottom: 30px;
+            text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.5);
+        }
+        
+        .cta-buttons {
+            display: flex;
+            gap: 20px;
+        }
+        
+        .cta-button {
+            padding: 12px 30px;
+            border-radius: 30px;
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 1.1rem;
+            transition: all 0.3s ease;
+            text-shadow: none;
+        }
+        
+        .primary-button {
+            background-color: #e67e22;
+            color: white;
+            border: 2px solid #e67e22;
+        }
+        
+        .primary-button:hover {
+            background-color: #d35400;
+            border-color: #d35400;
+        }
+        
+        .secondary-button {
+            background-color: transparent;
+            color: white;
+            border: 2px solid white;
+        }
+        
+        .secondary-button:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+        
+        .features {
+            padding: 60px 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .section-title {
+            text-align: center;
+            font-size: 2.5rem;
+            margin-bottom: 50px;
+            color: #e67e22;
+        }
+        
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+        }
+        
+        .feature-item {
+            background-color: white;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            transition: transform 0.3s ease;
+        }
+        
+        .feature-item:hover {
+            transform: translateY(-10px);
+        }
+        
+        .feature-icon {
+            font-size: 3rem;
+            margin-bottom: 20px;
+            color: #e67e22;
+        }
+        
+        .feature-title {
+            font-size: 1.5rem;
+            margin-bottom: 15px;
+            color: #e67e22;
+        }
+        
+        .footer {
+            background-color: #333;
+            color: white;
+            padding: 30px 20px;
+            text-align: center;
+        }
+        
+        .footer a {
+            color: #e67e22;
+            text-decoration: none;
+        }
+        
+        .footer a:hover {
+            text-decoration: underline;
+        }
+        
+        .auth-status {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background-color: rgba(255, 255, 255, 0.9);
+            padding: 10px 20px;
+            border-radius: 20px;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+            z-index: 100;
+            display: none;
+        }
+        
+        .status-message {
+            font-weight: bold;
+            margin-right: 10px;
+        }
+        
+        .auth-links a {
+            margin-left: 10px;
+            color: #e67e22;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        
+        .auth-links a:hover {
+            text-decoration: underline;
+        }
+        
+        .to-game-button {
+            background-color: #e67e22;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.3s;
+        }
+        
+        .to-game-button:hover {
+            background-color: #d35400;
+        }
+        
+        /* Mobile Responsiveness */
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 2.2rem;
+            }
+            
+            .tagline {
+                font-size: 1.2rem;
+            }
+            
+            .cta-buttons {
+                flex-direction: column;
+                gap: 15px;
+            }
+            
+            .feature-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
 </head>
 <body>
-  <header>
-    <h1>ChickFarms</h1>
-  </header>
-  
-  <main>
-    <div class="app-container">
-      <div class="logo">
-        <div class="logo-inner">CF</div>
-      </div>
-      <h2>Welcome to ChickFarms</h2>
-      <p>Your virtual farming adventure awaits!</p>
-      
-      <div class="buttons">
-        <a href="/game" class="button">Enter Game</a>
-        <a href="/login" class="button">Sign In</a>
-        <a href="/register" class="button">Register</a>
-        <a href="/api/health" class="button secondary">Check API Status</a>
-      </div>
-      
-      <div class="status">
-        <h3>System Status</h3>
-        <div id="loading-status" class="loading"></div>
-        <div id="status-content" class="hidden">
-          <div class="status-item">
-            <span class="status-label">API Connection:</span>
-            <span id="api-status" class="status-value">Checking...</span>
-          </div>
-          <div class="status-item">
-            <span class="status-label">Database:</span>
-            <span id="db-status" class="status-value">Checking...</span>
-          </div>
-          <div class="status-item">
-            <span class="status-label">Environment:</span>
-            <span id="env-status" class="status-value">Checking...</span>
-          </div>
-        </div>
-      </div>
+    <div class="auth-status" id="auth-status">
+        <span id="status-message" class="status-message">Checking authentication...</span>
+        <div id="auth-actions"></div>
     </div>
-  </main>
+    
+    <section class="hero">
+        <div class="hero-content">
+            <img src="chickworld_logo_clean-removebg-preview.png" alt="ChickFarms Logo" class="logo">
+            <h1>Welcome to ChickFarms</h1>
+            <p class="tagline">Build your farming empire, raise chickens, and earn real rewards!</p>
+            <div class="cta-buttons">
+                <a href="/game.html" class="cta-button primary-button">Play Now</a>
+                <a href="/about.html" class="cta-button secondary-button">Learn More</a>
+            </div>
+        </div>
+    </section>
+    
+    <section class="features">
+        <h2 class="section-title">Game Features</h2>
+        <div class="feature-grid">
+            <div class="feature-item">
+                <div class="feature-icon">🐓</div>
+                <h3 class="feature-title">Collect Rare Chickens</h3>
+                <p>Discover and collect different breeds of chickens, each with unique egg-laying abilities and special traits.</p>
+            </div>
+            
+            <div class="feature-item">
+                <div class="feature-icon">💰</div>
+                <h3 class="feature-title">Earn Rewards</h3>
+                <p>Collect eggs, sell products, and grow your farm to earn valuable rewards and in-game currency.</p>
+            </div>
+            
+            <div class="feature-item">
+                <div class="feature-icon">🏆</div>
+                <h3 class="feature-title">Compete & Achieve</h3>
+                <p>Climb the leaderboard, complete challenges, and earn achievements as you build the most successful farm.</p>
+            </div>
+            
+            <div class="feature-item">
+                <div class="feature-icon">🔄</div>
+                <h3 class="feature-title">Daily Bonuses</h3>
+                <p>Log in daily to collect bonuses, spin the reward wheel, and accelerate your farm's growth.</p>
+            </div>
+            
+            <div class="feature-item">
+                <div class="feature-icon">👥</div>
+                <h3 class="feature-title">Refer Friends</h3>
+                <p>Invite friends to play and earn special referral bonuses when they join and progress in the game.</p>
+            </div>
+            
+            <div class="feature-item">
+                <div class="feature-icon">📈</div>
+                <h3 class="feature-title">Upgrade & Expand</h3>
+                <p>Upgrade your farm, unlock new areas, and expand your farming empire with strategic investments.</p>
+            </div>
+        </div>
+    </section>
+    
+    <footer class="footer">
+        <p>&copy; 2025 ChickFarms. All rights reserved.</p>
+        <p>
+            <a href="/terms.html">Terms of Service</a> | 
+            <a href="/privacy.html">Privacy Policy</a> | 
+            <a href="/contact.html">Contact Us</a>
+        </p>
+    </footer>
 
-  <script>
-    // Check API status
-    document.addEventListener('DOMContentLoaded', function() {
-      checkSystemStatus();
-    });
-
-    function checkSystemStatus() {
-      // Show loading, hide content
-      document.getElementById('loading-status').classList.remove('hidden');
-      document.getElementById('status-content').classList.add('hidden');
-      
-      // Check API health
-      fetch('/api/health')
-        .then(response => {
-          if (response.ok) {
-            return response.json();
-          }
-          throw new Error('API health check failed');
-        })
-        .then(data => {
-          document.getElementById('api-status').textContent = 'Online';
-          document.getElementById('api-status').classList.remove('error');
-          
-          // Check database status
-          return fetch('/api/db-test');
-        })
-        .then(response => {
-          if (response.ok) {
-            return response.json();
-          }
-          throw new Error('Database check failed');
-        })
-        .then(data => {
-          if (data.success) {
-            document.getElementById('db-status').textContent = 'Connected';
-            document.getElementById('db-status').classList.remove('error');
-          } else {
-            document.getElementById('db-status').textContent = 'Error';
-            document.getElementById('db-status').classList.add('error');
-          }
-          
-          // Check environment
-          return fetch('/api/diagnostics');
-        })
-        .then(response => {
-          if (response.ok) {
-            return response.json();
-          }
-          throw new Error('Environment check failed');
-        })
-        .then(data => {
-          const env = data.nodejs?.env || data.env?.NODE_ENV || 'unknown';
-          document.getElementById('env-status').textContent = env;
-          document.getElementById('env-status').classList.remove('error');
-          
-          // Show complete status
-          document.getElementById('loading-status').classList.add('hidden');
-          document.getElementById('status-content').classList.remove('hidden');
-        })
-        .catch(error => {
-          console.error('Status check error:', error);
-          document.getElementById('api-status').textContent = 'Error';
-          document.getElementById('api-status').classList.add('error');
-          document.getElementById('db-status').textContent = 'Unknown';
-          document.getElementById('db-status').classList.add('error');
-          document.getElementById('env-status').textContent = 'Unknown';
-          document.getElementById('env-status').classList.add('error');
-          
-          // Show error status
-          document.getElementById('loading-status').classList.add('hidden');
-          document.getElementById('status-content').classList.remove('hidden');
+    <script>
+        // Check authentication status
+        async function checkAuth() {
+            try {
+                const response = await fetch('/api/user', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include'
+                });
+                
+                const authStatus = document.getElementById('auth-status');
+                const statusMessage = document.getElementById('status-message');
+                const authActions = document.getElementById('auth-actions');
+                
+                if (response.ok) {
+                    const userData = await response.json();
+                    
+                    statusMessage.textContent = `Welcome back, ${userData.username}!`;
+                    authActions.innerHTML = `
+                        <button class="to-game-button" onclick="window.location.href='/game.html'">Go to Your Farm</button>
+                    `;
+                    
+                    authStatus.style.display = 'flex';
+                } else {
+                    // Not logged in, show login/register links
+                    statusMessage.textContent = 'Guest';
+                    authActions.innerHTML = `
+                        <div class="auth-links">
+                            <a href="/login.html">Login</a>
+                            <a href="/register.html">Register</a>
+                        </div>
+                    `;
+                    
+                    authStatus.style.display = 'flex';
+                }
+            } catch (error) {
+                console.error('Auth check error:', error);
+                // Error checking authentication, don't show the status bar
+            }
+        }
+        
+        // Initialize
+        window.addEventListener('DOMContentLoaded', function() {
+            checkAuth();
         });
-    }
-  </script>
+    </script>
 </body>
 </html>

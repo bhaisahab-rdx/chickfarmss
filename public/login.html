@@ -1,188 +1,197 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Login - ChickFarms</title>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChickFarms Login</title>
     <style>
-      * {
-        box-sizing: border-box;
-        margin: 0;
-        padding: 0;
-        font-family: 'Arial', sans-serif;
-      }
-      
-      body {
-        background-color: #fffaf0;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        min-height: 100vh;
-      }
-      
-      .login-container {
-        background-color: white;
-        border-radius: 10px;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-        width: 90%;
-        max-width: 400px;
-        padding: 2rem;
-        text-align: center;
-      }
-      
-      .logo {
-        width: 80px;
-        height: 80px;
-        background-color: #f8931f;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        margin: 0 auto 1.5rem;
-      }
-      
-      .logo-text {
-        color: white;
-        font-size: 1.5rem;
-        font-weight: bold;
-      }
-      
-      h1 {
-        color: #333;
-        margin-bottom: 1.5rem;
-      }
-      
-      .form-group {
-        margin-bottom: 1.2rem;
-        text-align: left;
-      }
-      
-      label {
-        display: block;
-        margin-bottom: 0.5rem;
-        color: #555;
-        font-weight: 500;
-      }
-      
-      input {
-        width: 100%;
-        padding: 0.8rem;
-        border: 1px solid #ddd;
-        border-radius: 5px;
-        font-size: 1rem;
-      }
-      
-      input:focus {
-        outline: none;
-        border-color: #f8931f;
-      }
-      
-      .error-message {
-        color: #e74c3c;
-        font-size: 0.9rem;
-        margin-top: 0.5rem;
-        display: none;
-      }
-      
-      .button {
-        background-color: #f8931f;
-        color: white;
-        border: none;
-        padding: 0.8rem;
-        border-radius: 5px;
-        font-size: 1rem;
-        width: 100%;
-        cursor: pointer;
-        margin-top: 1rem;
-        font-weight: 600;
-      }
-      
-      .button:hover {
-        background-color: #e67e00;
-      }
-      
-      .links {
-        margin-top: 1.5rem;
-        font-size: 0.9rem;
-      }
-      
-      .links a {
-        color: #f8931f;
-        text-decoration: none;
-      }
-      
-      .links a:hover {
-        text-decoration: underline;
-      }
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f5f5f5;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-image: linear-gradient(to bottom right, #ffeaa7, #ffb8b8);
+        }
+        .login-container {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            padding: 30px;
+            width: 350px;
+            text-align: center;
+        }
+        .logo {
+            width: 150px;
+            margin-bottom: 20px;
+        }
+        h1 {
+            color: #e67e22;
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+            text-align: left;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #333;
+            font-weight: bold;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #e67e22;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 10px;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #d35400;
+        }
+        .links {
+            margin-top: 20px;
+            font-size: 14px;
+        }
+        .links a {
+            color: #e67e22;
+            text-decoration: none;
+            margin: 0 10px;
+        }
+        .links a:hover {
+            text-decoration: underline;
+        }
+        .admin-login {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+        }
+        .message {
+            color: #e74c3c;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+        .success {
+            color: #27ae60;
+        }
     </style>
-  </head>
-  <body>
+</head>
+<body>
     <div class="login-container">
-      <div class="logo">
-        <div class="logo-text">CF</div>
-      </div>
-      <h1>Login to ChickFarms</h1>
-      
-      <form id="login-form">
-        <div class="form-group">
-          <label for="username">Username</label>
-          <input type="text" id="username" name="username" required>
+        <img src="https://raw.githubusercontent.com/replit/images/main/chickfarms_logo.png" alt="ChickFarms Logo" class="logo" onerror="this.src='chickworld_logo_clean-removebg-preview.png'">
+        <h1>Login to ChickFarms</h1>
+        <div id="message" class="message"></div>
+        <form id="login-form">
+            <div class="form-group">
+                <label for="username">Username</label>
+                <input type="text" id="username" name="username" required>
+            </div>
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" required>
+            </div>
+            <button type="submit">Login</button>
+        </form>
+        <div class="links">
+            <a href="register.html">Create Account</a>
+            <a href="/">Back to Home</a>
         </div>
         
-        <div class="form-group">
-          <label for="password">Password</label>
-          <input type="password" id="password" name="password" required>
-          <div id="error-message" class="error-message"></div>
+        <div class="admin-login">
+            <button id="admin-login-btn">Login as Admin (Demo)</button>
         </div>
-        
-        <button type="submit" class="button">Login</button>
-      </form>
-      
-      <div class="links">
-        <a href="/register.html">Don't have an account? Register</a>
-        <br><br>
-        <a href="/">Back to Home</a>
-      </div>
     </div>
-    
+
     <script>
-      document.getElementById('login-form').addEventListener('submit', function(e) {
-        e.preventDefault();
-        
-        const username = document.getElementById('username').value;
-        const password = document.getElementById('password').value;
-        const errorMessage = document.getElementById('error-message');
-        
-        // Reset error message
-        errorMessage.style.display = 'none';
-        
-        // API call to login
-        fetch('/api/login', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ username, password }),
-          credentials: 'include'
-        })
-        .then(response => {
-          if (!response.ok) {
-            return response.json().then(data => {
-              throw new Error(data.message || 'Login failed');
-            });
-          }
-          return response.json();
-        })
-        .then(data => {
-          // Successful login, redirect to game
-          window.location.href = '/game';
-        })
-        .catch(error => {
-          // Show error
-          errorMessage.textContent = error.message;
-          errorMessage.style.display = 'block';
+        document.getElementById('login-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const messageDiv = document.getElementById('message');
+            
+            try {
+                const response = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ username, password }),
+                    credentials: 'include'
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    messageDiv.textContent = 'Login successful! Redirecting...';
+                    messageDiv.classList.add('success');
+                    // Redirect to game page after successful login
+                    setTimeout(() => {
+                        window.location.href = '/game.html';
+                    }, 1000);
+                } else {
+                    messageDiv.textContent = data.message || 'Login failed. Please check your credentials.';
+                    messageDiv.classList.remove('success');
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                messageDiv.textContent = 'Network error. Please try again.';
+                messageDiv.classList.remove('success');
+            }
         });
-      });
+
+        // Admin login button for demo purposes
+        document.getElementById('admin-login-btn').addEventListener('click', async function() {
+            const messageDiv = document.getElementById('message');
+            
+            try {
+                const response = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ 
+                        username: 'adminraja', 
+                        password: 'admin8751'
+                    }),
+                    credentials: 'include'
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    messageDiv.textContent = 'Admin login successful! Redirecting...';
+                    messageDiv.classList.add('success');
+                    // Redirect to game page after successful login
+                    setTimeout(() => {
+                        window.location.href = '/game.html';
+                    }, 1000);
+                } else {
+                    messageDiv.textContent = data.message || 'Admin login failed.';
+                    messageDiv.classList.remove('success');
+                }
+            } catch (error) {
+                console.error('Admin login error:', error);
+                messageDiv.textContent = 'Network error. Please try again.';
+                messageDiv.classList.remove('success');
+            }
+        });
     </script>
-  </body>
+</body>
 </html>
