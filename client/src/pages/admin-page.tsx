@@ -1,5 +1,5 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
@@ -24,11 +24,66 @@ import {
 } from "@/components/ui/table";
 import { format } from "date-fns";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Users, ArrowDownToLine, ArrowUpFromLine, Settings } from "lucide-react";
+import { 
+  Users, 
+  ArrowDownToLine, 
+  ArrowUpFromLine, 
+  Settings,
+  Plus,
+  Minus,
+  Gift,
+  Trash,
+  RotateCw,
+} from "lucide-react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import React from 'react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+// Interfaces for Spin Rewards
+interface SpinReward {
+  type: "eggs" | "wheat" | "water" | "usdt" | "extra_spin" | "chicken";
+  amount: number;
+  chickenType?: string;
+}
+
+interface SpinRewardWithProbability {
+  reward: SpinReward;
+  probability: number;
+}
+
+// Sample daily spin rewards (will be fetched from the server in the full implementation)
+const dailySpinRewards: SpinRewardWithProbability[] = [
+  { reward: { type: "eggs", amount: 5 }, probability: 25 },
+  { reward: { type: "eggs", amount: 10 }, probability: 20 },
+  { reward: { type: "eggs", amount: 15 }, probability: 15 },
+  { reward: { type: "wheat", amount: 5 }, probability: 12 },
+  { reward: { type: "water", amount: 5 }, probability: 12 },
+  { reward: { type: "extra_spin", amount: 1 }, probability: 10 },
+  { reward: { type: "usdt", amount: 0.5 }, probability: 5 },
+  { reward: { type: "usdt", amount: 1 }, probability: 1 },
+];
+
+// Sample super jackpot rewards
+const superJackpotRewards: SpinRewardWithProbability[] = [
+  { reward: { type: "eggs", amount: 50 }, probability: 25 },
+  { reward: { type: "eggs", amount: 100 }, probability: 15 },
+  { reward: { type: "eggs", amount: 200 }, probability: 10 },
+  { reward: { type: "wheat", amount: 25 }, probability: 15 },
+  { reward: { type: "water", amount: 25 }, probability: 15 },
+  { reward: { type: "usdt", amount: 5 }, probability: 10 },
+  { reward: { type: "usdt", amount: 10 }, probability: 5 },
+  { reward: { type: "usdt", amount: 50 }, probability: 1 },
+  { reward: { type: "chicken", amount: 1, chickenType: "regular" }, probability: 3 },
+  { reward: { type: "chicken", amount: 1, chickenType: "golden" }, probability: 1 },
+];
 
 interface AdminStats {
   todayLogins: number;
@@ -46,10 +101,17 @@ interface WalletAddress {
   address: string;
 }
 
-const walletAddressSchema = z.object({
-  ethereumAddress: z.string().min(1, "Ethereum address is required"),
-  tronAddress: z.string().min(1, "Tron address is required"),
-  bnbAddress: z.string().min(1, "BNB address is required"),
+// Schema for updating spin rewards
+const spinRewardSchema = z.object({
+  rewards: z.array(
+    z.object({
+      type: z.enum(["eggs", "wheat", "water", "usdt", "extra_spin", "chicken"]),
+      amount: z.number().min(0),
+      chickenType: z.string().optional(),
+      probability: z.number().min(0).max(100),
+    })
+  ),
+  spinType: z.enum(["daily", "super"]),
 });
 
 const priceSchema = z.object({
@@ -77,11 +139,9 @@ export default function AdminPage() {
     return <div>Access Denied</div>;
   }
   
+  // Removed NOWPayments integration toast notification
   React.useEffect(() => {
-    toast({
-      title: "NOWPayments Integration Active",
-      description: "Payment processing is now fully automated through NOWPayments IPN. Recharge transactions are processed automatically upon payment confirmation.",
-    });
+    // Empty useEffect - notification toast was removed as requested
   }, []);
 
   const statsQuery = useQuery<AdminStats>({
@@ -109,25 +169,42 @@ export default function AdminPage() {
     enabled: false // Only load when tab is selected
   });
 
-  const walletForm = useForm({
-    resolver: zodResolver(walletAddressSchema),
+  const dailySpinForm = useForm<z.infer<typeof spinRewardSchema>>({
+    resolver: zodResolver(spinRewardSchema),
     defaultValues: {
-      ethereumAddress: "0x2468BD1f5B493683b6550Fe331DC39CC854513D2",
-      tronAddress: "TS59qaK6YfN7fvWwffLuvKzzpXDGTBh4dq",
-      bnbAddress: "bnb1uljaarnxpaug9uvxhln6dyg6w0zeasctn4puvp",
+      rewards: dailySpinRewards.map(reward => ({
+        type: reward.reward.type,
+        amount: reward.reward.amount,
+        chickenType: reward.reward.chickenType || undefined,
+        probability: reward.probability
+      })),
+      spinType: "daily" as const
+    },
+  });
+  
+  const superJackpotForm = useForm<z.infer<typeof spinRewardSchema>>({
+    resolver: zodResolver(spinRewardSchema),
+    defaultValues: {
+      rewards: superJackpotRewards.map(reward => ({
+        type: reward.reward.type,
+        amount: reward.reward.amount,
+        chickenType: reward.reward.chickenType || undefined,
+        probability: reward.probability
+      })),
+      spinType: "super" as const
     },
   });
 
-  const updateWalletAddressesMutation = useMutation({
-    mutationFn: async (data: z.infer<typeof walletAddressSchema>) => {
-      const res = await apiRequest("POST", "/api/admin/wallet-addresses", data);
+  const updateSpinRewardsMutation = useMutation({
+    mutationFn: async (data: z.infer<typeof spinRewardSchema>) => {
+      const res = await apiRequest("POST", "/api/admin/spin/rewards/update", data);
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/wallet-addresses"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/spin/rewards"] });
       toast({
         title: "Success",
-        description: "Wallet addresses updated successfully",
+        description: "Spin rewards configuration updated successfully",
       });
     },
     onError: (error: Error) => {
@@ -367,7 +444,7 @@ export default function AdminPage() {
         <TabsList>
           <TabsTrigger value="transactions">All Transactions</TabsTrigger>
           <TabsTrigger value="withdrawals">Withdrawal Requests</TabsTrigger>
-          <TabsTrigger value="wallet">Wallet Addresses</TabsTrigger>
+          <TabsTrigger value="spin-prizes">Daily Spin Prizes</TabsTrigger>
           <TabsTrigger value="prices">Game Settings</TabsTrigger>
           <TabsTrigger value="telegramIds">Telegram IDs</TabsTrigger>
         </TabsList>
@@ -539,69 +616,319 @@ export default function AdminPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="wallet">
+        <TabsContent value="spin-prizes">
           <Card>
             <CardHeader>
-              <CardTitle>Wallet Addresses Management</CardTitle>
+              <CardTitle>Daily Spin Configuration</CardTitle>
+              <CardDescription>Configure rewards for the daily spin wheel and super jackpot bonus</CardDescription>
             </CardHeader>
             <CardContent>
-              <Form {...walletForm}>
-                <form
-                  onSubmit={walletForm.handleSubmit((data) =>
-                    updateWalletAddressesMutation.mutate(data)
-                  )}
-                  className="space-y-4"
-                >
-                  <FormField
-                    control={walletForm.control}
-                    name="ethereumAddress"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>USDT Ethereum Address</FormLabel>
-                        <FormControl>
-                          <Input {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+              <Tabs defaultValue="daily">
+                <TabsList className="mb-4">
+                  <TabsTrigger value="daily">Daily Spin</TabsTrigger>
+                  <TabsTrigger value="super">Super Jackpot</TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="daily">
+                  <Form {...dailySpinForm}>
+                    <form 
+                      onSubmit={dailySpinForm.handleSubmit((data) => updateSpinRewardsMutation.mutate(data))}
+                      className="space-y-6"
+                    >
+                      <div className="space-y-4">
+                        <div className="flex justify-between items-center">
+                          <h3 className="text-lg font-medium">Daily Spin Rewards</h3>
+                          <Button 
+                            type="button" 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => {
+                              const currentRewards = dailySpinForm.getValues().rewards;
+                              dailySpinForm.setValue('rewards', [
+                                ...currentRewards, 
+                                { type: "eggs", amount: 5, chickenType: undefined, probability: 5 }
+                              ]);
+                            }}
+                          >
+                            <Plus className="mr-1 h-4 w-4" /> Add Reward
+                          </Button>
+                        </div>
+                        
+                        {dailySpinForm.watch('rewards').map((reward, index) => (
+                          <div key={index} className="flex items-start space-x-2 p-4 border rounded-md">
+                            <div className="grid grid-cols-4 gap-4 flex-1">
+                              <FormField
+                                control={dailySpinForm.control}
+                                name={`rewards.${index}.type`}
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel>Type</FormLabel>
+                                    <Select
+                                      value={field.value}
+                                      onValueChange={field.onChange}
+                                    >
+                                      <FormControl>
+                                        <SelectTrigger>
+                                          <SelectValue placeholder="Select reward type" />
+                                        </SelectTrigger>
+                                      </FormControl>
+                                      <SelectContent>
+                                        <SelectItem value="eggs">Eggs</SelectItem>
+                                        <SelectItem value="wheat">Wheat</SelectItem>
+                                        <SelectItem value="water">Water</SelectItem>
+                                        <SelectItem value="usdt">USDT</SelectItem>
+                                        <SelectItem value="extra_spin">Extra Spin</SelectItem>
+                                        <SelectItem value="chicken">Chicken</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                              
+                              <FormField
+                                control={dailySpinForm.control}
+                                name={`rewards.${index}.amount`}
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel>Amount</FormLabel>
+                                    <FormControl>
+                                      <Input type="number" min="0" step="0.1" {...field} onChange={e => field.onChange(parseFloat(e.target.value))} />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                              
+                              {dailySpinForm.watch(`rewards.${index}.type`) === 'chicken' && (
+                                <FormField
+                                  control={dailySpinForm.control}
+                                  name={`rewards.${index}.chickenType`}
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>Chicken Type</FormLabel>
+                                      <Select
+                                        value={field.value}
+                                        onValueChange={field.onChange}
+                                        defaultValue="baby"
+                                      >
+                                        <FormControl>
+                                          <SelectTrigger>
+                                            <SelectValue placeholder="Select chicken type" />
+                                          </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                          <SelectItem value="baby">Baby</SelectItem>
+                                          <SelectItem value="regular">Regular</SelectItem>
+                                          <SelectItem value="golden">Golden</SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                              )}
 
-                  <FormField
-                    control={walletForm.control}
-                    name="tronAddress"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>USDT Tron Address</FormLabel>
-                        <FormControl>
-                          <Input {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                              <FormField
+                                control={dailySpinForm.control}
+                                name={`rewards.${index}.probability`}
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel>Probability (%)</FormLabel>
+                                    <FormControl>
+                                      <Input type="number" min="0" max="100" {...field} onChange={e => field.onChange(parseFloat(e.target.value))} />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                            </div>
+                            
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="mt-8"
+                              onClick={() => {
+                                const currentRewards = dailySpinForm.getValues().rewards;
+                                dailySpinForm.setValue(
+                                  'rewards',
+                                  currentRewards.filter((_, i) => i !== index)
+                                );
+                              }}
+                            >
+                              <Trash className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))}
+                        
+                        <div className="pt-4">
+                          <Button type="submit" disabled={updateSpinRewardsMutation.isPending}>
+                            {updateSpinRewardsMutation.isPending ? (
+                              <>
+                                <RotateCw className="mr-2 h-4 w-4 animate-spin" />
+                                Updating...
+                              </>
+                            ) : (
+                              "Update Daily Spin Rewards"
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                    </form>
+                  </Form>
+                </TabsContent>
+                
+                <TabsContent value="super">
+                  <Form {...superJackpotForm}>
+                    <form 
+                      onSubmit={superJackpotForm.handleSubmit((data) => updateSpinRewardsMutation.mutate(data))}
+                      className="space-y-6"
+                    >
+                      <div className="space-y-4">
+                        <div className="flex justify-between items-center">
+                          <h3 className="text-lg font-medium">Super Jackpot Rewards</h3>
+                          <Button 
+                            type="button" 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => {
+                              const currentRewards = superJackpotForm.getValues().rewards;
+                              superJackpotForm.setValue('rewards', [
+                                ...currentRewards, 
+                                { type: "eggs", amount: 50, chickenType: undefined, probability: 5 }
+                              ]);
+                            }}
+                          >
+                            <Plus className="mr-1 h-4 w-4" /> Add Reward
+                          </Button>
+                        </div>
+                        
+                        {superJackpotForm.watch('rewards').map((reward, index) => (
+                          <div key={index} className="flex items-start space-x-2 p-4 border rounded-md">
+                            <div className="grid grid-cols-4 gap-4 flex-1">
+                              <FormField
+                                control={superJackpotForm.control}
+                                name={`rewards.${index}.type`}
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel>Type</FormLabel>
+                                    <Select
+                                      value={field.value}
+                                      onValueChange={field.onChange}
+                                    >
+                                      <FormControl>
+                                        <SelectTrigger>
+                                          <SelectValue placeholder="Select reward type" />
+                                        </SelectTrigger>
+                                      </FormControl>
+                                      <SelectContent>
+                                        <SelectItem value="eggs">Eggs</SelectItem>
+                                        <SelectItem value="wheat">Wheat</SelectItem>
+                                        <SelectItem value="water">Water</SelectItem>
+                                        <SelectItem value="usdt">USDT</SelectItem>
+                                        <SelectItem value="extra_spin">Extra Spin</SelectItem>
+                                        <SelectItem value="chicken">Chicken</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                              
+                              <FormField
+                                control={superJackpotForm.control}
+                                name={`rewards.${index}.amount`}
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel>Amount</FormLabel>
+                                    <FormControl>
+                                      <Input type="number" min="0" step="0.1" {...field} onChange={e => field.onChange(parseFloat(e.target.value))} />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                              
+                              {superJackpotForm.watch(`rewards.${index}.type`) === 'chicken' && (
+                                <FormField
+                                  control={superJackpotForm.control}
+                                  name={`rewards.${index}.chickenType`}
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>Chicken Type</FormLabel>
+                                      <Select
+                                        value={field.value}
+                                        onValueChange={field.onChange}
+                                        defaultValue="regular"
+                                      >
+                                        <FormControl>
+                                          <SelectTrigger>
+                                            <SelectValue placeholder="Select chicken type" />
+                                          </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                          <SelectItem value="baby">Baby</SelectItem>
+                                          <SelectItem value="regular">Regular</SelectItem>
+                                          <SelectItem value="golden">Golden</SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                              )}
 
-                  <FormField
-                    control={walletForm.control}
-                    name="bnbAddress"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>USDT BNB Beacon Chain Address</FormLabel>
-                        <FormControl>
-                          <Input {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <Button
-                    type="submit"
-                    disabled={updateWalletAddressesMutation.isPending}
-                  >
-                    Save Wallet Addresses
-                  </Button>
-                </form>
-              </Form>
+                              <FormField
+                                control={superJackpotForm.control}
+                                name={`rewards.${index}.probability`}
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel>Probability (%)</FormLabel>
+                                    <FormControl>
+                                      <Input type="number" min="0" max="100" {...field} onChange={e => field.onChange(parseFloat(e.target.value))} />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                            </div>
+                            
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="mt-8"
+                              onClick={() => {
+                                const currentRewards = superJackpotForm.getValues().rewards;
+                                superJackpotForm.setValue(
+                                  'rewards',
+                                  currentRewards.filter((_, i) => i !== index)
+                                );
+                              }}
+                            >
+                              <Trash className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))}
+                        
+                        <div className="pt-4">
+                          <Button type="submit" disabled={updateSpinRewardsMutation.isPending}>
+                            {updateSpinRewardsMutation.isPending ? (
+                              <>
+                                <RotateCw className="mr-2 h-4 w-4 animate-spin" />
+                                Updating...
+                              </>
+                            ) : (
+                              "Update Super Jackpot Rewards"
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                    </form>
+                  </Form>
+                </TabsContent>
+              </Tabs>
             </CardContent>
           </Card>
         </TabsContent>

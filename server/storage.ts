@@ -659,6 +659,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateResources(userId: number, updates: Partial<Resource>): Promise<Resource> {
+    // Resources in the schema are defined as integers (not text), so we keep them as numbers
     const [updated] = await db.update(resources)
       .set(updates)
       .where(eq(resources.userId, userId))
@@ -1270,6 +1271,76 @@ export class DatabaseStorage implements IStorage {
         .orderBy(desc(referralEarnings.createdAt));
     } catch (error) {
       console.error("Error getting unclaimed referral earnings:", error);
+      throw error;
+    }
+  }
+
+  // Update resource eggs - this modifies the eggs count for a user
+  async updateResourceEggs(userId: number, eggAmount: number): Promise<void> {
+    try {
+      const userResources = await this.getResourcesByUserId(userId);
+      if (!userResources) {
+        throw new Error("User resources not found");
+      }
+      
+      const currentEggs = userResources.eggs;
+      const newEggAmount = currentEggs + eggAmount;
+      
+      await this.updateResources(userId, {
+        eggs: newEggAmount
+      });
+    } catch (error) {
+      console.error("Error updating resource eggs:", error);
+      throw error;
+    }
+  }
+  
+  // Update resource wheat - this modifies the wheat bags count for a user
+  async updateResourceWheat(userId: number, wheatAmount: number): Promise<void> {
+    try {
+      const userResources = await this.getResourcesByUserId(userId);
+      if (!userResources) {
+        throw new Error("User resources not found");
+      }
+      
+      const currentWheat = userResources.wheatBags;
+      const newWheatAmount = currentWheat + wheatAmount;
+      
+      await this.updateResources(userId, {
+        wheatBags: newWheatAmount
+      });
+    } catch (error) {
+      console.error("Error updating resource wheat:", error);
+      throw error;
+    }
+  }
+  
+  // Update resource water - this modifies the water buckets count for a user
+  async updateResourceWater(userId: number, waterAmount: number): Promise<void> {
+    try {
+      const userResources = await this.getResourcesByUserId(userId);
+      if (!userResources) {
+        throw new Error("User resources not found");
+      }
+      
+      const currentWater = userResources.waterBuckets;
+      const newWaterAmount = currentWater + waterAmount;
+      
+      await this.updateResources(userId, {
+        waterBuckets: newWaterAmount
+      });
+    } catch (error) {
+      console.error("Error updating resource water:", error);
+      throw error;
+    }
+  }
+  
+  // Update user's extra spins - different from updateUserExtraSpins to handle different parameter names
+  async updateExtraSpinsAvailable(userId: number, extraSpins: number): Promise<void> {
+    try {
+      return this.updateUserExtraSpins(userId, extraSpins);
+    } catch (error) {
+      console.error("Error updating user's extra spins:", error);
       throw error;
     }
   }
