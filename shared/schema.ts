@@ -331,6 +331,15 @@ export const referralEarnings = pgTable("referral_earnings", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+// Adding referrals table to pass Vercel deployment test
+export const referrals = pgTable("referrals", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  referredUserId: integer("referred_user_id").notNull(),
+  level: integer("level").notNull().default(1),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 export const milestoneRewards = pgTable("milestone_rewards", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull(),
@@ -491,6 +500,11 @@ export const insertSpinRewardSchema = createInsertSchema(spinRewards).omit({
   updatedAt: true,
 });
 
+export const insertReferralSchema = createInsertSchema(referrals).omit({
+  id: true,
+  createdAt: true,
+});
+
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -518,6 +532,8 @@ export type SpinHistory = typeof spinHistory.$inferSelect;
 export type InsertSpinHistory = z.infer<typeof insertSpinHistorySchema>;
 export type SpinReward = typeof spinRewards.$inferSelect;
 export type InsertSpinReward = z.infer<typeof insertSpinRewardSchema>;
+export type Referral = typeof referrals.$inferSelect;
+export type InsertReferral = z.infer<typeof insertReferralSchema>;
 
 
 // Admin types
