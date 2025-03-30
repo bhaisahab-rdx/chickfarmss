@@ -48,6 +48,29 @@ Error: You have exceeded the maximum number of Serverless Functions (12) for the
 2. Ensure your `build-vercel.js` script is creating a single serverless function.
 3. Verify that all API routes are handled by this single function.
 
+### Missing API Endpoints
+
+**Problem:**
+The frontend makes requests to API endpoints that return 404 errors.
+
+**Solution:**
+1. Check if the path is correctly handled in the consolidated API.
+2. Verify the path is included in the consolidated API handler:
+```javascript
+// Example implementation for a missing endpoint
+else if (pathname.startsWith('/api/spin/')) {
+  return await handleSpin(req, res, pathname);
+}
+```
+3. Test endpoints directly with curl to verify they're working:
+```bash
+# Test authentication
+curl -v -X POST https://your-domain.vercel.app/api/auth/login -H "Content-Type: application/json" -d '{"username":"test","password":"password"}'
+
+# Test getting spin status (with authentication cookie)
+curl -v https://your-domain.vercel.app/api/spin/status -H "Cookie: session=your-session-token"
+```
+
 ### Missing Files
 
 **Error Message:**

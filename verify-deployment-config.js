@@ -218,7 +218,8 @@ async function verifyDeploymentConfig() {
       { term: 'API connectivity', found: content.includes('API connectivity') },
       { term: 'Environment variables', found: content.includes('Environment variables') },
       { term: 'Database schema', found: content.includes('Database schema') },
-      { term: 'NOWPayments', found: content.includes('NOWPayments') }
+      { term: 'NOWPayments', found: content.includes('NOWPayments') },
+      { term: 'Spin functionality', found: content.includes('lastSpinAt') || content.includes('Spin functionality') }
     ];
     
     for (const check of testChecks) {

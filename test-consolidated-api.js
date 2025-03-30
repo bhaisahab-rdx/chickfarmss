@@ -101,6 +101,31 @@ async function runTests() {
   // Test the index endpoint
   await testEndpoint('/api', 'API index endpoint');
 
+  // Uncomment the following code to test authentication endpoints (requires valid credentials)
+  /*
+  console.log('\nTesting authentication endpoints...');
+  try {
+    // Test login endpoint with test credentials (will fail with invalid credentials)
+    const loginResponse = await testEndpoint('/api/auth/login', 'Login endpoint', 'POST', {
+      username: 'test_user',
+      password: 'test_password'
+    });
+    
+    // Get the authentication cookie from the login response
+    if (loginResponse && loginResponse.headers && loginResponse.headers['set-cookie']) {
+      const authCookie = loginResponse.headers['set-cookie'][0];
+      
+      // Test spin-related endpoints with authentication
+      console.log('\nTesting spin endpoints with authentication...');
+      await testEndpoint('/api/spin/status', 'Spin status endpoint', 'GET', null, authCookie);
+      await testEndpoint('/api/spin/spin', 'Spin action endpoint', 'POST', {}, authCookie);
+      await testEndpoint('/api/spin/claim-extra', 'Claim extra spin endpoint', 'POST', {}, authCookie);
+    }
+  } catch (error) {
+    console.log('Skipping authentication-required tests:', error.message);
+  }
+  */
+
   console.log('\nAll tests completed successfully! The consolidated API is working correctly.');
 }
 
@@ -110,8 +135,9 @@ async function runTests() {
  * @param {string} description - Description of the test
  * @param {string} method - HTTP method to use (default: GET)
  * @param {object} body - Optional request body for POST requests
+ * @param {string} cookie - Optional cookie to include with the request (for authentication)
  */
-async function testEndpoint(path, description, method = 'GET', body = null) {
+async function testEndpoint(path, description, method = 'GET', body = null, cookie = null) {
   return new Promise((resolve, reject) => {
     console.log(`Testing ${description}...`);
     
@@ -124,6 +150,11 @@ async function testEndpoint(path, description, method = 'GET', body = null) {
         'Content-Type': 'application/json'
       }
     };
+    
+    // Add cookie header if provided
+    if (cookie) {
+      options.headers['Cookie'] = cookie;
+    }
     
     const req = http.request(options, res => {
       console.log(`  Status: ${res.statusCode}`);
@@ -142,7 +173,8 @@ async function testEndpoint(path, description, method = 'GET', body = null) {
           
           if (res.statusCode >= 200 && res.statusCode < 300) {
             console.log(`  ✓ ${description} test passed\n`);
-            resolve();
+            // Return the response for authentication purposes
+            resolve(res);
           } else {
             console.error(`  ✗ ${description} returned status ${res.statusCode}`);
             reject(new Error(`${description} failed with status ${res.statusCode}`));

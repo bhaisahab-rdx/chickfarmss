@@ -26,6 +26,9 @@ Use this checklist to verify all necessary steps have been completed before depl
   - [ ] `/api/minimal` returns status "ok"
   - [ ] `/api/diagnostics` shows proper environment info
   - [ ] `/api` shows API index page
+  - [ ] `/api/spin/status` returns spin availability information
+  - [ ] `/api/spin/spin` processes spin requests
+  - [ ] `/api/spin/claim-extra` handles claiming extra spins
 
 ## Environment Variables
 
@@ -61,6 +64,7 @@ After deployment, verify:
 - [ ] User can navigate to authenticated routes after login
 - [ ] API endpoints are accessible and functional
 - [ ] Game features work as expected
+- [ ] Spin feature works correctly and shows proper time until next spin
 - [ ] No HTML game version is showing instead of React app
 
 ## Notes

@@ -62,6 +62,8 @@ module.exports = async (req, res) => {
       return await handleAuthentication(req, res, pathname);
     } else if (pathname.startsWith('/api/pooled-test')) {
       return await handlePooledTest(req, res);
+    } else if (pathname.startsWith('/api/spin/')) {
+      return await handleSpin(req, res, pathname);
     } else {
       // Return 404 for unhandled routes
       res.status(404).json({ error: 'Not found', message: `Route ${pathname} not implemented in consolidated API` });
@@ -246,7 +248,10 @@ function handleIndex(req, res) {
       '/api/auth/login',
       '/api/auth/register',
       '/api/auth/logout',
-      '/api/auth/user'
+      '/api/auth/user',
+      '/api/spin/status',
+      '/api/spin/spin',
+      '/api/spin/claim-extra'
     ]
   });
 }
@@ -582,6 +587,181 @@ function generateReferralCode(username) {
   
   // Combine them
   return `${base}${random}`;
+}
+
+/**
+ * Handle spin-related requests
+ */
+async function handleSpin(req, res, pathname) {
+  try {
+    // Extract the spin action from the pathname
+    const spinAction = pathname.replace('/api/spin/', '');
+
+    // Get session token from cookies
+    const cookies = parseCookies(req.headers.cookie || '');
+    const token = cookies.session;
+    
+    if (!token) {
+      return res.status(401).json({ error: 'Unauthorized', message: 'No session token provided' });
+    }
+    
+    // Validate token and get user ID
+    const userId = validateSessionToken(token);
+    
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized', message: 'Invalid session token' });
+    }
+    
+    // Handle different spin actions
+    if (spinAction === 'status') {
+      return await handleSpinStatus(req, res, userId);
+    } else if (spinAction === 'spin') {
+      return await handleSpinAction(req, res, userId);
+    } else if (spinAction === 'claim-extra') {
+      return await handleClaimExtraSpin(req, res, userId);
+    } else {
+      res.status(404).json({ error: 'Not found', message: `Spin action ${spinAction} not implemented` });
+    }
+  } catch (error) {
+    console.error('Spin handling error:', error);
+    res.status(500).json({ error: 'Server error', message: error.message });
+  }
+}
+
+/**
+ * Handle spin status requests
+ */
+async function handleSpinStatus(req, res, userId) {
+  try {
+    const client = await pool.connect();
+    const result = await client.query('SELECT "lastSpinAt", "extraSpinsAvailable" FROM users WHERE id = $1', [userId]);
+    client.release();
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Not found', message: 'User not found' });
+    }
+    
+    const user = result.rows[0];
+    const lastSpinAt = user.lastSpinAt ? new Date(user.lastSpinAt) : null;
+    const now = new Date();
+    
+    // Check if 24 hours have passed since the last spin
+    const canSpinDaily = !lastSpinAt || (now - lastSpinAt) >= 24 * 60 * 60 * 1000;
+    
+    // Calculate time until next spin (in milliseconds)
+    let timeUntilNextSpin = 0;
+    if (!canSpinDaily && lastSpinAt) {
+      const nextSpinTime = new Date(lastSpinAt.getTime() + 24 * 60 * 60 * 1000);
+      timeUntilNextSpin = Math.max(0, nextSpinTime - now);
+    }
+    
+    res.status(200).json({
+      canSpinDaily,
+      timeUntilNextSpin,
+      extraSpinsAvailable: user.extraSpinsAvailable
+    });
+  } catch (error) {
+    console.error('Spin status error:', error);
+    res.status(500).json({ error: 'Server error', message: error.message });
+  }
+}
+
+/**
+ * Handle spin action requests
+ */
+async function handleSpinAction(req, res, userId) {
+  try {
+    const client = await pool.connect();
+    
+    // Get user's last spin time and extra spins
+    const userResult = await client.query(
+      'SELECT "lastSpinAt", "extraSpinsAvailable", "usdtBalance" FROM users WHERE id = $1',
+      [userId]
+    );
+    
+    if (userResult.rows.length === 0) {
+      client.release();
+      return res.status(404).json({ error: 'Not found', message: 'User not found' });
+    }
+    
+    const user = userResult.rows[0];
+    const lastSpinAt = user.lastSpinAt ? new Date(user.lastSpinAt) : null;
+    const now = new Date();
+    
+    // Check if 24 hours have passed since the last spin or if user has extra spins
+    const canSpinDaily = !lastSpinAt || (now - lastSpinAt) >= 24 * 60 * 60 * 1000;
+    
+    if (!canSpinDaily && user.extraSpinsAvailable === 0) {
+      client.release();
+      return res.status(403).json({ 
+        error: 'Forbidden', 
+        message: 'You cannot spin yet. Wait until 24 hours have passed since your last spin.'
+      });
+    }
+    
+    // Determine what type of spin this is (daily or extra)
+    const isExtraSpin = !canSpinDaily && user.extraSpinsAvailable > 0;
+    
+    // Generate a random reward (between 0.01 and 0.50 USDT)
+    const reward = (Math.floor(Math.random() * 50) + 1) / 100;
+    
+    // Update user's balance and spin time
+    const newBalance = (parseFloat(user.usdtBalance) + reward).toFixed(2);
+    
+    if (isExtraSpin) {
+      // Use an extra spin
+      await client.query(
+        'UPDATE users SET "usdtBalance" = $1, "extraSpinsAvailable" = "extraSpinsAvailable" - 1 WHERE id = $2',
+        [newBalance, userId]
+      );
+    } else {
+      // Update last spin time for daily spin
+      await client.query(
+        'UPDATE users SET "usdtBalance" = $1, "lastSpinAt" = NOW() WHERE id = $2',
+        [newBalance, userId]
+      );
+    }
+    
+    client.release();
+    
+    // Return the result
+    res.status(200).json({
+      success: true,
+      reward,
+      newBalance,
+      spinType: isExtraSpin ? 'extra' : 'daily',
+      extraSpinsRemaining: isExtraSpin ? user.extraSpinsAvailable - 1 : user.extraSpinsAvailable
+    });
+  } catch (error) {
+    console.error('Spin action error:', error);
+    res.status(500).json({ error: 'Server error', message: error.message });
+  }
+}
+
+/**
+ * Handle claiming an extra spin
+ */
+async function handleClaimExtraSpin(req, res, userId) {
+  try {
+    const client = await pool.connect();
+    
+    // Update user's extra spins
+    await client.query(
+      'UPDATE users SET "extraSpinsAvailable" = "extraSpinsAvailable" + 1 WHERE id = $1 RETURNING "extraSpinsAvailable"',
+      [userId]
+    );
+    
+    client.release();
+    
+    // Return success
+    res.status(200).json({
+      success: true,
+      message: 'Extra spin claimed successfully'
+    });
+  } catch (error) {
+    console.error('Claim extra spin error:', error);
+    res.status(500).json({ error: 'Server error', message: error.message });
+  }
 }
 
 /**

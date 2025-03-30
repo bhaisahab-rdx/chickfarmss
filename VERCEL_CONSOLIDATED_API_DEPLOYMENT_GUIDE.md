@@ -99,7 +99,26 @@ If you encounter issues:
 3. Make sure the database is accessible from Vercel
 4. Test specific API endpoints to narrow down the issue
 
-### 9. Notes About the Consolidated API Approach
+### 9. Available API Endpoints
+
+The consolidated API supports the following endpoints:
+
+- `/api/health` - Health check endpoint
+- `/api/minimal` - Minimal response for testing
+- `/api/diagnostics` - Detailed diagnostics with headers
+- `/api/env-test` - Environment variable test
+- `/api/db-test` - Database connection test
+- `/api/test-deployment` - Comprehensive test for deployment verification
+- `/api/debug` - Debug information with headers
+- `/api/auth/login` - User login
+- `/api/auth/register` - User registration
+- `/api/auth/logout` - User logout
+- `/api/auth/user` - Get current user info
+- `/api/spin/status` - Check spin availability and time until next spin
+- `/api/spin/spin` - Perform a spin to earn rewards
+- `/api/spin/claim-extra` - Claim an extra spin
+
+### 10. Notes About the Consolidated API Approach
 
 - All API routes are handled by a single function in `api/consolidated.cjs`
 - This function parses the URL path and routes requests to the appropriate handler
