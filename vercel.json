@@ -23,6 +23,10 @@
       "dest": "/api/minimal.js"
     },
     {
+      "src": "/api/db-test",
+      "dest": "/api/db-test.js"
+    },
+    {
       "src": "/api/diagnostics",
       "dest": "/api/diagnostics.js"
     },

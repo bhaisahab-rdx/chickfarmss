@@ -74,6 +74,7 @@
             <div>
                 <button onclick="testMinimalApi()">Test Minimal API</button>
                 <button onclick="testHealthApi()">Test Health API</button>
+                <button onclick="testDatabaseConnection()">Test DB Connection</button>
                 <button onclick="testApiEndpoint()">Test Main API</button>
             </div>
             
@@ -105,7 +106,7 @@
 
         async function testMinimalApi() {
             const results = document.getElementById('results');
-            results.textContent = 'Testing minimal API...';
+            results.textContent = 'Testing minimal API (NO database connections)...';
             
             const data = await fetchEndpoint('/api/minimal');
             results.textContent = JSON.stringify(data, null, 2);
@@ -116,6 +117,14 @@
             results.textContent = 'Testing health API...';
             
             const data = await fetchEndpoint('/api/health');
+            results.textContent = JSON.stringify(data, null, 2);
+        }
+        
+        async function testDatabaseConnection() {
+            const results = document.getElementById('results');
+            results.textContent = 'Testing database connection (this may take a few seconds)...';
+            
+            const data = await fetchEndpoint('/api/db-test');
             results.textContent = JSON.stringify(data, null, 2);
         }
 
