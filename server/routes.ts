@@ -1129,7 +1129,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         basicMysteryBoxPrice: parseFloat(prices.find(p => p.itemType === 'basic_mystery_box')?.price || '5'),
         standardMysteryBoxPrice: parseFloat(prices.find(p => p.itemType === 'standard_mystery_box')?.price || '10'),
         advancedMysteryBoxPrice: parseFloat(prices.find(p => p.itemType === 'advanced_mystery_box')?.price || '20'),
-        legendaryMysteryBoxPrice: parseFloat(prices.find(p => p.itemType === 'mystery_box')?.price || '50'),
+        legendaryMysteryBoxPrice: parseFloat(prices.find(p => p.itemType === 'legendary_mystery_box')?.price || '50'),
         withdrawalTaxPercentage: 5 // Default value, you might want to get this from settings table
       };
       res.json(gamePrices);
