@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <style data-vite-theme="" data-inject-first="">:root {
+      --background: 22 81% 73%;
+--foreground: 15 100% 8%;
+--muted: 24 77% 57%;
+--muted-foreground: 15 100% 8%;
+--popover: 21 100% 97%;
+--popover-foreground: 15 100% 8%;
+--card: 21 100% 97%;
+--card-foreground: 15 100% 8%;
+--border: 24 77% 57%;
+--input: 24 77% 57%;
+--primary: 30 100% 46%;
+--primary-foreground: 21 100% 99%;
+--secondary: 22 100% 79%;
+--secondary-foreground: 15 100% 8%;
+--accent: 22 100% 79%;
+--accent-foreground: 15 100% 8%;
+--destructive: 0 84.2% 60.2%;
+--destructive-foreground: 60 9.1% 97.8%;
+--ring: 30 100% 46%;
+--radius: 1.2rem;
+  }
+  .dark {
+      --background: 358 100% 0%;
+--foreground: 22 100% 93%;
+--muted: 28 100% 21%;
+--muted-foreground: 22 100% 93%;
+--popover: 15 100% 8%;
+--popover-foreground: 22 100% 93%;
+--card: 15 100% 8%;
+--card-foreground: 22 100% 93%;
+--border: 28 100% 21%;
+--input: 28 100% 21%;
+--primary: 30 100% 37%;
+--primary-foreground: 21 91% 98%;
+--secondary: 28 100% 21%;
+--secondary-foreground: 22 100% 93%;
+--accent: 28 100% 21%;
+--accent-foreground: 22 100% 93%;
+--destructive: 0 62.8% 30.6%;
+--destructive-foreground: 0 0% 98%;
+--ring: 30 100% 37%;
+--radius: 1.2rem;
+  }</style>
+
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <title>ChickFarms - Direct Access</title>
+    <link rel="stylesheet" href="/dist/public/assets/index-B1q1z2yK.css">
+    <style>
+      #loading-screen {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: #fffaf0;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+      }
+      .logo {
+        width: 150px;
+        height: 150px;
+        background-color: #f8931f;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+      }
+      .logo-text {
+        color: white;
+        font-size: 2.5rem;
+        font-weight: bold;
+      }
+      .spinner {
+        border: 4px solid #f3f3f3;
+        border-top: 4px solid #f8931f;
+        border-radius: 50%;
+        width: 50px;
+        height: 50px;
+        animation: spin 1s linear infinite;
+        margin: 20px 0;
+      }
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+      .loading-message {
+        font-family: Arial, sans-serif;
+        font-size: 1.2rem;
+        color: #333;
+        text-align: center;
+        max-width: 80%;
+      }
+      .error-message {
+        color: #e74c3c;
+        display: none;
+        margin-top: 20px;
+        text-align: center;
+        max-width: 80%;
+      }
+      .button {
+        background-color: #f8931f;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 4px;
+        font-size: 16px;
+        cursor: pointer;
+        margin-top: 20px;
+        display: none;
+      }
+      .button:hover {
+        background-color: #e67e00;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="loading-screen">
+      <div class="logo">
+        <div class="logo-text">CF</div>
+      </div>
+      <div class="spinner"></div>
+      <p class="loading-message">Loading ChickFarms...</p>
+      <p id="error-message" class="error-message">
+        There was a problem loading the game. Please try again.
+      </p>
+      <button id="retry-button" class="button" onclick="window.location.reload()">Retry</button>
+      <button id="login-button" class="button" onclick="window.location.href='/login.html'">Go to Login</button>
+    </div>
+    
+    <div id="root"></div>
+    
+    <script>
+      // Load game directly from script
+      document.addEventListener('DOMContentLoaded', function() {
+        // Show loading screen
+        const loadingScreen = document.getElementById('loading-screen');
+        const errorMessage = document.getElementById('error-message');
+        const retryButton = document.getElementById('retry-button');
+        const loginButton = document.getElementById('login-button');
+        const loadingMessage = document.querySelector('.loading-message');
+        
+        // Create a script element for the main application
+        const script = document.createElement('script');
+        script.type = 'module';
+        script.src = '/dist/public/assets/index-Bm_ffHaT.js';
+        
+        // Set timeout for loading
+        const timeout = setTimeout(function() {
+          // If the root is still empty after timeout, show error
+          const root = document.getElementById('root');
+          if (root.children.length === 0) {
+            loadingMessage.textContent = 'Game is taking longer than expected to load.';
+            errorMessage.style.display = 'block';
+            retryButton.style.display = 'inline-block';
+            loginButton.style.display = 'inline-block';
+          }
+        }, 10000);
+        
+        // When script fails to load
+        script.onerror = function() {
+          clearTimeout(timeout);
+          loadingMessage.textContent = 'Failed to load game assets.';
+          errorMessage.style.display = 'block';
+          errorMessage.textContent = 'Could not load the game scripts. Please check your connection and try again.';
+          retryButton.style.display = 'inline-block';
+          loginButton.style.display = 'inline-block';
+        };
+        
+        // Append the script to the document
+        document.body.appendChild(script);
+        
+        // Try to hide loading screen after a certain amount of time if app appears to be working
+        setTimeout(function() {
+          const root = document.getElementById('root');
+          if (root.children.length > 0) {
+            loadingScreen.style.display = 'none';
+          } else {
+            // Still not loaded, show retry options
+            loadingMessage.textContent = 'Game could not be loaded.';
+            errorMessage.style.display = 'block';
+            retryButton.style.display = 'inline-block';
+            loginButton.style.display = 'inline-block';
+          }
+        }, 15000);
+        
+        // Add custom error handler for console errors
+        const originalConsoleError = console.error;
+        console.error = function() {
+          // Log the original error
+          originalConsoleError.apply(console, arguments);
+          
+          // Check for authentication errors or loading failures
+          const args = Array.from(arguments);
+          const errorString = args.join(' ');
+          
+          if (errorString.includes('401') || 
+              errorString.includes('Unauthorized') ||
+              errorString.includes('authentication') ||
+              errorString.includes('not logged in')) {
+            loadingMessage.textContent = 'Authentication required.';
+            errorMessage.style.display = 'block';
+            errorMessage.textContent = 'You need to log in to play the game.';
+            loginButton.style.display = 'inline-block';
+            retryButton.style.display = 'none';
+          }
+        };
+      });
+    </script>
+  </body>
+</html>
