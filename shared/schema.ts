@@ -372,20 +372,20 @@ export const activeBoosts = pgTable("active_boosts", {
 export const spinHistory = pgTable("spin_history", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull(),
-  spinType: text("spin_type").notNull(), // "daily" or "super"
-  rewardType: text("reward_type").notNull(), // "eggs", "wheat", "water", "usdt", "extra_spin", "chicken"
+  spinType: text("spinType").notNull(), // "daily" or "super"
+  rewardType: text("rewardType").notNull(), // "eggs", "wheat", "water", "usdt", "extra_spin", "chicken"
   rewardAmount: decimal("reward_amount", { precision: 10, scale: 2 }).notNull(),
-  chickenType: text("chicken_type"), // For chicken rewards
+  chickenType: text("chickenType"), // For chicken rewards
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
 // Define spin rewards configuration table
 export const spinRewards = pgTable("spin_rewards", {
   id: serial("id").primaryKey(),
-  spinType: text("spin_type").notNull(), // "daily" or "super"
-  rewardType: text("reward_type").notNull(), // "eggs", "wheat", "water", "usdt", "extra_spin", "chicken"
+  spinType: text("spinType").notNull(), // "daily" or "super"
+  rewardType: text("rewardType").notNull(), // "eggs", "wheat", "water", "usdt", "extra_spin", "chicken"
   amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
-  chickenType: text("chicken_type"), // For chicken rewards (if applicable)
+  chickenType: text("chickenType"), // For chicken rewards (if applicable)
   probability: decimal("probability", { precision: 5, scale: 2 }).notNull(), // Percentage chance 0-100
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
