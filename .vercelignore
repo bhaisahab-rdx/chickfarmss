@@ -42,3 +42,5 @@ restore_database.js
 export-db-sql.js
 export-latest-db.cjs
 init-spin-rewards.js
+# Ignore HTML files in public to ensure React app is served
+public/*.html

@@ -1,0 +1,58 @@
+{
+  "version": 3,
+  "routes": [
+    {
+      "src": "/vercel-test.html",
+      "status": 404,
+      "dest": "/index.html"
+    },
+    {
+      "src": "/health.html",
+      "status": 404,
+      "dest": "/index.html"
+    },
+    {
+      "src": "/login.html",
+      "status": 404,
+      "dest": "/index.html"
+    },
+    {
+      "src": "/register.html",
+      "status": 404,
+      "dest": "/index.html"
+    },
+    {
+      "src": "/game.html",
+      "status": 404,
+      "dest": "/index.html"
+    },
+    {
+      "src": "/public/index.html",
+      "status": 404,
+      "dest": "/index.html"
+    },
+    {
+      "src": "/public/game.html",
+      "status": 404,
+      "dest": "/index.html"
+    },
+    {
+      "src": "/api/(.*)",
+      "dest": "/api"
+    },
+    {
+      "handle": "filesystem"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
+    }
+  ],
+  "env": {
+    "NODE_ENV": "production",
+    "DATABASE_URL": "postgresql://neondb_owner:npg_LzCvhk8dBUs6@ep-weathered-darkness-a6g9zwjh.us-west-2.aws.neon.tech/neondb?sslmode=require",
+    "SESSION_SECRET": "iYL0Yq&b,LG1gzGa88;0#k]2mtS7)e",
+    "NOWPAYMENTS_API_KEY": "JW7JXM6-DHEMGBX-J58QEXM-R2ETSY3",
+    "NOWPAYMENTS_IPN_SECRET_KEY": "A73NxQfXxJzHJF3Qh9jWkxbSvZHas8um"
+  }
+}

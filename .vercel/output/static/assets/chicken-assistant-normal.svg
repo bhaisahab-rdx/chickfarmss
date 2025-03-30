@@ -1,0 +1,27 @@
+<svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Body -->
+  <ellipse cx="60" cy="65" rx="40" ry="35" fill="#F8BD45"/>
+  
+  <!-- Head -->
+  <circle cx="60" cy="30" r="25" fill="#F8BD45"/>
+  
+  <!-- Eyes -->
+  <circle cx="50" cy="25" r="5" fill="white"/>
+  <circle cx="70" cy="25" r="5" fill="white"/>
+  <circle cx="50" cy="25" r="2.5" fill="black"/>
+  <circle cx="70" cy="25" r="2.5" fill="black"/>
+  
+  <!-- Beak -->
+  <path d="M60 30 L50 40 H70 Z" fill="#FF6B35"/>
+  
+  <!-- Comb -->
+  <path d="M45 10 L50 18 L55 10 L60 18 L65 10 L70 18 L75 10" stroke="#E74C3C" stroke-width="5" stroke-linecap="round"/>
+  
+  <!-- Feet -->
+  <path d="M45 100 L40 110 L45 105 L50 110" stroke="#FF6B35" stroke-width="3" stroke-linecap="round"/>
+  <path d="M75 100 L70 110 L75 105 L80 110" stroke="#FF6B35" stroke-width="3" stroke-linecap="round"/>
+  
+  <!-- Wings -->
+  <path d="M30 60 C20 70, 20 80, 30 85" stroke="#E57E31" stroke-width="5" stroke-linecap="round"/>
+  <path d="M90 60 C100 70, 100 80, 90 85" stroke="#E57E31" stroke-width="5" stroke-linecap="round"/>
+</svg>

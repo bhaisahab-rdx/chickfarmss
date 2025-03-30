@@ -1,0 +1,65 @@
+<svg width="400" height="300" viewBox="0 0 400 300" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="400" height="300" rx="16" fill="white"/>
+  <rect width="400" height="300" rx="16" stroke="#E5E7EB" stroke-width="1"/>
+  
+  <!-- Header -->
+  <rect width="400" height="50" rx="16" fill="#FEF3C7"/>
+  <text x="20" y="32" font-family="Arial" font-size="18" font-weight="bold" fill="#92400E">Chicken Farm</text>
+  <text x="300" y="25" font-family="Arial" font-size="14" fill="#92400E">Eggs</text>
+  <text x="300" y="45" font-family="Arial" font-size="20" font-weight="bold" fill="#92400E">125</text>
+  
+  <!-- Golden Chicken -->
+  <rect x="20" y="70" width="360" height="70" rx="8" fill="#FFFBEB"/>
+  <rect x="20" y="70" width="360" height="70" rx="8" stroke="#FEF3C7" stroke-width="2"/>
+  
+  <circle cx="55" cy="105" r="25" fill="#FBBF24"/>
+  <ellipse cx="65" cy="95" rx="5" ry="7" fill="white"/>
+  <circle cx="65" cy="95" r="2" fill="black"/>
+  <path d="M75 105C80 105 80 110 75 110" stroke="#B45309" stroke-width="3"/>
+  <path d="M45 125L50 135L55 125" stroke="#B45309" stroke-width="3"/>
+  <path d="M55 125L60 135L65 125" stroke="#B45309" stroke-width="3"/>
+  
+  <text x="100" y="95" font-family="Arial" font-size="14" font-weight="bold" fill="#92400E">Golden Chicken</text>
+  <text x="100" y="115" font-family="Arial" font-size="12" fill="#92400E">Produces 20 eggs per hatch</text>
+  <text x="100" y="130" font-family="Arial" font-size="12" fill="#92400E">24-hour cooldown</text>
+  
+  <rect x="320" y="90" width="40" height="30" rx="6" fill="#F59E0B"/>
+  <text x="340" y="110" font-family="Arial" font-size="14" text-anchor="middle" fill="white">Buy</text>
+  
+  <!-- Regular Chicken -->
+  <rect x="20" y="150" width="360" height="70" rx="8" fill="#F9FAFB"/>
+  <rect x="20" y="150" width="360" height="70" rx="8" stroke="#E5E7EB" stroke-width="1"/>
+  
+  <circle cx="55" cy="185" r="25" fill="#FEFCE8"/>
+  <ellipse cx="65" cy="175" rx="4" ry="6" fill="white"/>
+  <circle cx="65" cy="175" r="2" fill="black"/>
+  <path d="M70 185C75 185 75 188 70 188" stroke="#B45309" stroke-width="2"/>
+  <path d="M50 200L54 210L58 200" stroke="#B45309" stroke-width="2"/>
+  <path d="M58 200L62 210L66 200" stroke="#B45309" stroke-width="2"/>
+  
+  <text x="100" y="175" font-family="Arial" font-size="14" font-weight="bold" fill="#111827">Regular Chicken</text>
+  <text x="100" y="195" font-family="Arial" font-size="12" fill="#6B7280">Produces 5 eggs per hatch</text>
+  <text x="100" y="210" font-family="Arial" font-size="12" fill="#6B7280">8-hour cooldown</text>
+  
+  <rect x="320" y="170" width="40" height="30" rx="6" fill="#F59E0B"/>
+  <text x="340" y="190" font-family="Arial" font-size="14" text-anchor="middle" fill="white">Buy</text>
+  
+  <!-- Baby Chicken -->
+  <rect x="20" y="230" width="360" height="70" rx="8" fill="#F9FAFB"/>
+  <rect x="20" y="230" width="360" height="70" rx="8" stroke="#E5E7EB" stroke-width="1"/>
+  
+  <circle cx="55" cy="265" r="20" fill="#FEF08A"/>
+  <ellipse cx="65" cy="255" rx="3" ry="4" fill="white"/>
+  <circle cx="65" cy="255" r="1.5" fill="black"/>
+  <path d="M70 265C73 265 73 267 70 267" stroke="#B45309" stroke-width="2"/>
+  <path d="M50 280L53 288L56 280" stroke="#B45309" stroke-width="2"/>
+  <path d="M56 280L59 288L62 280" stroke="#B45309" stroke-width="2"/>
+  
+  <text x="100" y="255" font-family="Arial" font-size="14" font-weight="bold" fill="#111827">Baby Chicken</text>
+  <text x="100" y="275" font-family="Arial" font-size="12" fill="#6B7280">Produces 2 eggs per hatch</text>
+  <text x="100" y="290" font-family="Arial" font-size="12" fill="#6B7280">4-hour cooldown</text>
+  
+  <rect x="320" y="250" width="40" height="30" rx="6" fill="#F59E0B"/>
+  <text x="340" y="270" font-family="Arial" font-size="14" text-anchor="middle" fill="white">Buy</text>
+</svg>

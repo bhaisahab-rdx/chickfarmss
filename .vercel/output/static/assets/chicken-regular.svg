@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <!-- Regular Chicken -->
+  <g>
+    <!-- Body -->
+    <ellipse cx="100" cy="120" rx="55" ry="48" fill="#F5F5F5" stroke="#BDBDBD" stroke-width="3"/>
+    
+    <!-- Head -->
+    <circle cx="100" cy="65" r="32" fill="#F5F5F5" stroke="#BDBDBD" stroke-width="3"/>
+    
+    <!-- Eyes -->
+    <circle cx="90" cy="60" r="5" fill="#333"/>
+    <circle cx="110" cy="60" r="5" fill="#333"/>
+    <circle cx="88" cy="58" r="2" fill="white"/>
+    <circle cx="108" cy="58" r="2" fill="white"/>
+    
+    <!-- Beak -->
+    <polygon points="100,70 88,85 112,85" fill="#FFA000" stroke="#E65100" stroke-width="1"/>
+    
+    <!-- Feet -->
+    <path d="M75,165 L65,175 L85,175 Z" fill="#FFA000" stroke="#E65100" stroke-width="1"/>
+    <path d="M125,165 L115,175 L135,175 Z" fill="#FFA000" stroke="#E65100" stroke-width="1"/>
+    
+    <!-- Wings -->
+    <ellipse cx="60" cy="120" rx="18" ry="28" fill="#FAFAFA" stroke="#BDBDBD" stroke-width="2"/>
+    <ellipse cx="140" cy="120" rx="18" ry="28" fill="#FAFAFA" stroke="#BDBDBD" stroke-width="2"/>
+    
+    <!-- Crest/Comb -->
+    <path d="M100,35 L92,45 L105,40 L95,50 L108,45 L98,55 L115,50 Z" fill="#F44336" stroke="#B71C1C" stroke-width="1"/>
+    
+    <!-- Tail feathers -->
+    <path d="M100,160 L110,175 L120,165 L130,180 L140,165" fill="none" stroke="#BDBDBD" stroke-width="3" stroke-linecap="round"/>
+  </g>
+</svg>

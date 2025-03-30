@@ -5,6 +5,8 @@
  * 1. Ensuring all imports use .js extensions for ESM compatibility
  * 2. Creating the necessary API routes for serverless functions
  * 3. Setting up environment variables
+ * 4. Creating a manual Vercel output structure with a single API function
+ *    to stay within the 12-function limit of the Vercel Hobby plan
  */
 
 import fs from 'fs';
@@ -32,6 +34,9 @@ async function build() {
     
     // 3. Check and fix vercel.json configuration
     await validateVercelConfig();
+    
+    // 4. Create manual Vercel output structure
+    await createVercelOutputStructure();
     
     console.log('Build completed successfully');
   } catch (error) {
@@ -259,6 +264,137 @@ async function validateVercelConfig() {
   } else {
     console.log('vercel.json not found, skipping validation');
   }
+}
+
+/**
+ * Create a manual Vercel output structure with a single API function
+ * This consolidates all API routes into a single serverless function
+ * to stay within the 12-function limit of the Vercel Hobby plan
+ */
+async function createVercelOutputStructure() {
+  console.log('Creating manual Vercel output structure with a single API function...');
+  
+  // Create the necessary directories
+  const outputDir = path.join(__dirname, '.vercel', 'output');
+  const functionsDir = path.join(outputDir, 'functions');
+  const staticDir = path.join(outputDir, 'static');
+  const apiFuncDir = path.join(functionsDir, 'api.func');
+  
+  // Create directories if they don't exist
+  fs.mkdirSync(outputDir, { recursive: true });
+  fs.mkdirSync(functionsDir, { recursive: true });
+  fs.mkdirSync(staticDir, { recursive: true });
+  fs.mkdirSync(apiFuncDir, { recursive: true });
+  
+  // Create config.json in the output directory
+  const configJson = {
+    version: 3,
+    routes: [
+      // Explicitly block access to HTML game files in public directory
+      { src: '/vercel-test.html', status: 404, dest: '/index.html' },
+      { src: '/health.html', status: 404, dest: '/index.html' },
+      { src: '/login.html', status: 404, dest: '/index.html' },
+      { src: '/register.html', status: 404, dest: '/index.html' },
+      { src: '/game.html', status: 404, dest: '/index.html' },
+      { src: '/public/index.html', status: 404, dest: '/index.html' },
+      { src: '/public/game.html', status: 404, dest: '/index.html' },
+      // Route all API calls to the consolidated API function
+      { src: '/api/(.*)', dest: '/api' },
+      // Serve files from the filesystem first
+      { handle: 'filesystem' },
+      // Everything else goes to the React app's index.html
+      { src: '/(.*)', dest: '/index.html' }
+    ],
+    env: {
+      NODE_ENV: 'production',
+      DATABASE_URL: process.env.DATABASE_URL || 'postgresql://postgres.zgsyciaoixairqqfwvyt:thekinghu8751@aws-0-ap-south-1.pooler.supabase.com:6543/postgres',
+      SESSION_SECRET: process.env.SESSION_SECRET || 'w8smRGPCRnWFtBSPf9cD',
+      NOWPAYMENTS_API_KEY: process.env.NOWPAYMENTS_API_KEY || 'JW7JXM6-DHEMGBX-J58QEXM-R2ETSY3',
+      NOWPAYMENTS_IPN_SECRET_KEY: process.env.NOWPAYMENTS_IPN_SECRET_KEY || 'A73NxQfXxJzHJF3Qh9jWkxbSvZHas8um'
+    }
+  };
+  
+  fs.writeFileSync(
+    path.join(outputDir, 'config.json'),
+    JSON.stringify(configJson, null, 2)
+  );
+  
+  // Create .vc-config.json in the API function directory
+  const vcConfigJson = {
+    runtime: 'nodejs18.x',
+    handler: 'index.js',
+    launcherType: 'Nodejs'
+  };
+  
+  fs.writeFileSync(
+    path.join(apiFuncDir, '.vc-config.json'),
+    JSON.stringify(vcConfigJson, null, 2)
+  );
+  
+  // Create the consolidated API handler
+  // Check for either .js or .cjs extension
+  let consolidatedApiPath = path.join(__dirname, 'api', 'consolidated.js');
+  
+  if (!fs.existsSync(consolidatedApiPath)) {
+    // Try .cjs extension
+    consolidatedApiPath = path.join(__dirname, 'api', 'consolidated.cjs');
+  }
+  
+  if (fs.existsSync(consolidatedApiPath)) {
+    // Copy the consolidated API file to the function directory
+    fs.copyFileSync(
+      consolidatedApiPath,
+      path.join(apiFuncDir, 'index.js')
+    );
+    console.log(`Copied ${consolidatedApiPath} to API function directory`);
+  } else {
+    console.error('Error: consolidated.js or consolidated.cjs not found in the api directory.');
+    console.error('Please create api/consolidated.js or api/consolidated.cjs with your consolidated API handler.');
+    process.exit(1);
+  }
+  
+  // Copy static assets to the static directory
+  console.log('Copying static assets to output directory...');
+  
+  const publicDir = path.join(__dirname, 'public');
+  if (fs.existsSync(publicDir)) {
+    // Function to copy files recursively, excluding HTML files
+    const copyFilesRecursive = (src, dest) => {
+      const entries = fs.readdirSync(src, { withFileTypes: true });
+      
+      for (const entry of entries) {
+        const srcPath = path.join(src, entry.name);
+        const destPath = path.join(dest, entry.name);
+        
+        // Skip HTML files (these will be blocked by our routing rules)
+        if (entry.isFile() && entry.name.endsWith('.html')) {
+          console.log(`Skipping HTML file: ${srcPath}`);
+          continue;
+        }
+        
+        // Create directories
+        if (entry.isDirectory()) {
+          fs.mkdirSync(destPath, { recursive: true });
+          copyFilesRecursive(srcPath, destPath);
+        } else {
+          // Copy files
+          fs.copyFileSync(srcPath, destPath);
+        }
+      }
+    };
+    
+    // Copy public directory contents to static directory
+    try {
+      copyFilesRecursive(publicDir, staticDir);
+      console.log('Static assets copied successfully');
+    } catch (error) {
+      console.error(`Error copying static assets: ${error.message}`);
+    }
+  } else {
+    console.log('Public directory not found, skipping static asset copy');
+  }
+  
+  console.log('Manual Vercel output structure created successfully.');
 }
 
 // Run the build

@@ -1,0 +1,28 @@
+<svg
+  version="1.1"
+  id="spinWheel"
+  xmlns="http://www.w3.org/2000/svg"
+  viewBox="0 0 400 400"
+  width="250"
+  height="250"
+>
+  <!-- Wheel Circle -->
+  <circle cx="200" cy="200" r="180" fill="#f1c40f" stroke="#e67e22" stroke-width="10" />
+
+  <!-- Wheel Sections -->
+  <path d="M200,200 L200,20 A180,180 0 0,1 340,95 Z" fill="#e74c3c" />
+  <path d="M200,200 L340,95 A180,180 0 0,1 380,200 Z" fill="#2ecc71" />
+  <path d="M200,200 L380,200 A180,180 0 0,1 340,305 Z" fill="#3498db" />
+  <path d="M200,200 L340,305 A180,180 0 0,1 200,380 Z" fill="#9b59b6" />
+  <path d="M200,200 L200,380 A180,180 0 0,1 60,305 Z" fill="#1abc9c" />
+  <path d="M200,200 L60,305 A180,180 0 0,1 20,200 Z" fill="#f39c12" />
+  <path d="M200,200 L20,200 A180,180 0 0,1 60,95 Z" fill="#d35400" />
+  <path d="M200,200 L60,95 A180,180 0 0,1 200,20 Z" fill="#34495e" />
+
+  <!-- Center Button -->
+  <circle cx="200" cy="200" r="30" fill="#fff" stroke="#333" stroke-width="5" />
+  <text x="190" y="210" font-size="14" font-weight="bold" fill="#333">SPIN</text>
+
+  <!-- Arrow Indicator -->
+  <polygon points="190,15 210,15 200,40" fill="red" />
+</svg>
