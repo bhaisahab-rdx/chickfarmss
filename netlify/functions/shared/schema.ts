@@ -16,8 +16,8 @@ export const dailySpinRewards: SpinRewardType[] = [
   { reward: { type: "eggs", amount: 5 }, probability: 25 },
   { reward: { type: "eggs", amount: 10 }, probability: 20 },
   { reward: { type: "eggs", amount: 15 }, probability: 15 },
-  { reward: { type: "wheat", amount: 1 }, probability: 15 },
-  { reward: { type: "water", amount: 1 }, probability: 15 },
+  { reward: { type: "wheat", amount: 5 }, probability: 15 },
+  { reward: { type: "water", amount: 5 }, probability: 15 },
   { reward: { type: "extra_spin", amount: 1 }, probability: 5 },
   { reward: { type: "usdt", amount: 0.5 }, probability: 4 },
   { reward: { type: "usdt", amount: 1 }, probability: 1 }
