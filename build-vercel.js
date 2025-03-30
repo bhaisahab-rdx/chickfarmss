@@ -183,25 +183,30 @@ async function validateVercelConfig() {
       configUpdated = true;
     }
     
-    // Issue 2: Check if routes is used alongside headers, rewrites, redirects, etc.
-    const incompatibleWithRoutes = ['headers', 'rewrites', 'redirects', 'cleanUrls', 'trailingSlash'];
-    const hasIncompatibleProps = incompatibleWithRoutes.some(prop => vercelConfig[prop]);
+    // SPECIAL CONFIGURATION: We need to preserve routes for this project
+    console.log('Checking routing configuration...');
     
-    if (vercelConfig.routes && hasIncompatibleProps) {
-      console.log('Warning: "routes" cannot be used alongside headers, rewrites, redirects, cleanUrls or trailingSlash');
-      console.log('Converting routes to rewrites...');
+    // For this specific project, we want to use routes instead of rewrites
+    if (vercelConfig.rewrites && !vercelConfig.routes) {
+      console.log('Converting rewrites to routes format for better compatibility...');
       
-      // Convert routes to rewrites if they don't exist yet
-      if (!vercelConfig.rewrites) {
-        vercelConfig.rewrites = vercelConfig.routes.map(route => ({
-          source: route.src,
-          destination: route.dest
-        }));
-        
-        // Remove the routes property
-        delete vercelConfig.routes;
-        configUpdated = true;
-      }
+      vercelConfig.routes = vercelConfig.rewrites.map(rewrite => ({
+        src: rewrite.source || rewrite.src,
+        dest: rewrite.destination || rewrite.dest
+      }));
+      
+      // Remove the rewrites property
+      delete vercelConfig.rewrites;
+      configUpdated = true;
+    }
+    
+    // If we have routes, we need to remove headers which are incompatible
+    if (vercelConfig.routes && vercelConfig.headers) {
+      console.log('Warning: "routes" cannot be used alongside "headers"');
+      console.log('Removing "headers" to avoid Vercel configuration conflicts...');
+      
+      delete vercelConfig.headers;
+      configUpdated = true;
     }
     
     // Write back to vercel.json if changes were made

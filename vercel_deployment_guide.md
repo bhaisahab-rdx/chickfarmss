@@ -56,6 +56,15 @@ After deployment, verify that your application is running correctly:
 1. Visit your application URL (provided by Vercel)
 2. Check the health endpoint: `https://your-app.vercel.app/health.html`
 3. Run the Vercel tests: `https://your-app.vercel.app/vercel-test.html`
+4. Run the comprehensive test: `https://your-app.vercel.app/api/test-deployment`
+
+The comprehensive test will check:
+- API functionality
+- Environment variables
+- Database connection
+- Database schema verification
+- NOWPayments configuration
+- Server resources and environment
 
 ## Troubleshooting
 

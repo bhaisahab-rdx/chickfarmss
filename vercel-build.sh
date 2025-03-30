@@ -25,6 +25,68 @@ echo "Running build scripts..."
 node build-vercel.js
 node vercel-api-build.js
 
+# Create root HTML redirect if it doesn't exist
+echo "Checking for root index.html file..."
+if [ ! -f "index.html" ]; then
+  echo "Creating root index.html redirect..."
+  cat > index.html << 'EOF'
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="refresh" content="0;url=/dist/public/index.html" />
+  <title>ChickFarms - Loading...</title>
+  <style>
+    body {
+      font-family: 'Arial', sans-serif;
+      background-color: #f7f9fc;
+      color: #333;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+      text-align: center;
+    }
+    .loader-container {
+      padding: 20px;
+      border-radius: 8px;
+      background-color: white;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    .loader {
+      border: 5px solid #f3f3f3;
+      border-top: 5px solid #f8931f;
+      border-radius: 50%;
+      width: 50px;
+      height: 50px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 20px;
+    }
+    h1 {
+      color: #f8931f;
+      margin-bottom: 10px;
+    }
+    p {
+      color: #666;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div class="loader-container">
+    <div class="loader"></div>
+    <h1>ChickFarms</h1>
+    <p>Loading your farming adventure...</p>
+  </div>
+</body>
+</html>
+EOF
+  echo "Root index.html redirect created"
+fi
+
 # Verify build
 echo "Verifying build..."
 if [ ! -f "api/health.js" ]; then

@@ -226,6 +226,65 @@ try {
 }
 ```
 
+## Frontend 404 Errors
+
+### Error: 404 NOT_FOUND on root path (/)
+
+**Problem**: Vercel cannot find the correct frontend files to serve.
+
+**Solutions**:
+
+1. **Create a root index.html redirect:**
+   ```html
+   <!DOCTYPE html>
+   <html>
+   <head>
+     <meta http-equiv="refresh" content="0;url=/dist/public/index.html" />
+     <title>ChickFarms - Loading...</title>
+   </head>
+   <body>
+     <p>Loading ChickFarms application...</p>
+   </body>
+   </html>
+   ```
+
+2. **Update vercel.json to use routes instead of rewrites:**
+   ```json
+   {
+     "version": 2,
+     "builds": [
+       {
+         "src": "api/**/*.js",
+         "use": "@vercel/node",
+         "config": {
+           "memory": 1024,
+           "maxDuration": 10
+         }
+       },
+       {
+         "src": "dist/public/**/*",
+         "use": "@vercel/static"
+       },
+       {
+         "src": "index.html",
+         "use": "@vercel/static"
+       }
+     ],
+     "routes": [
+       { "src": "/api/(.*)", "dest": "/api/$1.js" },
+       { "src": "/assets/(.*)", "dest": "/dist/public/assets/$1" },
+       { "src": "/", "dest": "/index.html" },
+       { "src": "/(.*)", "dest": "/dist/public/$1" }
+     ]
+   }
+   ```
+
+3. **Modify build-vercel.js to preserve routes configuration:**
+   Update the validateVercelConfig function to prevent converting `routes` to `rewrites` and remove any incompatible headers.
+
+4. **Adjust Output Directory setting:**
+   In your Vercel project settings, try using root directory (`.`) instead of `public` for the Output Directory.
+
 ## Progressive Troubleshooting
 
 If you're still having issues, follow this progressive troubleshooting approach:

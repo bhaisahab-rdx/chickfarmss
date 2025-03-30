@@ -3,506 +3,463 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ChickFarms Vercel Test</title>
+  <title>ChickFarms Vercel Deployment Test</title>
   <style>
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-family: 'Arial', sans-serif;
       line-height: 1.6;
       color: #333;
-      max-width: 800px;
+      max-width: 1000px;
       margin: 0 auto;
       padding: 20px;
+      background-color: #f5f7fa;
     }
-    h1 {
-      color: #1a73e8;
+    
+    h1, h2, h3 {
+      color: #f8931f;
+    }
+    
+    .header {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+    
+    .logo {
+      max-width: 200px;
+      margin-bottom: 10px;
+    }
+    
+    .test-container {
+      background-color: white;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .test-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+    
+    .test-card {
+      background-color: #fff;
+      border-radius: 8px;
+      padding: 15px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+      transition: transform 0.2s;
+    }
+    
+    .test-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    
+    .test-card h3 {
+      margin-top: 0;
       border-bottom: 1px solid #eee;
       padding-bottom: 10px;
-      margin-top: 0;
     }
-    .section {
-      background: #f9f9f9;
-      border-radius: 5px;
-      padding: 15px;
-      margin-bottom: 20px;
-      border-left: 4px solid #1a73e8;
-    }
-    .success {
-      color: #0b8043;
-      font-weight: bold;
-    }
-    .error {
-      color: #c5221f;
-      font-weight: bold;
-    }
-    .timestamp {
-      color: #666;
-      font-size: 0.9em;
-    }
-    .test-card {
-      margin-bottom: 20px;
-      border: 1px solid #eee;
-      border-radius: 5px;
-      overflow: hidden;
-    }
-    .test-card .header {
-      background-color: #f5f5f5;
-      padding: 10px 15px;
-      font-weight: bold;
-      border-bottom: 1px solid #eee;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    .test-card .content {
-      padding: 15px;
-    }
-    .test-card .status {
+    
+    .btn {
       display: inline-block;
-      padding: 3px 8px;
-      border-radius: 12px;
-      font-size: 12px;
-      font-weight: bold;
-    }
-    .test-card .status-pending {
-      background-color: #fef7e0;
-      color: #b06000;
-    }
-    .test-card .status-passed {
-      background-color: #e6f4ea;
-      color: #137333;
-    }
-    .test-card .status-failed {
-      background-color: #fce8e6;
-      color: #c5221f;
-    }
-    button {
-      background-color: #1a73e8;
+      background-color: #f8931f;
       color: white;
-      border: none;
-      padding: 8px 16px;
+      padding: 10px 15px;
       border-radius: 4px;
+      text-decoration: none;
+      transition: background-color 0.2s;
+      border: none;
       cursor: pointer;
       font-size: 14px;
     }
-    button:hover {
-      background-color: #0d61cb;
+    
+    .btn:hover {
+      background-color: #e08010;
     }
-    button:disabled {
-      background-color: #ccc;
-      cursor: not-allowed;
+    
+    .btn-secondary {
+      background-color: #6c757d;
     }
-    .code {
-      background-color: #f5f5f5;
-      padding: 10px;
-      border-radius: 4px;
-      font-family: monospace;
-      overflow-x: auto;
+    
+    .btn-secondary:hover {
+      background-color: #5a6268;
     }
-    .progress-container {
-      margin-top: 20px;
-      margin-bottom: 30px;
-    }
-    .progress-bar {
-      height: 8px;
-      background-color: #e0e0e0;
-      border-radius: 4px;
-      overflow: hidden;
-    }
-    .progress-bar-inner {
-      height: 100%;
-      background-color: #1a73e8;
-      width: 0%;
-      transition: width 0.3s ease;
-    }
+    
     .result {
+      background-color: #f8f9fa;
+      border-radius: 4px;
+      padding: 15px;
+      margin-top: 15px;
+      white-space: pre-wrap;
+      overflow-x: auto;
+      font-family: monospace;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    
+    .status {
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: bold;
+    }
+    
+    .status-passed {
+      background-color: #d4edda;
+      color: #155724;
+    }
+    
+    .status-failed {
+      background-color: #f8d7da;
+      color: #721c24;
+    }
+    
+    .summary {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 20px;
+      padding: 10px;
+      background-color: #e9ecef;
+      border-radius: 4px;
+    }
+    
+    .spinner {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 3px solid rgba(0,0,0,0.1);
+      border-radius: 50%;
+      border-top-color: #f8931f;
+      animation: spin 1s ease-in-out infinite;
+      margin-right: 10px;
+      vertical-align: middle;
+    }
+    
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    
+    .hidden {
+      display: none;
+    }
+    
+    .test-details {
       margin-top: 10px;
     }
-    .btn-runall {
-      margin-bottom: 20px;
+    
+    .detail-item {
+      margin: 5px 0;
+    }
+    
+    .env-status {
+      background-color: #e2e3e5;
+      color: #383d41;
+      padding: 2px 5px;
+      border-radius: 3px;
+      margin-left: 5px;
+      font-size: 12px;
     }
   </style>
 </head>
 <body>
-  <h1>ChickFarms Vercel Deployment Test</h1>
-  
-  <div class="section">
-    <p>This page tests for common Vercel deployment issues with ChickFarms.</p>
-    <p class="timestamp">Page loaded at: <span id="timestamp"></span></p>
+  <div class="header">
+    <h1>ChickFarms Vercel Deployment Test</h1>
+    <p>This page helps verify your Vercel deployment is working correctly.</p>
   </div>
   
-  <button id="runAll" class="btn-runall">Run All Tests</button>
-  
-  <div class="progress-container">
-    <div class="progress-bar">
-      <div id="progressBar" class="progress-bar-inner"></div>
+  <div class="test-container">
+    <h2>Quick Tests</h2>
+    <div class="test-grid">
+      <div class="test-card">
+        <h3>Static Files Test</h3>
+        <p>Checks if static files are being served correctly.</p>
+        <button class="btn" onclick="testStaticFiles()">Run Test</button>
+        <div id="static-result" class="result hidden"></div>
+      </div>
+      
+      <div class="test-card">
+        <h3>API Basic Test</h3>
+        <p>Verifies API routes are accessible.</p>
+        <button class="btn" onclick="testApiBasic()">Run Test</button>
+        <div id="api-basic-result" class="result hidden"></div>
+      </div>
+      
+      <div class="test-card">
+        <h3>Health Check</h3>
+        <p>Checks the health status of the application.</p>
+        <button class="btn" onclick="testHealth()">Run Test</button>
+        <div id="health-result" class="result hidden"></div>
+      </div>
+      
+      <div class="test-card">
+        <h3>Database Connection</h3>
+        <p>Tests the connection to the PostgreSQL database.</p>
+        <button class="btn" onclick="testDatabase()">Run Test</button>
+        <div id="db-result" class="result hidden"></div>
+      </div>
     </div>
-    <p id="progressText">0/6 tests completed</p>
-  </div>
-  
-  <div id="test1" class="test-card">
-    <div class="header">
-      <span>Test 1: Vercel Environment Detection</span>
-      <span class="status status-pending" id="status1">Pending</span>
+    
+    <h2>Comprehensive Test</h2>
+    <p>Run a complete deployment test that checks all system components:</p>
+    <button class="btn" onclick="runComprehensiveTest()">Run Comprehensive Test</button>
+    <div id="loading-comprehensive" class="hidden">
+      <p><span class="spinner"></span> Running comprehensive tests...</p>
     </div>
-    <div class="content">
-      <p>Checking if the app is running on Vercel and detecting environment variables.</p>
-      <button onclick="runTest1()">Run Test</button>
-      <div class="result" id="result1"></div>
-    </div>
-  </div>
-  
-  <div id="test2" class="test-card">
-    <div class="header">
-      <span>Test 2: Static Asset Serving</span>
-      <span class="status status-pending" id="status2">Pending</span>
-    </div>
-    <div class="content">
-      <p>Verifying that static assets are being served correctly.</p>
-      <button onclick="runTest2()">Run Test</button>
-      <div class="result" id="result2"></div>
-    </div>
-  </div>
-  
-  <div id="test3" class="test-card">
-    <div class="header">
-      <span>Test 3: Minimal API Endpoint</span>
-      <span class="status status-pending" id="status3">Pending</span>
-    </div>
-    <div class="content">
-      <p>Testing API endpoint that doesn't require database access.</p>
-      <button onclick="runTest3()">Run Test</button>
-      <div class="result" id="result3"></div>
-    </div>
-  </div>
-  
-  <div id="test4" class="test-card">
-    <div class="header">
-      <span>Test 4: Health API Endpoint</span>
-      <span class="status status-pending" id="status4">Pending</span>
-    </div>
-    <div class="content">
-      <p>Testing health check API endpoint.</p>
-      <button onclick="runTest4()">Run Test</button>
-      <div class="result" id="result4"></div>
-    </div>
-  </div>
-  
-  <div id="test5" class="test-card">
-    <div class="header">
-      <span>Test 5: Database Connection</span>
-      <span class="status status-pending" id="status5">Pending</span>
-    </div>
-    <div class="content">
-      <p>Testing database connectivity from Vercel.</p>
-      <button onclick="runTest5()">Run Test</button>
-      <div class="result" id="result5"></div>
+    <div id="comprehensive-result" class="result hidden"></div>
+    
+    <div id="test-details" class="test-details hidden">
+      <h3>Test Details</h3>
+      <div id="test-details-content"></div>
+      
+      <h3>System Information</h3>
+      <div id="system-info"></div>
+      
+      <div class="summary">
+        <div>
+          <strong>Total Tests:</strong> <span id="total-tests">0</span>
+        </div>
+        <div>
+          <strong>Passed:</strong> <span id="passed-tests">0</span>
+        </div>
+        <div>
+          <strong>Failed:</strong> <span id="failed-tests">0</span>
+        </div>
+        <div>
+          <strong>Environment:</strong> <span id="environment">Unknown</span>
+        </div>
+      </div>
     </div>
   </div>
   
-  <div id="test6" class="test-card">
-    <div class="header">
-      <span>Test 6: Full Diagnostics</span>
-      <span class="status status-pending" id="status6">Pending</span>
-    </div>
-    <div class="content">
-      <p>Running full diagnostics to collect system information.</p>
-      <button onclick="runTest6()">Run Test</button>
-      <div class="result" id="result6"></div>
+  <div class="test-container">
+    <h2>Environment Check</h2>
+    <button class="btn" onclick="checkEnvironment()">Check Environment Variables</button>
+    <div id="env-result" class="result hidden"></div>
+    
+    <div id="env-status" class="hidden">
+      <h3>Required Variables</h3>
+      <ul>
+        <li>NODE_ENV: <span id="node-env-status"></span></li>
+        <li>DATABASE_URL: <span id="db-url-status"></span></li>
+        <li>SESSION_SECRET: <span id="session-secret-status"></span></li>
+        <li>NOWPAYMENTS_API_KEY: <span id="nowpayments-key-status"></span></li>
+        <li>NOWPAYMENTS_IPN_SECRET_KEY: <span id="nowpayments-ipn-status"></span></li>
+      </ul>
     </div>
   </div>
-
+  
+  <div class="test-container">
+    <h2>Troubleshooting</h2>
+    <p>If any tests fail, check the following:</p>
+    <ul>
+      <li>Ensure all environment variables are set in your Vercel project</li>
+      <li>Check that your database allows connections from Vercel's IP ranges</li>
+      <li>Verify that your database schema includes all required tables</li>
+      <li>Ensure you've run the build scripts (build-vercel.js and vercel-api-build.js) before deployment</li>
+    </ul>
+    
+    <h3>Common Issues</h3>
+    <ul>
+      <li><strong>Database Connection Failures</strong>: Add <code>?sslmode=require</code> to your DATABASE_URL</li>
+      <li><strong>Missing Static Files</strong>: Check the routes configuration in vercel.json</li>
+      <li><strong>API Errors</strong>: Ensure all import statements include .js extensions</li>
+    </ul>
+  </div>
+  
   <script>
-    // Update timestamp
-    document.getElementById('timestamp').textContent = new Date().toISOString();
-    
-    // Test state
-    const tests = {
-      completed: 0,
-      total: 6,
-      results: {}
-    };
-    
-    // Helper functions
-    function updateStatus(testId, status, message) {
-      const statusElement = document.getElementById(`status${testId}`);
-      const resultElement = document.getElementById(`result${testId}`);
+    // Utility function to show result and format JSON
+    function showResult(elementId, data, error = false) {
+      const element = document.getElementById(elementId);
+      element.classList.remove('hidden');
       
-      // Update status badge
-      statusElement.textContent = status === 'passed' ? 'Passed' : 'Failed';
-      statusElement.classList.remove('status-pending');
-      statusElement.classList.add(status === 'passed' ? 'status-passed' : 'status-failed');
-      
-      // Update result content
-      if (message) {
-        resultElement.innerHTML = message;
+      if (error) {
+        element.style.backgroundColor = '#f8d7da';
+        element.innerHTML = `<strong>Error:</strong> ${data}`;
+        return;
       }
       
-      // Update progress
-      tests.completed++;
-      tests.results[testId] = status;
-      
-      const progressBar = document.getElementById('progressBar');
-      const progressText = document.getElementById('progressText');
-      
-      const progressPercent = (tests.completed / tests.total) * 100;
-      progressBar.style.width = `${progressPercent}%`;
-      progressText.textContent = `${tests.completed}/${tests.total} tests completed`;
-      
-      // Check if all tests are done
-      if (tests.completed === tests.total) {
-        const passedCount = Object.values(tests.results).filter(r => r === 'passed').length;
-        alert(`Testing complete! ${passedCount}/${tests.total} tests passed.`);
+      let content = data;
+      if (typeof data === 'object') {
+        content = JSON.stringify(data, null, 2);
       }
+      
+      element.innerHTML = content;
     }
     
-    async function fetchWithTimeout(url, options = {}, timeout = 10000) {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), timeout);
+    // Test static files serving
+    async function testStaticFiles() {
+      const resultElement = document.getElementById('static-result');
+      resultElement.classList.remove('hidden');
+      resultElement.innerHTML = '<span class="spinner"></span> Testing static files...';
       
       try {
-        const response = await fetch(url, {
-          ...options,
-          signal: controller.signal
-        });
-        clearTimeout(timeoutId);
-        return response;
-      } catch (error) {
-        clearTimeout(timeoutId);
-        throw error;
-      }
-    }
-    
-    // Test 1: Vercel Environment
-    async function runTest1() {
-      const resultElement = document.getElementById('result1');
-      resultElement.innerHTML = '<p>Testing Vercel environment...</p>';
-      
-      try {
-        // Check hostname for vercel.app
-        const isVercel = window.location.hostname.includes('vercel.app');
-        const vercelInfo = isVercel 
-          ? '<p class="success">✅ Running on Vercel</p>' 
-          : '<p class="error">❌ Not running on Vercel</p>';
-        
-        resultElement.innerHTML = `
-          <p>Host: ${window.location.hostname}</p>
-          ${vercelInfo}
-        `;
-        
-        updateStatus(1, isVercel ? 'passed' : 'failed');
-      } catch (error) {
-        resultElement.innerHTML = `<p class="error">❌ Error: ${error.message}</p>`;
-        updateStatus(1, 'failed');
-      }
-    }
-    
-    // Test 2: Static Assets
-    async function runTest2() {
-      const resultElement = document.getElementById('result2');
-      resultElement.innerHTML = '<p>Testing static asset serving...</p>';
-      
-      try {
-        // Try to load a test image or favicon
-        const testUrl = '/favicon.ico';
-        const startTime = Date.now();
-        
-        const response = await fetchWithTimeout(testUrl);
-        const elapsed = Date.now() - startTime;
-        
+        const response = await fetch('/health.html');
         if (response.ok) {
-          resultElement.innerHTML = `
-            <p class="success">✅ Static assets are being served correctly</p>
-            <p>Response time: ${elapsed}ms</p>
-            <p>Status: ${response.status} ${response.statusText}</p>
-          `;
-          updateStatus(2, 'passed');
+          showResult('static-result', 'Static files test PASSED ✅ (health.html is accessible)');
         } else {
-          resultElement.innerHTML = `
-            <p class="error">❌ Static asset test failed</p>
-            <p>Status: ${response.status} ${response.statusText}</p>
-          `;
-          updateStatus(2, 'failed');
+          showResult('static-result', `Failed to load static file. Status: ${response.status}`, true);
         }
       } catch (error) {
-        resultElement.innerHTML = `<p class="error">❌ Error: ${error.message}</p>`;
-        updateStatus(2, 'failed');
+        showResult('static-result', `Error testing static files: ${error.message}`, true);
       }
     }
     
-    // Test 3: Minimal API
-    async function runTest3() {
-      const resultElement = document.getElementById('result3');
-      resultElement.innerHTML = '<p>Testing minimal API...</p>';
+    // Test basic API functionality
+    async function testApiBasic() {
+      const resultElement = document.getElementById('api-basic-result');
+      resultElement.classList.remove('hidden');
+      resultElement.innerHTML = '<span class="spinner"></span> Testing API...';
       
       try {
-        const startTime = Date.now();
-        const response = await fetchWithTimeout('/api/minimal');
-        const elapsed = Date.now() - startTime;
-        
-        if (response.ok) {
-          const data = await response.json();
-          
-          resultElement.innerHTML = `
-            <p class="success">✅ Minimal API is working</p>
-            <p>Response time: ${elapsed}ms</p>
-            <div class="code">${JSON.stringify(data, null, 2)}</div>
-          `;
-          updateStatus(3, 'passed');
-        } else {
-          resultElement.innerHTML = `
-            <p class="error">❌ Minimal API test failed</p>
-            <p>Status: ${response.status} ${response.statusText}</p>
-          `;
-          updateStatus(3, 'failed');
-        }
+        const response = await fetch('/api/minimal');
+        const data = await response.json();
+        showResult('api-basic-result', data);
       } catch (error) {
-        resultElement.innerHTML = `<p class="error">❌ Error: ${error.message}</p>`;
-        updateStatus(3, 'failed');
+        showResult('api-basic-result', `Error testing API: ${error.message}`, true);
       }
     }
     
-    // Test 4: Health API
-    async function runTest4() {
-      const resultElement = document.getElementById('result4');
-      resultElement.innerHTML = '<p>Testing health API...</p>';
+    // Test health endpoint
+    async function testHealth() {
+      const resultElement = document.getElementById('health-result');
+      resultElement.classList.remove('hidden');
+      resultElement.innerHTML = '<span class="spinner"></span> Checking health...';
       
       try {
-        const startTime = Date.now();
-        const response = await fetchWithTimeout('/api/health');
-        const elapsed = Date.now() - startTime;
-        
-        if (response.ok) {
-          const data = await response.json();
-          
-          resultElement.innerHTML = `
-            <p class="success">✅ Health API is working</p>
-            <p>Response time: ${elapsed}ms</p>
-            <div class="code">${JSON.stringify(data, null, 2)}</div>
-          `;
-          updateStatus(4, 'passed');
-        } else {
-          resultElement.innerHTML = `
-            <p class="error">❌ Health API test failed</p>
-            <p>Status: ${response.status} ${response.statusText}</p>
-          `;
-          updateStatus(4, 'failed');
-        }
+        const response = await fetch('/api/health');
+        const data = await response.json();
+        showResult('health-result', data);
       } catch (error) {
-        resultElement.innerHTML = `<p class="error">❌ Error: ${error.message}</p>`;
-        updateStatus(4, 'failed');
+        showResult('health-result', `Error checking health: ${error.message}`, true);
       }
     }
     
-    // Test 5: Database Connection
-    async function runTest5() {
-      const resultElement = document.getElementById('result5');
-      resultElement.innerHTML = '<p>Testing database connection...</p>';
+    // Test database connection
+    async function testDatabase() {
+      const resultElement = document.getElementById('db-result');
+      resultElement.classList.remove('hidden');
+      resultElement.innerHTML = '<span class="spinner"></span> Testing database connection...';
       
       try {
-        const startTime = Date.now();
-        const response = await fetchWithTimeout('/api/db-test');
-        const elapsed = Date.now() - startTime;
-        
+        const response = await fetch('/api/db-test');
+        const data = await response.json();
+        showResult('db-result', data);
+      } catch (error) {
+        showResult('db-result', `Error testing database: ${error.message}`, true);
+      }
+    }
+    
+    // Run comprehensive test
+    async function runComprehensiveTest() {
+      document.getElementById('loading-comprehensive').classList.remove('hidden');
+      document.getElementById('comprehensive-result').classList.add('hidden');
+      document.getElementById('test-details').classList.add('hidden');
+      
+      try {
+        const response = await fetch('/api/test-deployment');
         const data = await response.json();
         
-        if (response.ok) {
-          resultElement.innerHTML = `
-            <p class="success">✅ Database connection successful</p>
-            <p>Response time: ${elapsed}ms</p>
-            <div class="code">${JSON.stringify(data, null, 2)}</div>
+        // Show overview in the result box
+        document.getElementById('loading-comprehensive').classList.add('hidden');
+        
+        const resultSummary = `Deployment Test ${data.success ? 'PASSED ✅' : 'FAILED ❌'}
+Timestamp: ${data.timestamp}
+Environment: ${data.environment}`;
+        
+        showResult('comprehensive-result', resultSummary);
+        
+        // Show detailed results
+        document.getElementById('test-details').classList.remove('hidden');
+        
+        // Fill in summary counts
+        document.getElementById('total-tests').textContent = data.summary.total;
+        document.getElementById('passed-tests').textContent = data.summary.passed;
+        document.getElementById('failed-tests').textContent = data.summary.failed;
+        document.getElementById('environment').textContent = data.environment;
+        
+        // Show individual test results
+        const detailsContent = document.getElementById('test-details-content');
+        detailsContent.innerHTML = '';
+        
+        data.tests.forEach(test => {
+          const status = test.status === 'passed' ? 
+            '<span class="status status-passed">PASSED</span>' : 
+            '<span class="status status-failed">FAILED</span>';
+          
+          const details = test.details ? 
+            `<div><pre>${JSON.stringify(test.details, null, 2)}</pre></div>` : '';
+          
+          detailsContent.innerHTML += `
+            <div class="detail-item">
+              <strong>${test.name}:</strong> ${status}
+              <div>${test.message}</div>
+              ${details}
+            </div>`;
+        });
+        
+        // Show system info
+        const sysInfo = document.getElementById('system-info');
+        if (data.systemInfo) {
+          sysInfo.innerHTML = `
+            <div>Node.js Version: ${data.systemInfo.nodeVersion}</div>
+            <div>Platform: ${data.systemInfo.platform}</div>
+            <div>CPUs: ${data.systemInfo.cpus}</div>
+            <div>Memory: ${data.systemInfo.memory.usagePercent}% used (${data.systemInfo.memory.freeMb}MB free of ${data.systemInfo.memory.totalMb}MB)</div>
           `;
-          updateStatus(5, 'passed');
-        } else {
-          resultElement.innerHTML = `
-            <p class="error">❌ Database connection failed</p>
-            <p>Status: ${response.status} ${response.statusText}</p>
-            <div class="code">${JSON.stringify(data, null, 2)}</div>
-          `;
-          updateStatus(5, 'failed');
         }
+        
       } catch (error) {
-        resultElement.innerHTML = `<p class="error">❌ Error: ${error.message}</p>`;
-        updateStatus(5, 'failed');
+        document.getElementById('loading-comprehensive').classList.add('hidden');
+        showResult('comprehensive-result', `Error running comprehensive test: ${error.message}`, true);
       }
     }
     
-    // Test 6: Full Diagnostics
-    async function runTest6() {
-      const resultElement = document.getElementById('result6');
-      resultElement.innerHTML = '<p>Running diagnostics...</p>';
+    // Check environment variables
+    async function checkEnvironment() {
+      const resultElement = document.getElementById('env-result');
+      resultElement.classList.remove('hidden');
+      resultElement.innerHTML = '<span class="spinner"></span> Checking environment variables...';
       
       try {
-        const startTime = Date.now();
-        const response = await fetchWithTimeout('/api/diagnostics');
-        const elapsed = Date.now() - startTime;
+        const response = await fetch('/api/diagnostics');
+        const data = await response.json();
         
-        if (response.ok) {
-          const data = await response.json();
+        document.getElementById('env-status').classList.remove('hidden');
+        
+        // Check required variables
+        const requiredVars = [
+          { key: 'NODE_ENV', id: 'node-env-status' },
+          { key: 'DATABASE_URL', id: 'db-url-status' },
+          { key: 'SESSION_SECRET', id: 'session-secret-status' },
+          { key: 'NOWPAYMENTS_API_KEY', id: 'nowpayments-key-status' },
+          { key: 'NOWPAYMENTS_IPN_SECRET_KEY', id: 'nowpayments-ipn-status' }
+        ];
+        
+        requiredVars.forEach(varInfo => {
+          const element = document.getElementById(varInfo.id);
           
-          resultElement.innerHTML = `
-            <p class="success">✅ Diagnostics completed successfully</p>
-            <p>Response time: ${elapsed}ms</p>
-            <div class="code">${JSON.stringify(data, null, 2)}</div>
-          `;
-          updateStatus(6, 'passed');
-        } else {
-          resultElement.innerHTML = `
-            <p class="error">❌ Diagnostics failed</p>
-            <p>Status: ${response.status} ${response.statusText}</p>
-          `;
-          updateStatus(6, 'failed');
-        }
+          if (data.env[varInfo.key]) {
+            let value = data.env[varInfo.key];
+            
+            // Mask sensitive values
+            if (varInfo.key !== 'NODE_ENV') {
+              value = value.substr(0, 3) + '********';
+            }
+            
+            element.innerHTML = `<span class="env-status status-passed">SET</span> ${value}`;
+          } else {
+            element.innerHTML = `<span class="env-status status-failed">MISSING</span>`;
+          }
+        });
+        
+        showResult('env-result', data);
       } catch (error) {
-        resultElement.innerHTML = `<p class="error">❌ Error: ${error.message}</p>`;
-        updateStatus(6, 'failed');
+        showResult('env-result', `Error checking environment: ${error.message}`, true);
       }
     }
-    
-    // Run all tests
-    async function runAllTests() {
-      const runAllButton = document.getElementById('runAll');
-      runAllButton.disabled = true;
-      runAllButton.textContent = 'Running Tests...';
-      
-      // Reset test state
-      tests.completed = 0;
-      tests.results = {};
-      document.getElementById('progressBar').style.width = '0%';
-      document.getElementById('progressText').textContent = '0/6 tests completed';
-      
-      // Reset status badges
-      for (let i = 1; i <= 6; i++) {
-        const statusElement = document.getElementById(`status${i}`);
-        statusElement.textContent = 'Pending';
-        statusElement.classList.remove('status-passed', 'status-failed');
-        statusElement.classList.add('status-pending');
-      }
-      
-      // Run tests with small delays to avoid overwhelming the server
-      await runTest1();
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      await runTest2();
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      await runTest3();
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      await runTest4();
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      await runTest5();
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      await runTest6();
-      
-      // Re-enable button
-      runAllButton.disabled = false;
-      runAllButton.textContent = 'Run All Tests';
-    }
-    
-    // Add event listener for run all button
-    document.getElementById('runAll').addEventListener('click', runAllTests);
   </script>
 </body>
 </html>
