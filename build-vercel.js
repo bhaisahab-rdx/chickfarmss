@@ -128,9 +128,19 @@ npm-debug.log
 .env.production.local
 .git
 .github
+# Ignore HTML files in public to ensure React app is served
+public/*.html
 `;
     
     fs.writeFileSync(vercelIgnorePath, ignoreContent);
+  } else {
+    // Update existing .vercelignore to include HTML files
+    let vercelIgnoreContent = fs.readFileSync(vercelIgnorePath, 'utf8');
+    if (!vercelIgnoreContent.includes('public/*.html')) {
+      vercelIgnoreContent += '\n# Ignore HTML files in public to ensure React app is served\npublic/*.html\n';
+      fs.writeFileSync(vercelIgnorePath, vercelIgnoreContent);
+      console.log('Updated .vercelignore to exclude HTML files in public directory');
+    }
   }
 }
 
