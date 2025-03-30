@@ -38,6 +38,12 @@ async function exportDatabaseToSql() {
     for (const table of [...tables].reverse()) {
       sqlOutput += `DROP TABLE IF EXISTS "${table}" CASCADE;\n`;
     }
+    
+    // Add sequences for tables with serial IDs
+    sqlOutput += `\n-- Sequences creation\n`;
+    for (const table of tables) {
+      sqlOutput += `CREATE SEQUENCE IF NOT EXISTS ${table}_id_seq;\n`;
+    }
     sqlOutput += `\n-- Schema creation\n`;
     
     // Export schema for each table

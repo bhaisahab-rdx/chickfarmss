@@ -1,4 +1,4 @@
--- Database export generated on 2025-03-30T11:24:25.059Z
+-- Database export generated on 2025-03-30T11:30:38.070Z
 
 -- Clean start - drop tables if they exist
 DROP TABLE IF EXISTS "user_mystery_boxes" CASCADE;
@@ -15,6 +15,22 @@ DROP TABLE IF EXISTS "transactions" CASCADE;
 DROP TABLE IF EXISTS "chickens" CASCADE;
 DROP TABLE IF EXISTS "resources" CASCADE;
 DROP TABLE IF EXISTS "users" CASCADE;
+
+-- Sequences creation
+CREATE SEQUENCE IF NOT EXISTS users_id_seq;
+CREATE SEQUENCE IF NOT EXISTS resources_id_seq;
+CREATE SEQUENCE IF NOT EXISTS chickens_id_seq;
+CREATE SEQUENCE IF NOT EXISTS transactions_id_seq;
+CREATE SEQUENCE IF NOT EXISTS user_profiles_id_seq;
+CREATE SEQUENCE IF NOT EXISTS prices_id_seq;
+CREATE SEQUENCE IF NOT EXISTS achievements_id_seq;
+CREATE SEQUENCE IF NOT EXISTS user_achievements_id_seq;
+CREATE SEQUENCE IF NOT EXISTS game_settings_id_seq;
+CREATE SEQUENCE IF NOT EXISTS referral_payments_id_seq;
+CREATE SEQUENCE IF NOT EXISTS spin_rewards_id_seq;
+CREATE SEQUENCE IF NOT EXISTS spin_history_id_seq;
+CREATE SEQUENCE IF NOT EXISTS mystery_boxes_id_seq;
+CREATE SEQUENCE IF NOT EXISTS user_mystery_boxes_id_seq;
 
 -- Schema creation
 CREATE TABLE "users" (
