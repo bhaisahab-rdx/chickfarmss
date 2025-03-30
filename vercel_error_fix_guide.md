@@ -16,14 +16,12 @@ This error occurs when Vercel's build system is confused about your project stru
    ```json
    {
      "version": 2,
-     "buildCommand": "npm run build",
-     "outputDirectory": "dist",
-     "framework": "vite",
-     "rewrites": [
-       {
-         "source": "/api/(.*)",
-         "destination": "/api"
-       }
+     "builds": [
+       { "src": "vercel-build.sh", "use": "@vercel/static-build" }
+     ],
+     "routes": [
+       { "src": "/api/(.*)", "dest": "/api" },
+       { "src": "/(.*)", "dest": "/$1" }
      ],
      "env": {
        "NODE_ENV": "production"
@@ -32,9 +30,9 @@ This error occurs when Vercel's build system is confused about your project stru
    ```
 
    This configuration:
-   - Specifies Vite as the framework
-   - Defines build and output settings
-   - Sets up API route handling
+   - Explicitly tells Vercel to use the vercel-build.sh file for building
+   - Uses the "@vercel/static-build" builder which is appropriate for custom build scripts
+   - Sets up API route handling with proper routing
    - Ensures production environment
 
 2. **Create Build Scripts**
