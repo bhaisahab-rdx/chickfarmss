@@ -2,6 +2,7 @@ import axios from 'axios';
 import CryptoJS from 'crypto-js';
 import { storage } from '../storage';
 import { Transaction } from '../../shared/schema';
+import { config } from '../config';
 
 // Interfaces for NOWPayments API
 export interface CreatePaymentResponse {
@@ -189,8 +190,8 @@ export class NOWPaymentsService {
         throw new Error('User not found');
       }
       
-      // Calculate API URLs
-      const baseURL = process.env.API_URL || 'http://localhost:5000';
+      // Calculate API URLs - Use our production domain for callbacks
+      const baseURL = config.nowpayments.callbackDomain || config.urls.productionDomain || config.urls.api || 'http://localhost:5000';
       const callbackUrl = `${baseURL}/api/ipn/nowpayments`;
       const successUrl = `${baseURL}/wallet?payment=success`;
       const cancelUrl = `${baseURL}/wallet?payment=cancelled`;
