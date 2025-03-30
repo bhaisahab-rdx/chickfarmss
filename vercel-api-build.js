@@ -2,66 +2,69 @@
  * Special build script for Vercel API deployment
  */
 
-import { execSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 
-console.log('Starting Vercel API build process...');
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-// Create necessary directories
-if (!fs.existsSync('./dist')) {
-  fs.mkdirSync('./dist');
-}
+console.log('Starting Vercel API build...');
 
-if (!fs.existsSync('./dist/api')) {
-  fs.mkdirSync('./dist/api');
-}
-
-// Build the API
-try {
-  console.log('Building API with esbuild...');
-  execSync('esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist/api', { stdio: 'inherit' });
-  console.log('API build complete!');
-} catch (error) {
-  console.error('Error building API:', error);
+// Ensure API directory exists
+const apiDir = path.join(__dirname, 'api');
+if (!fs.existsSync(apiDir)) {
+  console.error('API directory not found');
   process.exit(1);
 }
 
-// Create the serverless function to redirect requests
-const serverlessFunction = `
-import { createServer } from 'http';
-import { parse } from 'url';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
-import serverless from 'serverless-http';
-import app from './index.js';
+// Get all JS files in the API directory
+const apiFiles = fs.readdirSync(apiDir)
+  .filter(file => file.endsWith('.js'));
 
-// Get the handler from serverless
-const handler = serverless(app);
+console.log(`Found ${apiFiles.length} API files`);
 
-export default async function (req, res) {
-  // Handle serverless function
-  return await handler(req, res);
-}
-`;
-
-// Write the serverless function
-fs.writeFileSync('./dist/api/_serverless.js', serverlessFunction);
-
-console.log('Creating Vercel functions configuration...');
-// Create a Vercel functions configuration file
-const vercelConfig = `
-{
-  "version": 2,
-  "functions": {
-    "api/**/*.js": {
-      "memory": 1024,
-      "maxDuration": 10
-    }
+// Fix imports to use .js extension for ESM compatibility
+for (const file of apiFiles) {
+  const filePath = path.join(apiDir, file);
+  let content = fs.readFileSync(filePath, 'utf8');
+  
+  // Check for local imports without .js extension
+  const importPattern = /from ['"]\.\/([^'"\.]+)['"]/g;
+  if (importPattern.test(content)) {
+    console.log(`Fixing imports in ${file}`);
+    
+    // Replace local imports to include .js extension
+    content = content.replace(
+      importPattern,
+      (match, p1) => `from './${p1}.js'`
+    );
+    
+    fs.writeFileSync(filePath, content);
   }
 }
-`;
 
-fs.writeFileSync('./dist/api/vercel.json', vercelConfig);
+// Create output directory for diagnostics
+const outputDir = path.join(__dirname, '.vercel-api-build');
+if (!fs.existsSync(outputDir)) {
+  fs.mkdirSync(outputDir);
+}
 
-console.log('Vercel API build script completed successfully!');
+// Generate a manifest of all API files
+const manifest = {
+  buildTime: new Date().toISOString(),
+  apiFiles: apiFiles,
+  environment: {
+    node: process.version,
+    platform: process.platform,
+    env: process.env.NODE_ENV || 'development'
+  }
+};
+
+fs.writeFileSync(
+  path.join(outputDir, 'api-manifest.json'),
+  JSON.stringify(manifest, null, 2)
+);
+
+console.log('Vercel API build completed successfully');
+process.exit(0);

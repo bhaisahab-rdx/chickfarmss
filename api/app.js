@@ -1,72 +1,79 @@
-// Vercel API handler for ChickFarms
-const express = require('express');
-const cors = require('cors');
-const serverless = require('serverless-http');
+// Express application for API server
+import express from 'express';
+import cors from 'cors';
+import dotenv from 'dotenv';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+
+// Import API handlers
+import rootHandler, { 
+  minimal,
+  health,
+  dbTest,
+  pooledTest,
+  diagnostics
+} from './index.js';
+
+// Initialize environment
+dotenv.config();
+
+// Get directory name
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 // Create Express app
 const app = express();
 
-// Set up CORS with correct settings for production
+// Middleware
+app.use(express.json());
 app.use(cors({
-  origin: ['https://chiket.vercel.app', 'http://localhost:3000', 'https://chickfarms.replit.app', '*'],
+  origin: '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
-// Parse JSON request bodies
-app.use(express.json());
+// Serve static files from public directory
+app.use(express.static(join(__dirname, '..', 'public')));
 
-// Simple route to test if the API is working
-app.get('/', (req, res) => {
-  res.status(200).json({
-    status: 'API is running',
-    time: new Date().toISOString(),
-    env: process.env.NODE_ENV || 'unknown',
-    version: '1.0.0',
-    message: 'ChickFarms API entry point'
-  });
+// Debug middleware
+app.use((req, res, next) => {
+  // Log request info
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
+  next();
 });
 
-// Basic diagnostic endpoint
-app.get('/diagnostics', (req, res) => {
-  // Send basic diagnostics without exposing sensitive info
-  res.status(200).json({
-    status: 'ok',
+// API routes
+app.get('/api', rootHandler);
+app.all('/api/minimal', minimal);
+app.all('/api/health', health);
+app.all('/api/db-test', dbTest);
+app.all('/api/pooled-test', pooledTest);
+app.all('/api/diagnostics', diagnostics);
+
+// Debug endpoint
+app.get('/api/debug', (req, res) => {
+  res.json({
+    message: 'API is working',
+    env: process.env.NODE_ENV || 'development',
     timestamp: new Date().toISOString(),
-    env: process.env.NODE_ENV,
-    vercel: !!process.env.VERCEL,
-    hasEnvVars: {
-      database: !!process.env.DATABASE_URL,
-      session: !!process.env.SESSION_SECRET,
-      payments: !!process.env.NOWPAYMENTS_API_KEY
-    },
     headers: {
       host: req.headers.host,
-      origin: req.headers.origin,
-      referer: req.headers.referer
+      'user-agent': req.headers['user-agent'],
+      accept: req.headers.accept
     }
   });
 });
 
-// 404 handler
-app.use((req, res) => {
-  res.status(404).json({ 
-    error: 'Not Found',
-    path: req.path,
-    method: req.method
-  });
-});
-
-// Error handler
+// Error handling middleware
 app.use((err, req, res, next) => {
-  console.error('API Error:', err);
-  res.status(500).json({ 
-    error: 'Internal Server Error',
-    message: err.message
+  console.error('Error in API handler:', err);
+  
+  res.status(500).json({
+    status: 'error',
+    message: 'Internal server error',
+    error: err.message
   });
 });
 
-// Export both the app and a serverless handler for different deployment modes
-module.exports = app;
-module.exports.handler = serverless(app);
+// For serverless function usage
+export default app;

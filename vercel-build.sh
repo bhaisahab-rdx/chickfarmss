@@ -1,43 +1,54 @@
 #!/bin/bash
-# Display Vercel build information
-echo "Starting Vercel build process..."
 
-# Create dist directory if it doesn't exist
-mkdir -p dist
-mkdir -p dist/api
+# Vercel build script for ChickFarms application
+set -e
 
-# Run database migration if needed
-echo "Running database migrations..."
-npm run db:push
+echo "Starting ChickFarms Vercel build process..."
 
-# Build the frontend
-echo "Building frontend..."
-vite build
+# Set production environment
+export NODE_ENV=production
 
-# Copy the API files to the correct location
-echo "Preparing API files..."
-cp -r api/* dist/api/
+# Run pre-build checks
+echo "Running pre-build checks..."
+if [ ! -d "api" ]; then
+  echo "Error: API directory not found"
+  exit 1
+fi
 
-# Create a simple health check file
-echo "Creating health check file..."
-cat > dist/health.html << 'EOL'
-<!DOCTYPE html>
-<html>
-<head>
-  <title>ChickFarms - API Status</title>
-  <style>
-    body { font-family: Arial, sans-serif; text-align: center; margin: 100px; }
-    .status { color: green; font-weight: bold; }
-  </style>
-</head>
-<body>
-  <h1>ChickFarms API</h1>
-  <p>Status: <span class="status">ONLINE</span></p>
-  <p>The API is running and ready to accept requests.</p>
-</body>
-</html>
-EOL
+if [ ! -d "public" ]; then
+  echo "Error: Public directory not found"
+  exit 1
+fi
 
-echo "Build process completed successfully!"
-# Vercel needs a successful exit code
-exit 0
+# Run build scripts
+echo "Running build scripts..."
+node build-vercel.js
+node vercel-api-build.js
+
+# Verify build
+echo "Verifying build..."
+if [ ! -f "api/health.js" ]; then
+  echo "Error: API health check file not found"
+  exit 1
+fi
+
+if [ ! -f "vercel.json" ]; then
+  echo "Error: vercel.json not found"
+  exit 1
+fi
+
+# Copy production environment variables
+echo "Setting up environment..."
+if [ -f ".env.production" ]; then
+  cp .env.production .env
+  echo "Production environment variables copied"
+else
+  echo "Warning: .env.production not found"
+fi
+
+# Final checks
+echo "Running final checks..."
+node -e "console.log('Node.js version:', process.version)"
+node -e "console.log('Build environment:', process.env.NODE_ENV)"
+
+echo "Build completed successfully"

@@ -1,105 +1,148 @@
-# Fixing "FUNCTION_INVOCATION_FAILED" Errors on Vercel
+# ChickFarms Vercel Error Fix Guide
 
-This guide specifically addresses the `FUNCTION_INVOCATION_FAILED` error that can occur when deploying serverless functions to Vercel.
+This guide provides solutions for common errors that may occur when deploying ChickFarms to Vercel.
 
-## Common Error Message
+## Database Connection Errors
 
+### Error: Connection refused or timeout
+
+**Problem**: The database server is refusing connections or timing out.
+
+**Solutions**:
+1. Ensure your database allows external connections from Vercel's IP addresses
+2. Check that the database is running and accessible
+3. Verify the connection string format: `postgresql://username:password@host:port/database`
+
+If using Supabase, use port 6543 instead of 5432:
 ```
-500: INTERNAL_SERVER_ERROR
-Code: FUNCTION_INVOCATION_FAILED
-ID: bom1::ww2qn-xxxxxxxxxx-xxxxxxxx
-```
+# Change this:
+postgresql://postgres:password@db.example.supabase.co:5432/postgres
 
-## Step-by-Step Troubleshooting
-
-### 1. Verify Your Function Code is Compatible with Serverless
-
-Serverless functions on Vercel have some limitations:
-
-- **Limited Execution Time**: Functions time out after 10 seconds by default
-- **Memory Constraints**: Default is 1024MB
-- **Cold Starts**: Functions may take longer on first execution
-- **No Filesystem Access**: The filesystem is read-only (except for `/tmp`)
-
-### 2. Test with Minimal API Endpoints First
-
-We've created a minimal API endpoint at `/api/minimal.js` that should work under all circumstances. Test this first:
-
-```
-https://yourdomain.vercel.app/api/minimal
+# To this:
+postgresql://postgres:password@db.example.supabase.co:6543/postgres
 ```
 
-If this works, your basic Vercel configuration is correct. If not, the issue is likely with the Vercel platform itself.
+### Error: SSL connection required
 
-### 3. Check Environment Variables
+**Problem**: The database requires SSL connections but the connection string doesn't specify SSL.
 
-Use the diagnostics endpoint to verify environment variables are correctly set:
-
+**Solution**:
+Add `?sslmode=require` to the end of your connection string:
 ```
-https://yourdomain.vercel.app/api/diagnostics
+postgresql://username:password@host:port/database?sslmode=require
 ```
 
-This will show which environment variables are available to your functions.
+## Module Import Errors
 
-### 4. Database Connection Issues
+### Error: Cannot use import statement outside a module
 
-Many `FUNCTION_INVOCATION_FAILED` errors are due to database connection problems:
+**Problem**: Vercel's Node.js runtime is having issues with ES modules.
 
-1. **Connection String**: Verify your DATABASE_URL is correct
-2. **IP Allowlist**: Check if your database (Supabase/PostgreSQL) requires IP allowlisting
-3. **Connection Limits**: Serverless functions can quickly exhaust connection pools
-4. **Connection Timeout**: Network latency between Vercel and your database might be high
+**Solutions**:
+1. Run the pre-deployment script: `node vercel-api-build.js`
+2. Make sure all local imports use the `.js` extension
+3. Add `"type": "module"` to your package.json if not already present
 
-### 5. Memory and Performance Optimization
+### Error: Cannot find module './xyz'
 
-We've already updated your `vercel.json` to include:
+**Problem**: The import path is missing a file extension.
 
+**Solution**:
+Ensure all local imports include the `.js` extension:
+```javascript
+// Change this:
+import { something } from './utils'
+
+// To this:
+import { something } from './utils.js'
+```
+
+## API Function Timeouts
+
+### Error: Function execution timed out
+
+**Problem**: The serverless function is taking too long to execute (>10 seconds).
+
+**Solutions**:
+1. Optimize database queries
+2. Ensure database connections are properly closed after use
+3. Increase the function timeout in vercel.json:
 ```json
-"functions": {
-  "api/*.js": {
-    "memory": 1024,
-    "maxDuration": 10
+{
+  "functions": {
+    "api/**/*.js": {
+      "maxDuration": 30
+    }
   }
 }
 ```
 
-This increases the available memory and execution time for your functions.
+## Memory Limit Exceeded
 
-### 6. Apply Progressive Enhancement
+### Error: Function memory limit exceeded
 
-1. Start with the simplest functioning endpoint
-2. Add complexity gradually, testing after each addition
-3. Isolate problematic code by testing parts independently
+**Problem**: The function is using more memory than allowed (default is 1024MB).
 
-### 7. Check Logs in Vercel Dashboard
+**Solutions**:
+1. Optimize memory usage in your code
+2. Increase the memory limit in vercel.json:
+```json
+{
+  "functions": {
+    "api/**/*.js": {
+      "memory": 2048
+    }
+  }
+}
+```
 
-The Vercel dashboard provides detailed logs for each function invocation:
+## Environment Variable Issues
 
-1. Go to your Vercel project dashboard
-2. Click on "Functions" in the sidebar
-3. Look for invocations with errors
-4. Click on a specific invocation to see detailed logs
+### Error: Missing environment variables
 
-### 8. Special Considerations for Database Connections
+**Problem**: Required environment variables are not available to the function.
 
-For database-heavy applications:
+**Solution**:
+1. Check that all required environment variables are set in the Vercel dashboard
+2. Make sure you're not referencing variables that only exist in your local development environment
+3. Verify that the names match exactly (case-sensitive)
 
-1. **Use Connection Pooling**: Configure your database with connection pooling
-2. **Implement Retries**: Add retry logic for failed database connections
-3. **Add Timeouts**: Set explicit timeouts on database operations
-4. **Consider Serverless Database**: Use a database designed for serverless (like Neon or PlanetScale)
+## Connection Pooling Issues
 
-### 9. Testing the Fix
+### Error: Too many database connections
 
-1. Test the `/vercel-test.html` page to verify static content works
-2. Test basic API endpoints (`/api/minimal`, `/api/health`, `/api/diagnostics`)
-3. Test the main application functionality
+**Problem**: Each serverless function creates its own database connection, causing too many connections.
 
-## If Nothing Works
+**Solutions**:
+1. Use a connection pooling service like PgBouncer or Supabase
+2. Implement exponential backoff and retry logic (already included in our API)
+3. Ensure connections are always released after use with a finally block:
+```javascript
+let client = null;
+try {
+  client = await pool.connect();
+  // Use client...
+} finally {
+  if (client) client.release();
+}
+```
 
-If you've tried all of the above and still encounter errors:
+## Progressive Troubleshooting
 
-1. Consider deploying without the database temporarily to verify the rest of the app works
-2. Try a different region in Vercel
-3. Contact Vercel support with your function ID and error details
-4. Consider a different deployment platform like Netlify or Railway that handles Node.js APIs differently
+If you're still having issues, follow this progressive troubleshooting approach:
+
+1. Test static asset serving: `https://your-app.vercel.app/health.html`
+2. Test minimal API without database: `https://your-app.vercel.app/api/minimal`
+3. Test system information: `https://your-app.vercel.app/api/health`
+4. Test database connection: `https://your-app.vercel.app/api/db-test`
+5. Test diagnostics: `https://your-app.vercel.app/api/diagnostics`
+
+Use the comprehensive test page: `https://your-app.vercel.app/vercel-test.html`
+
+## Additional Resources
+
+- Vercel Documentation: https://vercel.com/docs
+- Postgres Connection Pooling: https://www.vercel.com/guides/postgresql-connection-pooling-with-vercel
+- Supabase Connection Guide: https://supabase.com/docs/guides/database/connecting-to-postgres
+
+If you've tried everything and are still experiencing issues, contact support or open an issue in the GitHub repository.

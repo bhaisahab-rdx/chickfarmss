@@ -1,73 +1,53 @@
-// Direct server implementation for Vercel
+// Simple server to test our API endpoints
 import express from 'express';
-import cors from 'cors';
-import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import session from 'express-session';
-import { PgStore } from '../server/db.js';
-import { config } from '../server/config.js';
-import { setupAuth } from '../server/auth.js';
-import { registerRoutes } from '../server/routes.js';
+import dotenv from 'dotenv';
+import cors from 'cors';
 
-// Load environment variables
+// Import our API handlers
+import minimal from './minimal.js';
+import health from './health.js';
+import dbTest from './db-test.js';
+import pooledTest from './pooled-test.js';
+import diagnostics from './diagnostics.js';
+
+// Initialize environment
 dotenv.config();
 
 // Create Express app
 const app = express();
+const PORT = process.env.PORT || 4000;
 
-// Set up CORS
-app.use(cors({
-  origin: ['https://chiket.vercel.app', 'http://localhost:3000'],
-  credentials: true
-}));
-
-// Configure session
-app.use(session({
-  store: PgStore,
-  secret: config.session.secret,
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax'
-  }
-}));
-
-// Parse JSON request bodies
+// Middleware
 app.use(express.json());
+app.use(cors());
 
-// Set up authentication
-setupAuth(app);
+// Map our API endpoints
+app.all('/api/minimal', minimal);
+app.all('/api/health', health);
+app.all('/api/db-test', dbTest);
+app.all('/api/pooled-test', pooledTest);
+app.all('/api/diagnostics', diagnostics);
 
-// Register API routes
-registerRoutes(app);
-
-// Default route
+// Basic endpoint with version info
 app.get('/', (req, res) => {
-  res.json({ status: 'API is running' });
-});
-
-// 404 handler
-app.use((req, res) => {
-  res.status(404).json({ error: 'Not Found' });
-});
-
-// Error handler
-app.use((err, req, res, next) => {
-  console.error(err);
-  res.status(500).json({ error: 'Internal Server Error' });
-});
-
-// Start server if not being imported
-if (require.main === module) {
-  const PORT = process.env.PORT || 5000;
-  app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
+  res.json({
+    message: 'ChickFarms API Server',
+    version: '1.0.0',
+    endpoints: [
+      '/api/minimal',
+      '/api/health',
+      '/api/db-test',
+      '/api/pooled-test',
+      '/api/diagnostics'
+    ]
   });
-}
+});
 
-// Export the app for serverless use
-module.exports = app;
+// Start the server
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`API test server running at http://0.0.0.0:${PORT}`);
+});
+
+export default app;

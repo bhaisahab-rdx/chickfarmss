@@ -1,50 +1,27 @@
-// Minimal API handler for Vercel troubleshooting
-// IMPORTANT: This endpoint doesn't use any database connections or external dependencies
-module.exports = (req, res) => {
-  try {
-    // Capture basic request information
-    const requestInfo = {
+// Minimal API that doesn't require any database access
+// Used for basic connectivity tests, especially in serverless environments
+
+/**
+ * Handler for minimal API endpoint
+ * @param {import('express').Request} req - Express request
+ * @param {import('express').Response} res - Express response
+ */
+export default function handler(req, res) {
+  // Return a simple JSON response with info about the environment
+  res.status(200).json({
+    status: 'ok',
+    message: 'Minimal API is working',
+    environment: process.env.NODE_ENV || 'development',
+    timestamp: new Date().toISOString(),
+    // Include info about the request
+    request: {
       method: req.method,
-      path: req.path || req.url,
+      path: req.path,
       headers: {
         host: req.headers.host,
-        userAgent: req.headers['user-agent'],
-      },
-      query: req.query || {},
-    };
-    
-    // Capture basic environment information
-    const environmentInfo = {
-      nodeEnv: process.env.NODE_ENV || 'unknown',
-      vercel: process.env.VERCEL === '1' ? true : false,
-      region: process.env.VERCEL_REGION || 'unknown',
-      timestamp: new Date().toISOString(),
-      hasDbUrl: !!process.env.DATABASE_URL, // Only check if exists, don't include value
-      hasApiKeys: {
-        nowPayments: !!process.env.NOWPAYMENTS_API_KEY,
-        sessionSecret: !!process.env.SESSION_SECRET,
+        referer: req.headers.referer,
+        'user-agent': req.headers['user-agent']
       }
-    };
-    
-    // Successful response with NO database dependencies
-    res.status(200).json({
-      status: 'success',
-      message: 'Minimal API endpoint is working correctly, with NO database connections',
-      requestInfo,
-      environmentInfo,
-      serverInfo: {
-        memory: process.memoryUsage().rss / 1024 / 1024, // MB
-        uptime: process.uptime(),
-        nodeVersion: process.version,
-      }
-    });
-  } catch (error) {
-    // Handle any unexpected errors
-    console.error('Minimal API error:', error);
-    res.status(500).json({
-      status: 'error',
-      message: 'Internal error in minimal API',
-      error: error.message,
-    });
-  }
-};
+    }
+  });
+}

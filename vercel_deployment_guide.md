@@ -1,93 +1,118 @@
 # ChickFarms Vercel Deployment Guide
 
-This guide provides step-by-step instructions for deploying the ChickFarms application on Vercel.
+This guide provides step-by-step instructions for deploying the ChickFarms application to Vercel.
 
-## Prerequisites
+## Pre-deployment Checklist
 
-Before deploying to Vercel, make sure you have:
+1. Ensure you have a Vercel account
+2. Make sure you have access to your PostgreSQL database credentials
+3. Have your NOWPayments API keys ready
 
-1. A [Vercel account](https://vercel.com/signup)
-2. Access to the PostgreSQL database (Supabase or similar)
-3. NOWPayments API key and IPN secret key (for payment processing)
+## Environment Variables
 
-## Step 1: Fork or Clone the Repository
+Set up the following environment variables in your Vercel project:
 
-First, ensure you have the latest version of the ChickFarms codebase in your own repository.
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `DATABASE_URL` | PostgreSQL connection string | `postgresql://username:password@host:port/database` |
+| `SESSION_SECRET` | Secret for session encryption | A long, random string |
+| `NODE_ENV` | Environment setting | `production` |
+| `NOWPAYMENTS_API_KEY` | NOWPayments API key | Your API key |
+| `NOWPAYMENTS_IPN_SECRET_KEY` | NOWPayments IPN secret | Your IPN secret key |
 
-## Step 2: Set Up Environment Variables
+## Deployment Steps
 
-In your Vercel project settings, add the following environment variables:
+### Option 1: Deploy via Vercel CLI
 
-```
-DATABASE_URL=your_postgresql_connection_string
-SESSION_SECRET=your_secure_session_secret
-NODE_ENV=production
-NOWPAYMENTS_API_KEY=your_nowpayments_api_key
-NOWPAYMENTS_IPN_SECRET_KEY=your_nowpayments_ipn_secret_key
-VERCEL_URL=${VERCEL_URL}
-```
+1. Install the Vercel CLI:
+   ```bash
+   npm install -g vercel
+   ```
 
-The `VERCEL_URL` variable is automatically provided by Vercel, so you don't need to set a specific value.
+2. Login to Vercel:
+   ```bash
+   vercel login
+   ```
 
-## Step 3: Configure Vercel Build Settings
+3. Deploy from the project directory:
+   ```bash
+   vercel
+   ```
 
-Ensure your Vercel project is configured with the following settings:
+4. Follow the prompts to complete the deployment.
 
-1. **Framework Preset**: Custom (No Framework)
-2. **Build Command**: `./vercel-build.sh`
-3. **Output Directory**: `dist`
+### Option 2: Deploy via GitHub Integration
 
-## Step 4: Deploy to Vercel
+1. Push your code to a GitHub repository
+2. Create a new project in the Vercel dashboard
+3. Connect to your GitHub repository
+4. Configure the environment variables mentioned above
+5. Click "Deploy"
 
-1. Connect your repository to Vercel
-2. Configure your project settings as described above
-3. Click "Deploy"
+## Post-Deployment Verification
 
-## Verifying Deployment
+After deployment, verify that your application is running correctly:
 
-After deployment, your application should be accessible at your Vercel domain (usually `your-project-name.vercel.app`).
+1. Visit your application URL (provided by Vercel)
+2. Check the health endpoint: `https://your-app.vercel.app/health.html`
+3. Run the Vercel tests: `https://your-app.vercel.app/vercel-test.html`
 
-To verify everything is working correctly:
+## Troubleshooting
 
-1. Test user registration and login
-2. Verify chicken management functionality
-3. Check that the NOWPayments integration works by testing a small deposit
-4. Verify that the admin panel is accessible for admin users
-
-## Troubleshooting Common Issues
-
-### API Routes Return 404 Errors
-
-If your API routes return 404 errors:
-
-1. Verify that `vercel.json` has the correct route configuration
-2. Check that the API serverless function was built correctly
-3. Ensure your `buildCommand` is executing `vercel-build.sh` correctly
+If you encounter issues with your deployment, follow these steps:
 
 ### Database Connection Issues
 
-If your application can't connect to the database:
+1. Check your `DATABASE_URL` environment variable
+2. Ensure your database allows connections from Vercel's IP addresses
+3. Verify database credentials
+4. Check the database logs for any connection issues
 
-1. Double-check your `DATABASE_URL` environment variable
-2. Ensure your database allows connections from Vercel's IP ranges
-3. Verify that the database schema has been properly migrated
+### API Not Working
 
-### NOWPayments Integration Issues
+1. Visit `/api/minimal` to test the API without database access
+2. Visit `/api/diagnostics` to get detailed information about the environment
+3. Check the logs in the Vercel dashboard
 
-If payments don't process correctly:
+### Missing Environment Variables
 
-1. Verify your NOWPayments API keys are correct
-2. Check that your IPN callback URL is configured correctly in the NOWPayments dashboard
-3. Ensure the environment variables are properly set in Vercel
+1. Check that all required environment variables are set in the Vercel dashboard
+2. Redeploy after setting any missing variables
 
-## Maintaining Your Deployment
+## Common Issues and Solutions
 
-For future updates:
+### Issue: Database Connection Failures
 
-1. Make changes to your codebase locally and test thoroughly
-2. Push changes to your repository
-3. Vercel will automatically rebuild and redeploy your application
+Symptoms:
+- API routes that require database access fail
+- Error messages mentioning connection timeouts or refused connections
 
-## Need Help?
+Solutions:
+- Ensure your database is accessible from external networks
+- If using Supabase, ensure the connection string uses the correct port (5432 or 6543)
+- Add SSL configuration to the connection string if required
 
-If you encounter any issues during deployment, check the Vercel logs for error messages or contact support for assistance.
+### Issue: Memory Limitations
+
+Symptoms:
+- 504 Gateway Timeout errors
+- Functions failing with "memory limit exceeded"
+
+Solutions:
+- Optimize database queries
+- Ensure connections are properly closed
+- Consider upgrading to a higher Vercel plan
+
+### Issue: ESM Module Issues
+
+Symptoms:
+- Errors about ES modules or import statements
+- "Cannot use import statement outside a module"
+
+Solutions:
+- Make sure all local imports use the `.js` extension
+- Run the `node vercel-api-build.js` script before deploying
+
+## Support
+
+If you continue experiencing issues, contact us at support@chickfarms.com or open an issue in the GitHub repository.

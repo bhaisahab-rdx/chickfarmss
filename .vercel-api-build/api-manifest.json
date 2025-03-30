@@ -1,0 +1,21 @@
+{
+  "buildTime": "2025-03-30T14:00:11.450Z",
+  "apiFiles": [
+    "app.js",
+    "db-test.js",
+    "db-utils.js",
+    "debug.js",
+    "diagnostics.js",
+    "health.js",
+    "index.js",
+    "minimal.js",
+    "pooled-test.js",
+    "server.js",
+    "test.js"
+  ],
+  "environment": {
+    "node": "v20.18.1",
+    "platform": "linux",
+    "env": "production"
+  }
+}

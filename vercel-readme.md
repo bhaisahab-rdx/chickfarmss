@@ -1,104 +1,62 @@
-# ChickFarms Vercel Deployment Guide
+# ChickFarms Vercel Deployment
 
-## Deployment Setup
+This document provides an overview of the Vercel deployment setup for ChickFarms.
 
-Follow these steps to properly deploy ChickFarms to Vercel:
+## Deployment Files
 
-### 1. Project Settings in Vercel Dashboard
+- `vercel.json`: Configuration for Vercel deployment
+- `build-vercel.js`: Main build script for preparing the application for Vercel
+- `vercel-api-build.js`: Script for preparing API routes for Vercel
+- `vercel-build.sh`: Shell script for running the build process
+- `.vercelignore`: Files and directories to exclude from deployment
+- `.env.production`: Production environment variables
+- `vercel_deployment_guide.md`: Comprehensive guide for deployment
+- `vercel_error_fix_guide.md`: Guide for resolving common deployment issues
 
-- **Framework Preset**: Select "Custom" (or "Other" if Custom isn't available)
-- **Build Command**: `npm run build`
-- **Output Directory**: `dist`
-- **Install Command**: `npm install`
-- **Development Command**: Leave empty
+## API Structure
 
-### 2. Environment Variables
+The API is structured as serverless functions in the `api/` directory:
 
-Make sure the following environment variables are set in your Vercel project:
+- `api/app.js`: Express application setup
+- `api/server.js`: Server startup and configuration
+- `api/index.js`: Root API handler
+- `api/health.js`: Health check endpoint
+- `api/minimal.js`: Minimal endpoint that doesn't require database access
+- `api/db-test.js`: Test database connection
+- `api/pooled-test.js`: Test database connection pool
+- `api/diagnostics.js`: System diagnostics endpoint
+- `api/debug.js`: Debug information endpoint
 
-```
-DATABASE_URL=postgresql://postgres:thekinghu8751@db.zgsyciaoixairqqfwvyt.supabase.co:5432/postgres
-SESSION_SECRET=,Y1#!e&yGr-.%;Zb7X*W](YJ=DyE-F
-NODE_ENV=production
-NOWPAYMENTS_API_KEY=JW7JXM6-DHEMGBX-J58QEXM-R2ETSY3
-NOWPAYMENTS_IPN_SECRET_KEY=A73NxQfXxJzHJF3Qh9jWkxbSvZHas8um
-```
+## Deployment Process
 
-### 3. Vercel Configuration Files
+1. Push your code to a repository (GitHub, GitLab, etc.)
+2. Connect the repository to Vercel
+3. Set up environment variables in the Vercel dashboard
+4. Deploy the application
 
-Make sure these files are properly set up:
+## Testing the Deployment
 
-1. **vercel.json**: Contains build settings and routes configuration
-   - Configure memory and duration limits for functions
-   - Set proper route order with specific routes first
-   - Include proper Content-Type headers for HTML routes
+After deployment, verify that your application is working correctly:
 
-2. **.vercelignore**: Prevents unnecessary files from being uploaded
-   - Include node_modules, .git, etc.
+1. Visit the main application URL
+2. Check `https://your-app.vercel.app/health.html`
+3. Check `https://your-app.vercel.app/api/health`
+4. Check `https://your-app.vercel.app/api/minimal`
+5. Check `https://your-app.vercel.app/api/diagnostics`
 
-3. **API Handlers**: Standalone JS files in /api folder
-   - minimal.js: Ultra-simple API endpoint for basic testing
-   - diagnostics.js: Environment and database diagnostics
-   - health.js: Simple health check
-   - test.js: Environment variable test
-   - app.js: Main API handler
+## Troubleshooting
 
-### 4. Progressive Testing Strategy
+If you encounter issues with your deployment, refer to `vercel_error_fix_guide.md` for solutions to common problems.
 
-Test in this specific order to isolate issues:
+## Database Connection
 
-1. **Static HTML**: First test https://yourdomain.vercel.app/vercel-test.html
-   - This verifies basic static file serving with no server-side code
+The application uses a PostgreSQL database with connection pooling and retry logic. The database connection is configured using the `DATABASE_URL` environment variable.
 
-2. **Simple API**: Test https://yourdomain.vercel.app/api/minimal
-   - This tests the most basic serverless function without database
+When deploying to Vercel, make sure your database is accessible from Vercel's servers and that you've set up the correct connection string in the environment variables.
 
-3. **Diagnostics**: Check https://yourdomain.vercel.app/api/diagnostics
-   - This shows environment variables and basic configuration
+## Next Steps
 
-4. **Full Application**: Only after above tests pass, try the main app
-
-### 5. Fixing "FUNCTION_INVOCATION_FAILED" Errors
-
-If you see 500 errors with "FUNCTION_INVOCATION_FAILED":
-
-1. **Database Connection**: Most common cause - check if Supabase allows Vercel's IP addresses
-2. **Memory Limits**: We've increased to 1024MB in vercel.json
-3. **Execution Time**: We've increased to 10 seconds in vercel.json
-4. **Cold Starts**: First request might fail, retry after a minute
-5. **See Full Guide**: Check vercel_error_fix_guide.md for detailed troubleshooting
-
-### 6. Optimizing Database Connections
-
-For PostgreSQL databases in serverless environments:
-
-1. **Connection Pooling**: Enable connection pooling in Supabase
-2. **Connection Limits**: Serverless functions can quickly exhaust connections
-3. **Implement Retries**: Add retry logic for transient connection failures
-4. **Add Timeouts**: Set explicit timeouts to avoid hanging connections
-
-### 7. Manual Testing With cURL
-
-Test the API endpoints:
-
-```bash
-# Test minimal API endpoint
-curl https://yourdomain.vercel.app/api/minimal
-
-# Test diagnostics endpoint
-curl https://yourdomain.vercel.app/api/diagnostics
-
-# Test health endpoint
-curl https://yourdomain.vercel.app/api/health
-```
-
-### 8. Vercel Dashboard Debugging
-
-Use Vercel's dashboard for deeper debugging:
-
-1. Go to Functions tab to see specific function errors
-2. Check the deployment logs for build errors
-3. Look at the function invocation details for runtime errors
-4. Note the specific function ID when contacting support
-
-If all else fails, see the detailed troubleshooting guide in vercel_error_fix_guide.md.
+- Set up automatic deployments from your repository
+- Configure custom domains if needed
+- Set up monitoring and alerts
+- Implement CI/CD pipeline for testing before deployment
