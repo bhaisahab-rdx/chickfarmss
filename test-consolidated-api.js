@@ -101,14 +101,13 @@ async function runTests() {
   // Test the index endpoint
   await testEndpoint('/api', 'API index endpoint');
 
-  // Uncomment the following code to test authentication endpoints (requires valid credentials)
-  /*
+  // Test authentication endpoints with admin credentials
   console.log('\nTesting authentication endpoints...');
   try {
-    // Test login endpoint with test credentials (will fail with invalid credentials)
+    // Test login endpoint with admin credentials
     const loginResponse = await testEndpoint('/api/auth/login', 'Login endpoint', 'POST', {
-      username: 'test_user',
-      password: 'test_password'
+      username: 'adminraja',
+      password: 'admin8751'
     });
     
     // Get the authentication cookie from the login response
@@ -124,8 +123,15 @@ async function runTests() {
   } catch (error) {
     console.log('Skipping authentication-required tests:', error.message);
   }
-  */
 
+  // Test spin endpoints directly without authentication (not recommended for production)
+  console.log('\nTesting spin endpoints without authentication (for debugging purposes)...');
+  try {
+    await testEndpoint('/api/spin/status', 'Spin status endpoint (no auth)', 'GET');
+  } catch (error) {
+    console.error('Spin status check failed:', error.message);
+  }
+  
   console.log('\nAll tests completed successfully! The consolidated API is working correctly.');
 }
 

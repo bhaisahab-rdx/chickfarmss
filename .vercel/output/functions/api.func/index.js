@@ -28,6 +28,11 @@ module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
+  
+  // Debug logging for Vercel environment
+  console.log(`[Vercel API] Request received: ${req.method} ${req.url}`);
+  console.log(`[Vercel API] Headers: ${JSON.stringify(req.headers)}`);
+  
   res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization');
   
   // Handle preflight requests
@@ -56,6 +61,8 @@ module.exports = async (req, res) => {
       return await handleTestDeployment(req, res);
     } else if (pathname === '/api/debug') {
       return handleDebug(req, res);
+    } else if (pathname === '/api/debug-spin') {
+      return handleDebugSpin(req, res);
     } else if (pathname === '/api') {
       return handleIndex(req, res);
     } else if (pathname.startsWith('/api/auth/')) {
@@ -230,6 +237,114 @@ function handleDebug(req, res) {
 }
 
 /**
+ * Special debug endpoint to diagnose spin functionality
+ */
+async function handleDebugSpin(req, res) {
+  console.log('[DEBUG-SPIN] Debug endpoint called');
+  
+  // Parse the URL to show how routing works
+  const url = new URL(req.url, `http://${req.headers.host}`);
+  const pathname = url.pathname;
+  
+  // Create test paths for testing
+  const testPaths = [
+    '/api/spin/status',
+    '/api/spin/spin',
+    '/api/spin/claim-extra'
+  ];
+  
+  // Test each path with our startsWith condition
+  const pathTests = testPaths.map(testPath => ({
+    path: testPath,
+    matchesSpinPattern: testPath.startsWith('/api/spin/'),
+    extractedAction: testPath.replace('/api/spin/', '')
+  }));
+  
+  // Test regex patterns that might be used in routing
+  const regexTests = [
+    { pattern: '/api/spin/(.*)', match: '/api/spin/status'.match(new RegExp('/api/spin/(.*)')) !== null },
+    { pattern: '^/api/spin/(.*)$', match: '/api/spin/status'.match(new RegExp('^/api/spin/(.*)$')) !== null },
+    { pattern: '/api/spin/*', match: '/api/spin/status'.match(new RegExp('/api/spin/*')) !== null }
+  ];
+  
+  // Extract cookies for debug info
+  const cookies = parseCookies(req.headers.cookie || '');
+  
+  // Verify token if present
+  let tokenStatus = 'No token provided';
+  if (cookies.session) {
+    try {
+      const userId = validateSessionToken(cookies.session);
+      tokenStatus = userId ? `Valid (User ID: ${userId})` : 'Invalid token';
+    } catch (error) {
+      tokenStatus = `Error validating token: ${error.message}`;
+    }
+  }
+  
+  // Check if we can connect to the database
+  let databaseStatus = 'Not checked';
+  try {
+    const client = await pool.connect();
+    const result = await client.query('SELECT NOW() as time');
+    const dbTime = result.rows[0].time;
+    client.release();
+    databaseStatus = `Connected successfully (DB time: ${dbTime})`;
+  } catch (error) {
+    databaseStatus = `Connection error: ${error.message}`;
+  }
+  
+  // Get the deployment URL for testing routes
+  const protocol = req.headers['x-forwarded-proto'] || 'http';
+  const host = req.headers.host || 'localhost';
+  const baseUrl = `${protocol}://${host}`;
+  
+  // Response with comprehensive debug info
+  res.status(200).json({
+    status: 'debug',
+    message: 'Spin endpoint debugging information',
+    request: {
+      url: req.url,
+      pathname,
+      method: req.method,
+      headers: req.headers,
+      cookies
+    },
+    routing: {
+      pathTests,
+      regexTests,
+      requestWouldMatchSpinPattern: pathname.startsWith('/api/spin/'),
+      spinApiEndpoints: testPaths.map(path => `${baseUrl}${path}`),
+      vercelConfig: {
+        routesChecks: [
+          { description: "Spin routes should come before general API route", checkManually: true },
+          { description: "Debug endpoint should be explicitly configured", checkManually: true }
+        ]
+      }
+    },
+    authentication: {
+      cookiePresent: Boolean(cookies.session),
+      cookieValue: cookies.session ? `${cookies.session.substring(0, 10)}...` : null,
+      tokenStatus
+    },
+    environment: {
+      databaseStatus,
+      databaseUrl: process.env.DATABASE_URL ? 'Set (hidden)' : 'Not set',
+      sessionSecret: process.env.SESSION_SECRET ? 'Set (hidden)' : 'Not set',
+      nodeEnv: process.env.NODE_ENV || 'Not set'
+    },
+    troubleshooting: {
+      verifyAuthentication: `First log in at ${baseUrl}/login, then check if the spin endpoints work`,
+      checkFunctionLogs: "If endpoints still return 404, check Vercel function logs for routing issues",
+      potentialFixes: [
+        "Ensure routes in .vercel/output/config.json have '/api/spin/(.*)' before '/api/(.*)'",
+        "Verify SESSION_SECRET is correctly set in environment variables",
+        "Try removing and re-adding the spin route pattern in .vercel/output/config.json"
+      ]
+    }
+  });
+}
+
+/**
  * Handle index requests
  */
 function handleIndex(req, res) {
@@ -245,6 +360,7 @@ function handleIndex(req, res) {
       '/api/db-test',
       '/api/test-deployment',
       '/api/debug',
+      '/api/debug-spin',
       '/api/auth/login',
       '/api/auth/register',
       '/api/auth/logout',
@@ -596,6 +712,10 @@ async function handleSpin(req, res, pathname) {
   try {
     // Extract the spin action from the pathname
     const spinAction = pathname.replace('/api/spin/', '');
+    
+    console.log(`[Vercel Spin API] Processing spin request: ${spinAction}, path: ${pathname}, method: ${req.method}`);
+    console.log(`[Vercel Spin API] Cookies: ${req.headers.cookie || 'none'}`);
+    
 
     // Get session token from cookies
     const cookies = parseCookies(req.headers.cookie || '');

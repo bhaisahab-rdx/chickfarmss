@@ -37,6 +37,14 @@
       "dest": "/index.html"
     },
     {
+      "src": "/api/debug-spin",
+      "dest": "/api"
+    },
+    {
+      "src": "/api/spin/(.*)",
+      "dest": "/api"
+    },
+    {
       "src": "/api/(.*)",
       "dest": "/api"
     },

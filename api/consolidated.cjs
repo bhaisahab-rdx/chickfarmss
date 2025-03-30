@@ -63,9 +63,11 @@ module.exports = async (req, res) => {
     } else if (pathname.startsWith('/api/pooled-test')) {
       return await handlePooledTest(req, res);
     } else if (pathname.startsWith('/api/spin/')) {
+      console.log(`[Consolidated API] Processing spin request for: ${pathname}`);
       return await handleSpin(req, res, pathname);
     } else {
       // Return 404 for unhandled routes
+      console.log(`[Consolidated API] Unknown route requested: ${pathname}`);
       res.status(404).json({ error: 'Not found', message: `Route ${pathname} not implemented in consolidated API` });
     }
   } catch (error) {
@@ -596,6 +598,7 @@ async function handleSpin(req, res, pathname) {
   try {
     // Extract the spin action from the pathname
     const spinAction = pathname.replace('/api/spin/', '');
+    console.log(`[Spin API] Processing spin action: ${spinAction}, method: ${req.method}, path: ${pathname}`);
 
     // Get session token from cookies
     const cookies = parseCookies(req.headers.cookie || '');
@@ -633,6 +636,7 @@ async function handleSpin(req, res, pathname) {
  */
 async function handleSpinStatus(req, res, userId) {
   try {
+    console.log(`[Spin Status] Getting spin status for user: ${userId}`);
     // Get the user data
     const client = await pool.connect();
     const result = await client.query('SELECT "lastSpinAt", "extraSpinsAvailable" FROM users WHERE id = $1', [userId]);
