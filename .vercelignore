@@ -1,0 +1,15 @@
+# Vercel Ignore File
+node_modules
+.git
+.github
+.vscode
+
+# Unnecessary files for production
+*.test.js
+*.spec.js
+.DS_Store
+
+# Don't upload these files to Vercel
+*.log
+.env
+.env.local

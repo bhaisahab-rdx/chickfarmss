@@ -1,15 +1,17 @@
 // Vercel API handler for ChickFarms
 const express = require('express');
 const cors = require('cors');
+const serverless = require('serverless-http');
 
 // Create Express app
 const app = express();
 
-// Set up CORS with permissive settings for debugging
+// Set up CORS with correct settings for production
 app.use(cors({
-  origin: '*',
+  origin: ['https://chiket.vercel.app', 'http://localhost:3000', 'https://chickfarms.replit.app', '*'],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
 }));
 
 // Parse JSON request bodies
@@ -21,7 +23,29 @@ app.get('/', (req, res) => {
     status: 'API is running',
     time: new Date().toISOString(),
     env: process.env.NODE_ENV || 'unknown',
-    message: 'This is a simplified API handler for Vercel deployment'
+    version: '1.0.0',
+    message: 'ChickFarms API entry point'
+  });
+});
+
+// Basic diagnostic endpoint
+app.get('/diagnostics', (req, res) => {
+  // Send basic diagnostics without exposing sensitive info
+  res.status(200).json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    env: process.env.NODE_ENV,
+    vercel: !!process.env.VERCEL,
+    hasEnvVars: {
+      database: !!process.env.DATABASE_URL,
+      session: !!process.env.SESSION_SECRET,
+      payments: !!process.env.NOWPAYMENTS_API_KEY
+    },
+    headers: {
+      host: req.headers.host,
+      origin: req.headers.origin,
+      referer: req.headers.referer
+    }
   });
 });
 
@@ -43,5 +67,6 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Export the Express app for Vercel
+// Export both the app and a serverless handler for different deployment modes
 module.exports = app;
+module.exports.handler = serverless(app);
