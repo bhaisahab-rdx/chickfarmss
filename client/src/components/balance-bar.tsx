@@ -22,6 +22,8 @@ export default function BalanceBar() {
   // Click handlers for resource buttons
   const handleWaterClick = (e: React.MouseEvent) => {
     e.preventDefault();
+    e.stopPropagation();
+    console.log("Water + button clicked");
     setLocation('/shop?tab=water');
     toast({
       title: "Water Buckets",
@@ -32,6 +34,8 @@ export default function BalanceBar() {
 
   const handleWheatClick = (e: React.MouseEvent) => {
     e.preventDefault();
+    e.stopPropagation();
+    console.log("Wheat + button clicked");
     setLocation('/shop?tab=wheat');
     toast({
       title: "Wheat Bags",
@@ -42,6 +46,8 @@ export default function BalanceBar() {
 
   const handleEggsClick = (e: React.MouseEvent) => {
     e.preventDefault();
+    e.stopPropagation();
+    console.log("Eggs + button clicked");
     setLocation('/home');
     toast({
       title: "Eggs Production",
@@ -52,6 +58,8 @@ export default function BalanceBar() {
 
   const handleUsdtClick = (e: React.MouseEvent) => {
     e.preventDefault();
+    e.stopPropagation();
+    console.log("USDT + button clicked");
     setLocation('/wallet');
     toast({
       title: "Add USDT",
@@ -149,7 +157,7 @@ export default function BalanceBar() {
             </div>
             <motion.button
               onClick={handleWaterClick}
-              className="ml-1 w-6 h-6 flex-shrink-0 rounded-full flex items-center justify-center cursor-pointer"
+              className="ml-1 w-6 h-6 flex-shrink-0 rounded-full flex items-center justify-center cursor-pointer z-20"
               style={{
                 background: "linear-gradient(to bottom, #29B6F6, #29B6F6dd)",
                 boxShadow: "0 2px 4px rgba(0,0,0,0.15)",
@@ -234,7 +242,7 @@ export default function BalanceBar() {
             </div>
             <motion.button
               onClick={handleWheatClick}
-              className="ml-1 w-6 h-6 flex-shrink-0 rounded-full flex items-center justify-center cursor-pointer"
+              className="ml-1 w-6 h-6 flex-shrink-0 rounded-full flex items-center justify-center cursor-pointer z-20"
               style={{
                 background: "linear-gradient(to bottom, #FFC107, #FFC107dd)",
                 boxShadow: "0 2px 4px rgba(0,0,0,0.15)",
@@ -322,7 +330,7 @@ export default function BalanceBar() {
             </div>
             <motion.button
               onClick={handleEggsClick}
-              className="ml-1 w-6 h-6 flex-shrink-0 rounded-full flex items-center justify-center cursor-pointer"
+              className="ml-1 w-6 h-6 flex-shrink-0 rounded-full flex items-center justify-center cursor-pointer z-20"
               style={{
                 background: "linear-gradient(to bottom, #FFB74D, #FFB74Ddd)",
                 boxShadow: "0 2px 4px rgba(0,0,0,0.15)",
@@ -415,7 +423,7 @@ export default function BalanceBar() {
             </div>
             <motion.button
               onClick={handleUsdtClick}
-              className="ml-1 w-6 h-6 flex-shrink-0 rounded-full flex items-center justify-center cursor-pointer"
+              className="ml-1 w-6 h-6 flex-shrink-0 rounded-full flex items-center justify-center cursor-pointer z-20"
               style={{
                 background: "linear-gradient(to bottom, #26A17B, #26A17Bdd)",
                 boxShadow: "0 2px 4px rgba(0,0,0,0.15)",

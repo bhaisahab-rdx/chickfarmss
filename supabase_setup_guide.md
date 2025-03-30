@@ -1,106 +1,106 @@
-# Supabase Setup Guide for ChickFarms
+# Supabase Setup Guide for ChickFarms (Updated March 2025)
 
-This guide walks you through setting up a Supabase project for ChickFarms.
+This guide will help you set up a Supabase database for your ChickFarms application and migrate from your existing PostgreSQL database.
 
-## 1. Create a Supabase Account
+## Steps to Create and Configure Supabase
 
-If you don't already have one, sign up at [https://supabase.com](https://supabase.com).
+1. Create a Supabase account at https://supabase.com/
+2. Create a new project
+3. Name your project "chickfarms" (or your preferred name)
+4. Choose a strong database password
+5. Select the region closest to your users (for lowest latency)
+6. Wait for your database to be provisioned (usually takes 2-3 minutes)
 
-## 2. Create a New Project
+## Database Connection String
 
-1. Log in to your Supabase account
-2. Click "New Project"
-3. Fill in the details:
-   - Name: `ChickFarms` (or your preferred name)
-   - Database Password: Create a strong password
-   - Region: Choose the closest to your users
-   - Pricing Plan: Start with the free plan
+Once your database is created, get the connection string:
 
-## 3. Get Database Connection Details
+1. Go to Project Settings > Database
+2. Find the "Connection string" section
+3. Choose "URI" format
+4. Copy the connection string
+5. Replace `[YOUR-PASSWORD]` with your database password
 
-1. Once your project is created, go to Project Settings > Database
-2. Under "Connection String", find the connection string that looks like:
-   ```
-   postgresql://postgres:[YOUR-PASSWORD]@db.[YOUR-PROJECT-ID].supabase.co:5432/postgres
-   ```
-3. Copy this string and save it for later use
+## Setting Up Environment Variables
 
-## 4. Setup Database Schema
+1. Go to your deployed environment (Vercel, Netlify, or other platform)
+2. Add the following environment variables:
 
-We'll use Drizzle to push the schema to Supabase:
+```
+DATABASE_URL=postgresql://postgres:[YOUR-PASSWORD]@db.[YOUR-PROJECT-ID].supabase.co:5432/postgres
+NOWPAYMENTS_API_KEY=your_nowpayments_api_key
+NOWPAYMENTS_IPN_SECRET_KEY=your_nowpayments_ipn_secret_key
+SESSION_SECRET=a_strong_random_string_for_session_encryption
+```
+
+## Database Schema Migration
+
+You have two options to migrate your database:
+
+### Option 1: Using the Schema Push Command
 
 ```bash
-# Save the Supabase connection string as DATABASE_URL
-export DATABASE_URL="your_supabase_connection_string"
-
-# Push the schema to Supabase
+# This will create all tables based on your Drizzle schema
 npm run db:push
 ```
 
-## 5. Migrate Data
+### Option 2: Direct SQL Import (Recommended for existing data)
 
-Use the backup and restore scripts to migrate your data:
+1. Go to the SQL Editor in your Supabase dashboard
+2. Copy and paste the SQL schema from `databasenewextract.sql` 
+3. Execute the SQL to create all tables and import existing data
 
-```bash
-# First, create a backup of your current data
-node backup-db.js
+## Tables Overview
 
-# Then restore this data to Supabase
-DATABASE_URL="your_supabase_connection_string" node restore_database.js
-```
+The ChickFarms database includes the following tables:
 
-## 6. Setup Environment Variables
+- `users`: User accounts and authentication
+- `chickens`: Player's chicken collection
+- `resources`: Player's in-game resources (water, wheat, eggs)
+- `transactions`: Payment history
+- `prices`: Game item pricing
+- `spin_history`: Record of daily spins
+- `referral_earnings`: Multi-level referral commissions
+- `mystery_box_rewards`: Loot box rewards
+- `milestone_rewards`: Team milestone tracking
+- `achievement_badges`: Achievement system
 
-Create a `.env.production` file with the following variables:
+## Security Configuration
 
-```
-DATABASE_URL=your_supabase_connection_string
-NOWPAYMENTS_API_KEY=your_nowpayments_api_key
-NOWPAYMENTS_EMAIL=your_nowpayments_email
-NOWPAYMENTS_PASSWORD=your_nowpayments_password
-IPN_SECRET_KEY=your_ipn_secret_key
-```
-
-## 7. Test Connection
-
-To verify your connection to Supabase, run:
-
-```bash
-# Using the Supabase connection string
-DATABASE_URL="your_supabase_connection_string" node -e "
-const { Pool } = require('pg');
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-pool.query('SELECT NOW()', (err, res) => {
-  if (err) {
-    console.error('Connection error:', err);
-  } else {
-    console.log('Connected to Supabase!', res.rows[0]);
-  }
-  pool.end();
-});"
-```
-
-## 8. Database Security
-
-By default, Supabase tables have Row Level Security (RLS) enabled. For our API-based access pattern, we need to:
-
-1. Go to Authentication > Settings
-2. Under "API Access", ensure JWT settings are properly configured
-3. Go to the SQL Editor and run:
+1. Configure proper Row Level Security (RLS) policies:
 
 ```sql
--- Disable RLS for tables that will be accessed via API
-ALTER TABLE users DISABLE ROW LEVEL SECURITY;
-ALTER TABLE user_profiles DISABLE ROW LEVEL SECURITY;
-ALTER TABLE resources DISABLE ROW LEVEL SECURITY;
-ALTER TABLE chickens DISABLE ROW LEVEL SECURITY;
-ALTER TABLE transactions DISABLE ROW LEVEL SECURITY;
-ALTER TABLE game_settings DISABLE ROW LEVEL SECURITY;
-ALTER TABLE prices DISABLE ROW LEVEL SECURITY;
+-- Example RLS policy for the users table
+ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+CREATE POLICY user_select ON users 
+    FOR SELECT USING (auth.uid() = id OR auth.jwt() ? 'is_admin');
 ```
 
-## 9. Additional Resources
+2. Set up authentication to work with your frontend:
 
-- [Supabase Documentation](https://supabase.com/docs)
-- [Supabase TypeScript Client](https://supabase.com/docs/reference/javascript/installing)
-- [Supabase PostgreSQL Features](https://supabase.com/docs/guides/database/overview)
+- Configure social providers if needed (Google, Facebook, etc.)
+- Set up email templates for verification
+- Configure password policies
+
+## Monitoring and Maintenance
+
+- Enable database backups (daily recommended)
+- Set up database health monitoring
+- Consider enabling Supabase's logging for API calls
+
+## Verifying Your Setup
+
+After migration, check that your database is working properly:
+
+1. Verify all tables exist with the correct structure
+2. Test login functionality
+3. Verify game mechanics work (chicken hatching, resource gathering)
+4. Test payment processing
+5. Test referral system
+
+## Troubleshooting
+
+- If you encounter connection issues, verify your IP is allowed in Supabase settings
+- For payment processing issues, check NOWPayments API key configuration
+- For session issues, verify the SESSION_SECRET is properly configured
+- If you see database errors, check the Supabase logs for detailed information
