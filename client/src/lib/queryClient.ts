@@ -39,10 +39,8 @@ export async function apiRequest(
     const method = methodOrUrl;
     let url = urlOrData as string;
     
-    // If the URL starts with /api, use the config API base URL
-    if (url.startsWith('/api/')) {
-      url = `${config.apiBaseUrl}${url.substring(4)}`;
-    }
+    // Always use the original URL without modification
+    // No URL transformation needed anymore
 
     console.log(`[API Request] ${method} ${url}`);
     response = await fetch(url, {
@@ -58,10 +56,8 @@ export async function apiRequest(
     let url = methodOrUrl;
     const options = urlOrData as RequestInit;
     
-    // If the URL starts with /api, use the config API base URL
-    if (url.startsWith('/api/')) {
-      url = `${config.apiBaseUrl}${url.substring(4)}`;
-    }
+    // Always use the original URL without modification
+    // No URL transformation needed anymore
 
     console.log(`[API Request] ${options?.method || 'GET'} ${url}`);
     response = await fetch(url, {
@@ -102,10 +98,8 @@ export const getQueryFn: <T>(options: {
   async ({ queryKey }) => {
     let url = queryKey[0] as string;
     
-    // If the URL starts with /api, use the config API base URL
-    if (url.startsWith('/api/')) {
-      url = `${config.apiBaseUrl}${url.substring(4)}`;
-    }
+    // Always use the proper URL path without modifying it
+    // We're using /api for both development and production now
     
     console.log(`[Query] Fetching ${url}`);
     const response = await fetch(url, {

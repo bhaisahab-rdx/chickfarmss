@@ -118,34 +118,6 @@ app.use((req, res, next) => {
   console.log("Starting server on port", port);
   console.log("Current environment:", process.env.NODE_ENV);
   
-  // Explicitly serve our static HTML file for the root path
-  // Serve static files from the public directory first
-  app.use(express.static(pathModule.join(__dirname, '../public')));
-
-  // Handle specific HTML files that we've created for fallback
-  app.get('/login.html', (req, res) => {
-    res.sendFile(pathModule.join(__dirname, '../public/login.html'));
-  });
-  
-  app.get('/register.html', (req, res) => {
-    res.sendFile(pathModule.join(__dirname, '../public/register.html'));
-  });
-  
-  app.get('/game.html', (req, res) => {
-    res.sendFile(pathModule.join(__dirname, '../public/game.html'));
-  });
-  
-  // Default route for the main application
-  app.get('/', (req, res, next) => {
-    // First try our custom index.html
-    const fallbackPath = pathModule.join(__dirname, '../public/index.html');
-    if (fs.existsSync(fallbackPath)) {
-      return res.sendFile(fallbackPath);
-    }
-    // Otherwise, let Vite handle it
-    next();
-  });
-  
   // importantly only setup vite in development and after
   // setting up all the other routes so the catch-all route
   // doesn't interfere with the other routes

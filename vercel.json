@@ -23,6 +23,11 @@
     }
   ],
   "routes": [
+    { "src": "/api/auth/(.*)", "dest": "/api/consolidated.js" },
+    { "src": "/api/user", "dest": "/api/consolidated.js" },
+    { "src": "/api/login", "dest": "/api/consolidated.js" },
+    { "src": "/api/register", "dest": "/api/consolidated.js" },
+    { "src": "/api/logout", "dest": "/api/consolidated.js" },
     { "src": "/api/(.*)", "dest": "/api/consolidated.js" },
     { "src": "/health", "dest": "/api/consolidated.js" },
     { "src": "/health.html", "dest": "/public/health.html" },

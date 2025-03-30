@@ -6,6 +6,7 @@
 
 import { testConnection, queryWithRetry } from './db-utils.js';
 import os from 'os';
+import crypto from 'crypto';
 
 /**
  * Handle health requests
@@ -436,6 +437,365 @@ function handleIndex(req, res) {
 }
 
 /**
+ * Handle authentication-related requests (login, register, logout, user info)
+ * This function proxies the authentication requests to the database
+ */
+async function handleAuthentication(req, res, pathname) {
+  try {
+    // Extract the action from the path (login, register, logout, user)
+    const action = pathname.split('/').filter(Boolean).pop();
+    
+    // Handle based on the action and method
+    if (action === 'login' && req.method === 'POST') {
+      await handleLogin(req, res);
+    } else if (action === 'register' && req.method === 'POST') {
+      await handleRegister(req, res);
+    } else if (action === 'logout' && req.method === 'POST') {
+      handleLogout(req, res);
+    } else if (action === 'user' && req.method === 'GET') {
+      await handleGetUser(req, res);
+    } else {
+      // Unknown authentication action
+      res.status(404).json({
+        error: 'Not found',
+        message: `Unknown authentication endpoint: ${pathname} with method ${req.method}`
+      });
+    }
+  } catch (error) {
+    console.error(`[Auth API] Error handling ${pathname}:`, error);
+    res.status(500).json({
+      error: 'Internal server error',
+      message: error.message
+    });
+  }
+}
+
+/**
+ * Handle login requests
+ */
+async function handleLogin(req, res) {
+  try {
+    // Validate request body
+    const { username, password } = req.body;
+    
+    if (!username || !password) {
+      return res.status(400).json({
+        error: 'Bad request',
+        message: 'Username and password are required'
+      });
+    }
+    
+    // Query the database for the user
+    const userResult = await queryWithRetry(
+      'SELECT * FROM users WHERE username = $1',
+      [username]
+    );
+    
+    if (userResult.rows.length === 0) {
+      return res.status(401).json({
+        error: 'Authentication failed',
+        message: 'Invalid credentials'
+      });
+    }
+    
+    const user = userResult.rows[0];
+    
+    // Verify password (implementation of password verification)
+    const passwordMatch = await verifyPassword(password, user.password);
+    
+    if (!passwordMatch) {
+      return res.status(401).json({
+        error: 'Authentication failed',
+        message: 'Invalid credentials'
+      });
+    }
+    
+    // Password is correct, create session
+    // For this simplified version, we'll create a session token
+    const sessionToken = generateSessionToken(user.id);
+    
+    // In a real implementation, you would save this to the sessions table
+    // For now, we'll set it as a cookie
+    res.setHeader('Set-Cookie', `session=${sessionToken}; Path=/; HttpOnly; Max-Age=86400`);
+    
+    // Return user info (excluding password)
+    const { password: _, ...userWithoutPassword } = user;
+    res.status(200).json(userWithoutPassword);
+  } catch (error) {
+    console.error('[Auth API] Login error:', error);
+    res.status(500).json({
+      error: 'Internal server error',
+      message: error.message
+    });
+  }
+}
+
+/**
+ * Handle register requests
+ */
+async function handleRegister(req, res) {
+  try {
+    // Validate request body
+    const { username, password, referralCode } = req.body;
+    
+    if (!username || !password) {
+      return res.status(400).json({
+        error: 'Bad request',
+        message: 'Username and password are required'
+      });
+    }
+    
+    // Check if username already exists
+    const existingUserResult = await queryWithRetry(
+      'SELECT id FROM users WHERE username = $1',
+      [username]
+    );
+    
+    if (existingUserResult.rows.length > 0) {
+      return res.status(409).json({
+        error: 'Conflict',
+        message: 'Username already exists'
+      });
+    }
+    
+    // Hash the password
+    const hashedPassword = await hashPassword(password);
+    
+    // Generate a referral code for the new user
+    const newReferralCode = generateReferralCode(username);
+    
+    // Find referrer if referral code provided
+    let referrerId = null;
+    if (referralCode) {
+      const referrerResult = await queryWithRetry(
+        'SELECT id FROM users WHERE referral_code = $1',
+        [referralCode]
+      );
+      
+      if (referrerResult.rows.length > 0) {
+        referrerId = referrerResult.rows[0].id;
+      }
+    }
+    
+    // Insert the new user
+    const insertResult = await queryWithRetry(
+      `INSERT INTO users 
+        (username, password, referral_code, referred_by, 
+         usdt_balance, is_admin, total_referral_earnings, total_team_earnings) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) 
+       RETURNING *`,
+      [
+        username, 
+        hashedPassword, 
+        newReferralCode, 
+        referrerId, 
+        '0.00', // default usdt_balance
+        false,  // not admin
+        '0.00', // default total_referral_earnings
+        '0.00'  // default total_team_earnings
+      ]
+    );
+    
+    if (insertResult.rows.length === 0) {
+      throw new Error('Failed to create user');
+    }
+    
+    const user = insertResult.rows[0];
+    
+    // Create session
+    const sessionToken = generateSessionToken(user.id);
+    res.setHeader('Set-Cookie', `session=${sessionToken}; Path=/; HttpOnly; Max-Age=86400`);
+    
+    // Return user info (excluding password)
+    const { password: _, ...userWithoutPassword } = user;
+    res.status(200).json(userWithoutPassword);
+  } catch (error) {
+    console.error('[Auth API] Register error:', error);
+    res.status(500).json({
+      error: 'Internal server error',
+      message: error.message
+    });
+  }
+}
+
+/**
+ * Handle logout requests
+ */
+function handleLogout(req, res) {
+  // Clear the session cookie
+  res.setHeader('Set-Cookie', 'session=; Path=/; HttpOnly; Max-Age=0');
+  
+  res.status(200).json({
+    success: true,
+    message: 'Logged out successfully'
+  });
+}
+
+/**
+ * Handle get user requests
+ */
+async function handleGetUser(req, res) {
+  try {
+    // Get session token from cookies
+    const cookies = parseCookies(req.headers.cookie || '');
+    const sessionToken = cookies.session;
+    
+    if (!sessionToken) {
+      return res.status(401).json({
+        error: 'Unauthorized',
+        message: 'No session found'
+      });
+    }
+    
+    // Validate the session token and get user ID
+    const userId = validateSessionToken(sessionToken);
+    
+    if (!userId) {
+      return res.status(401).json({
+        error: 'Unauthorized',
+        message: 'Invalid session'
+      });
+    }
+    
+    // Query the database for the user
+    const userResult = await queryWithRetry(
+      'SELECT * FROM users WHERE id = $1',
+      [userId]
+    );
+    
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({
+        error: 'Not found',
+        message: 'User not found'
+      });
+    }
+    
+    const user = userResult.rows[0];
+    
+    // Return user info (excluding password)
+    const { password: _, ...userWithoutPassword } = user;
+    res.status(200).json(userWithoutPassword);
+  } catch (error) {
+    console.error('[Auth API] Get user error:', error);
+    res.status(500).json({
+      error: 'Internal server error',
+      message: error.message
+    });
+  }
+}
+
+/**
+ * Helper function to hash a password
+ * @param {string} password - The plain text password to hash
+ * @returns {Promise<string>} The hashed password
+ */
+async function hashPassword(password) {
+  // Generate a random salt
+  const salt = crypto.randomBytes(16).toString('hex');
+  
+  // Hash the password with the salt
+  return new Promise((resolve, reject) => {
+    crypto.pbkdf2(password, salt, 100000, 64, 'sha512', (err, derivedKey) => {
+      if (err) reject(err);
+      // Store the salt and hash together
+      resolve(derivedKey.toString('hex') + '.' + salt);
+    });
+  });
+}
+
+/**
+ * Helper function to verify a password against a hash
+ * @param {string} password - The plain text password to verify
+ * @param {string} hash - The hash to verify against
+ * @returns {Promise<boolean>} True if the password matches, false otherwise
+ */
+async function verifyPassword(password, hash) {
+  return new Promise((resolve, reject) => {
+    // Split the stored hash into its components
+    const [hashedPassword, salt] = hash.split('.');
+    
+    if (!hashedPassword || !salt) {
+      // If the hash doesn't have both parts, reject
+      return resolve(false);
+    }
+    
+    // Hash the provided password with the same salt
+    crypto.pbkdf2(password, salt, 100000, 64, 'sha512', (err, derivedKey) => {
+      if (err) reject(err);
+      // Compare the derived key with the stored hash
+      resolve(derivedKey.toString('hex') === hashedPassword);
+    });
+  });
+}
+
+/**
+ * Helper function to generate a session token
+ * @param {number} userId - The user ID to include in the token
+ * @returns {string} The generated session token
+ */
+function generateSessionToken(userId) {
+  // Generate a unique token
+  const randomString = crypto.randomBytes(32).toString('hex');
+  // Combine with the user ID
+  const payload = `${userId}:${randomString}`;
+  // Return the token
+  return Buffer.from(payload).toString('base64');
+}
+
+/**
+ * Helper function to validate a session token
+ * @param {string} token - The session token to validate
+ * @returns {number|null} The user ID if valid, null otherwise
+ */
+function validateSessionToken(token) {
+  try {
+    // Decode the token
+    const payload = Buffer.from(token, 'base64').toString('utf-8');
+    // Extract the user ID
+    const [userId] = payload.split(':');
+    
+    // Return the user ID as a number
+    return parseInt(userId, 10);
+  } catch (error) {
+    return null;
+  }
+}
+
+/**
+ * Helper function to parse cookies from the cookie header
+ * @param {string} cookieHeader - The cookie header string
+ * @returns {Object} The parsed cookies as key-value pairs
+ */
+function parseCookies(cookieHeader) {
+  const cookies = {};
+  
+  if (!cookieHeader) {
+    return cookies;
+  }
+  
+  cookieHeader.split(';').forEach(cookie => {
+    const [name, value] = cookie.trim().split('=');
+    cookies[name] = value;
+  });
+  
+  return cookies;
+}
+
+/**
+ * Helper function to generate a referral code
+ * @param {string} username - The username to base the referral code on
+ * @returns {string} The generated referral code
+ */
+function generateReferralCode(username) {
+  // Use the first 3 characters of the username
+  const prefix = username.slice(0, 3).toUpperCase();
+  // Add a random 4-character string
+  const randomPart = crypto.randomBytes(2).toString('hex').toUpperCase();
+  // Return the combined code
+  return `${prefix}-${randomPart}`;
+}
+
+/**
  * Handle pooled-test requests
  */
 async function handlePooledTest(req, res) {
@@ -529,12 +889,17 @@ export default async function handler(req, res) {
         await handlePooledTest(req, res);
       } else if (url.pathname.includes('minimal')) {
         handleMinimal(req, res);
+      } else if (url.pathname.includes('login') || url.pathname.includes('register') || 
+                url.pathname.includes('user') || url.pathname.includes('logout')) {
+        // Forward authentication routes to the main server
+        // This keeps API compatibility with the original server
+        await handleAuthentication(req, res, url.pathname);
       } else {
         // Handle unknown paths
         res.status(404).json({
           error: 'Not found',
           message: `Unknown API endpoint: ${url.pathname}`,
-          availableEndpoints: ['health', 'minimal', 'diagnostics', 'env-test', 'db-test', 'test-deployment', 'debug', 'pooled-test', 'index']
+          availableEndpoints: ['health', 'minimal', 'diagnostics', 'env-test', 'db-test', 'test-deployment', 'debug', 'pooled-test', 'index', 'login', 'register', 'user', 'logout']
         });
       }
   }

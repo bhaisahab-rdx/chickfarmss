@@ -1,8 +1,7 @@
 // Configuration for API endpoints in different environments
 const config = {
-  apiBaseUrl: import.meta.env.PROD 
-    ? '/.netlify/functions/api'  // Netlify functions path in production
-    : '/api',                   // Dev server path for local development
+  // Always use /api for both production and development
+  apiBaseUrl: '/api',
   
   // Add replit domain to ensure correct URLs in development
   appBaseUrl: import.meta.env.PROD
