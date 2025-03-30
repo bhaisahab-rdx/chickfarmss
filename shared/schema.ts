@@ -379,6 +379,18 @@ export const spinHistory = pgTable("spin_history", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+// Define spin rewards configuration table
+export const spinRewards = pgTable("spin_rewards", {
+  id: serial("id").primaryKey(),
+  spinType: text("spin_type").notNull(), // "daily" or "super"
+  rewardType: text("reward_type").notNull(), // "eggs", "wheat", "water", "usdt", "extra_spin", "chicken"
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  chickenType: text("chicken_type"), // For chicken rewards (if applicable)
+  probability: decimal("probability", { precision: 5, scale: 2 }).notNull(), // Percentage chance 0-100
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
 // Add initialization check query
 export const DEFAULT_PRICES = [
   { item_type: 'baby_chicken', price: 90.00 },
@@ -473,6 +485,12 @@ export const insertSpinHistorySchema = createInsertSchema(spinHistory).omit({
   createdAt: true,
 });
 
+export const insertSpinRewardSchema = createInsertSchema(spinRewards).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -498,6 +516,8 @@ export type InsertDailyReward = z.infer<typeof insertDailyRewardSchema>;
 export type InsertActiveBoost = z.infer<typeof insertActiveBoostSchema>;
 export type SpinHistory = typeof spinHistory.$inferSelect;
 export type InsertSpinHistory = z.infer<typeof insertSpinHistorySchema>;
+export type SpinReward = typeof spinRewards.$inferSelect;
+export type InsertSpinReward = z.infer<typeof insertSpinRewardSchema>;
 
 
 // Admin types

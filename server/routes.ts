@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { setupAuth, isAuthenticated } from "./auth";
 import { storage, mysteryBoxTypes } from "./storage";
 import { z } from "zod";
-import { dailySpinRewards, superJackpotRewards, referralCommissionRates } from "@shared/schema";
+import { dailySpinRewards, superJackpotRewards, referralCommissionRates, insertSpinRewardSchema } from "@shared/schema";
 import { config } from "./config";
 import crypto from 'crypto';
 import { nowPaymentsService } from "./services/nowpayments";
@@ -61,6 +61,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       paymentServiceAvailable: isNOWPaymentsConfigured(),
       environment: process.env.NODE_ENV || "development"
     });
+  });
+  
+  // Debug endpoint for spin rewards (no auth required for testing)
+  app.get("/api/debug/spin-rewards", async (req, res) => {
+    try {
+      console.log("[DEBUG] Spin rewards debug endpoint accessed");
+      let dailyRewards = await storage.getSpinRewardsByType("daily");
+      let superRewards = await storage.getSpinRewardsByType("super");
+      
+      console.log("[DEBUG] Daily rewards from database:", dailyRewards);
+      console.log("[DEBUG] Super rewards from database:", superRewards);
+      
+      res.json({
+        daily: dailyRewards,
+        super: superRewards,
+        message: "This is a debug endpoint for testing spin rewards"
+      });
+    } catch (err) {
+      console.error('[DEBUG] Error fetching spin rewards:', err);
+      res.status(500).json({ error: 'Failed to fetch spin rewards' });
+    }
   });
   
   // NOWPayments API is fully configured for production use
@@ -1398,37 +1419,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.get("/api/spin/rewards", isAuthenticated, async (req, res) => {
     try {
-      // In a full implementation, these would be fetched from the database
+      // Fetch spin rewards from the database
+      let dailyRewards = await storage.getSpinRewardsByType("daily");
+      let superRewards = await storage.getSpinRewardsByType("super");
       
-      // Sample daily spin rewards
-      const dailySpinRewards = [
-        { reward: { type: "eggs", amount: 5 }, probability: 25 },
-        { reward: { type: "eggs", amount: 10 }, probability: 20 },
-        { reward: { type: "eggs", amount: 15 }, probability: 15 },
-        { reward: { type: "wheat", amount: 5 }, probability: 12 },
-        { reward: { type: "water", amount: 5 }, probability: 12 },
-        { reward: { type: "extra_spin", amount: 1 }, probability: 10 },
-        { reward: { type: "usdt", amount: 0.5 }, probability: 5 },
-        { reward: { type: "usdt", amount: 1 }, probability: 1 },
-      ];
+      // If no rewards are found in the database, use the default ones from schema
+      if (!dailyRewards || dailyRewards.length === 0) {
+        console.log("[API] No daily rewards found in database, using defaults from schema");
+        dailyRewards = dailySpinRewards.map(reward => ({
+          id: 0,
+          spinType: "daily",
+          rewardType: reward.reward.type,
+          amount: reward.reward.amount.toString(),
+          chickenType: reward.reward.chickenType || null,
+          probability: reward.probability.toString(),
+          createdAt: new Date(),
+          updatedAt: new Date()
+        }));
+      }
       
-      // Sample super jackpot rewards
-      const superJackpotRewards = [
-        { reward: { type: "eggs", amount: 50 }, probability: 25 },
-        { reward: { type: "eggs", amount: 100 }, probability: 15 },
-        { reward: { type: "eggs", amount: 200 }, probability: 10 },
-        { reward: { type: "wheat", amount: 25 }, probability: 15 },
-        { reward: { type: "water", amount: 25 }, probability: 15 },
-        { reward: { type: "usdt", amount: 5 }, probability: 10 },
-        { reward: { type: "usdt", amount: 10 }, probability: 5 },
-        { reward: { type: "usdt", amount: 50 }, probability: 1 },
-        { reward: { type: "chicken", amount: 1, chickenType: "regular" }, probability: 3 },
-        { reward: { type: "chicken", amount: 1, chickenType: "golden" }, probability: 1 },
-      ];
+      if (!superRewards || superRewards.length === 0) {
+        console.log("[API] No super jackpot rewards found in database, using defaults from schema");
+        superRewards = superJackpotRewards.map(reward => ({
+          id: 0,
+          spinType: "super",
+          rewardType: reward.reward.type,
+          amount: reward.reward.amount.toString(),
+          chickenType: reward.reward.chickenType || null,
+          probability: reward.probability.toString(),
+          createdAt: new Date(),
+          updatedAt: new Date()
+        }));
+      }
+      
+      // Format the rewards to match the expected client structure
+      const formattedDailyRewards = dailyRewards.map(r => ({
+        reward: {
+          type: r.rewardType,
+          amount: parseFloat(r.amount.toString()),
+          ...(r.chickenType && { chickenType: r.chickenType })
+        },
+        probability: parseFloat(r.probability.toString()),
+        id: r.id
+      }));
+      
+      const formattedSuperRewards = superRewards.map(r => ({
+        reward: {
+          type: r.rewardType,
+          amount: parseFloat(r.amount.toString()),
+          ...(r.chickenType && { chickenType: r.chickenType })
+        },
+        probability: parseFloat(r.probability.toString()),
+        id: r.id
+      }));
       
       res.json({
-        daily: dailySpinRewards,
-        super: superJackpotRewards
+        daily: formattedDailyRewards,
+        super: formattedSuperRewards
       });
     } catch (err) {
       console.error('Error fetching spin rewards:', err);
@@ -1444,18 +1491,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Invalid rewards format" });
       }
       
-      console.log(`Updating ${spinType} spin rewards:`, rewards);
+      if (spinType !== "daily" && spinType !== "super") {
+        return res.status(400).json({ error: "Invalid spin type: must be 'daily' or 'super'" });
+      }
       
-      // Here you would store the updated rewards in your database
-      // For now, we'll just simulate success
+      console.log(`[Admin] Updating ${spinType} spin rewards:`, rewards);
+      
+      // First, get existing rewards to determine which ones need to be deleted
+      const existingRewards = await storage.getSpinRewardsByType(spinType);
+      const existingIds = new Set(existingRewards.map(r => r.id));
+      const updatedIds = new Set(rewards.filter(r => r.id).map(r => r.id));
+      
+      // Process each reward
+      const updatedRewards = [];
+      for (const reward of rewards) {
+        // Prepare the spin reward data
+        const spinReward = {
+          spinType,
+          rewardType: reward.reward.type,
+          amount: reward.reward.amount.toString(),
+          chickenType: reward.reward.chickenType || null,
+          probability: reward.probability.toString(),
+        };
+        
+        // If the reward has an ID, update it; otherwise, create a new one
+        if (reward.id && existingIds.has(reward.id)) {
+          console.log(`[Admin] Updating existing reward ID: ${reward.id}`);
+          const updated = await storage.updateSpinReward(reward.id, spinReward);
+          updatedRewards.push(updated);
+        } else {
+          console.log(`[Admin] Creating new reward`);
+          const created = await storage.createSpinReward(spinReward);
+          updatedRewards.push(created);
+        }
+      }
+      
+      // Delete rewards that are no longer in the updated list
+      Array.from(existingIds).forEach(async (existingId) => {
+        if (!updatedIds.has(existingId)) {
+          console.log(`[Admin] Deleting removed reward ID: ${existingId}`);
+          await storage.deleteSpinReward(existingId);
+        }
+      });
       
       res.json({ 
         success: true, 
         message: `${spinType} spin rewards updated successfully`,
-        updatedRewards: rewards
+        updatedRewards
       });
     } catch (err) {
-      console.error('Error updating spin rewards:', err);
+      console.error('[Admin] Error updating spin rewards:', err);
       res.status(500).json({ error: 'Failed to update spin rewards' });
     }
   });

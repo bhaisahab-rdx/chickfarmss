@@ -10,6 +10,7 @@ import {
   DailyReward, InsertDailyReward, ActiveBoost, InsertActiveBoost,
   milestoneThresholds, referralCommissionRates, SALARY_PER_REFERRAL,
   dailyRewardsByDay, boostTypes, SpinHistory, InsertSpinHistory,
+  SpinReward, InsertSpinReward,
   AchievementBadge, InsertAchievementBadge, UserAchievement, InsertUserAchievement,
   DEFAULT_ACHIEVEMENT_BADGES, CHICKEN_LIFESPAN
 } from "@shared/schema";
@@ -17,7 +18,7 @@ import {
   users, chickens, resources, transactions, prices,
   userProfiles, gameSettings as gameSettingsTable,
   mysteryBoxRewards, referralEarnings, milestoneRewards,
-  salaryPayments, dailyRewards, activeBoosts, spinHistory,
+  salaryPayments, dailyRewards, activeBoosts, spinHistory, spinRewards,
   achievementBadges, userAchievements
 } from "@shared/schema";
 import session from "express-session";
@@ -136,6 +137,12 @@ export interface IStorage {
   updateUserLastSpin(userId: number): Promise<void>;
   updateUserExtraSpins(userId: number, spins: number): Promise<void>;
   
+  // Spin rewards configuration operations
+  createSpinReward(reward: InsertSpinReward): Promise<SpinReward>;
+  getSpinRewardsByType(spinType: string): Promise<SpinReward[]>;
+  updateSpinReward(id: number, updates: Partial<InsertSpinReward>): Promise<SpinReward>;
+  deleteSpinReward(id: number): Promise<void>;
+  
   // Achievement operations
   getAllAchievementBadges(): Promise<AchievementBadge[]>;
   getAchievementBadgeByCode(code: string): Promise<AchievementBadge | undefined>;
@@ -143,6 +150,12 @@ export interface IStorage {
   getUserAchievements(userId: number): Promise<UserAchievement[]>;
   getUserAchievementsByBadgeId(userId: number, badgeId: number): Promise<UserAchievement | undefined>;
   createUserAchievement(achievement: InsertUserAchievement): Promise<UserAchievement>;
+  
+  // Spin reward operations
+  createSpinReward(reward: InsertSpinReward): Promise<SpinReward>;
+  getSpinRewardsByType(spinType: string): Promise<SpinReward[]>;
+  updateSpinReward(id: number, updates: Partial<InsertSpinReward>): Promise<SpinReward>;
+  deleteSpinReward(id: number): Promise<void>;
   updateUserAchievement(id: number, updates: Partial<UserAchievement>): Promise<UserAchievement>;
   getCompletedUserAchievements(userId: number): Promise<UserAchievement[]>;
   initializeAchievementBadges(): Promise<void>;
@@ -1709,6 +1722,64 @@ export class DatabaseStorage implements IStorage {
         .where(eq(users.id, userId));
     } catch (error) {
       console.error('[Storage] Error updating extra spins:', error);
+      throw error;
+    }
+  }
+
+  // Spin Rewards Configuration methods
+  async createSpinReward(reward: InsertSpinReward): Promise<SpinReward> {
+    try {
+      console.log('[Storage] Creating spin reward configuration:', reward);
+      const [newReward] = await db.insert(spinRewards)
+        .values({
+          ...reward,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        })
+        .returning();
+      return newReward;
+    } catch (error) {
+      console.error('[Storage] Error creating spin reward:', error);
+      throw error;
+    }
+  }
+
+  async getSpinRewardsByType(spinType: string): Promise<SpinReward[]> {
+    try {
+      console.log(`[Storage] Fetching spin rewards for type ${spinType}`);
+      return db.select()
+        .from(spinRewards)
+        .where(eq(spinRewards.spinType, spinType));
+    } catch (error) {
+      console.error('[Storage] Error fetching spin rewards by type:', error);
+      throw error;
+    }
+  }
+
+  async updateSpinReward(id: number, updates: Partial<InsertSpinReward>): Promise<SpinReward> {
+    try {
+      console.log(`[Storage] Updating spin reward ${id}:`, updates);
+      const [updatedReward] = await db.update(spinRewards)
+        .set({
+          ...updates,
+          updatedAt: new Date()
+        })
+        .where(eq(spinRewards.id, id))
+        .returning();
+      return updatedReward;
+    } catch (error) {
+      console.error('[Storage] Error updating spin reward:', error);
+      throw error;
+    }
+  }
+
+  async deleteSpinReward(id: number): Promise<void> {
+    try {
+      console.log(`[Storage] Deleting spin reward ${id}`);
+      await db.delete(spinRewards)
+        .where(eq(spinRewards.id, id));
+    } catch (error) {
+      console.error('[Storage] Error deleting spin reward:', error);
       throw error;
     }
   }
