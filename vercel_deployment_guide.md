@@ -117,23 +117,42 @@ Solutions:
 
 Symptoms:
 - Error message: "The `functions` property cannot be used in conjunction with the `builds` property."
+- Error message: "If `rewrites`, `redirects`, `headers`, `cleanUrls` or `trailingSlash` are used, then `routes` cannot be present."
 - Deployment fails during the build phase
 
 Solutions:
-- Remove the `functions` property and move the configuration into the `config` property of the corresponding build
-- Example:
-  ```json
-  "builds": [
-    {
-      "src": "api/**/*.js",
-      "use": "@vercel/node",
-      "config": {
-        "memory": 1024,
-        "maxDuration": 10
+- For functions/builds conflict:
+  - Remove the `functions` property and move the configuration into the `config` property of the corresponding build
+  - Example:
+    ```json
+    "builds": [
+      {
+        "src": "api/**/*.js",
+        "use": "@vercel/node",
+        "config": {
+          "memory": 1024,
+          "maxDuration": 10
+        }
       }
-    }
-  ]
-  ```
+    ]
+    ```
+
+- For routes/headers conflict:
+  - Convert `routes` to `rewrites` when using headers or other modern routing properties
+  - Example:
+    ```json
+    // Replace routes:
+    "routes": [
+      { "src": "/api/(.*)", "dest": "/api/$1.js" }
+    ]
+    
+    // With rewrites:
+    "rewrites": [
+      { "source": "/api/:path*", "destination": "/api/:path*.js" }
+    ]
+    ```
+
+- Our build script will automatically fix these issues when you run: `node build-vercel.js`
 - See the `vercel_error_fix_guide.md` for detailed examples
 
 ## Support

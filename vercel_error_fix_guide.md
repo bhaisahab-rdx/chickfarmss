@@ -137,6 +137,64 @@ Move your function-specific configurations into the `config` property of the cor
 }
 ```
 
+### Error: If `rewrites`, `redirects`, `headers`, `cleanUrls` or `trailingSlash` are used, then `routes` cannot be present
+
+**Problem**: Vercel's configuration doesn't allow mixing the legacy `routes` property with newer routing properties.
+
+**Solution**:
+Convert your `routes` to `rewrites` for a cleaner configuration:
+
+```json
+// Change this:
+{
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "/api/$1.js"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/public/$1"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "s-maxage=0"
+        }
+      ]
+    }
+  ]
+}
+
+// To this:
+{
+  "rewrites": [
+    { "source": "/api/:path*", "destination": "/api/:path*.js" },
+    { "source": "/:path*", "destination": "/public/:path*" }
+  ],
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "s-maxage=0"
+        }
+      ]
+    }
+  ]
+}
+```
+
+Note the key differences:
+- `src` becomes `source`
+- `dest` becomes `destination` 
+- Path parameters use `:param*` instead of regex captures
+
 ## Environment Variable Issues
 
 ### Error: Missing environment variables

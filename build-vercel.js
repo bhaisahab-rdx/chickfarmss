@@ -136,7 +136,7 @@ npm-debug.log
 
 /**
  * Validate and fix the vercel.json configuration
- * Ensures functions and builds properties aren't used together
+ * Ensures properties are used correctly according to Vercel guidelines
  */
 async function validateVercelConfig() {
   console.log('Validating vercel.json configuration...');
@@ -145,6 +145,7 @@ async function validateVercelConfig() {
   
   if (fs.existsSync(vercelConfigPath)) {
     let vercelConfig;
+    let configUpdated = false;
     
     try {
       const configContent = fs.readFileSync(vercelConfigPath, 'utf8');
@@ -153,7 +154,7 @@ async function validateVercelConfig() {
       throw new Error(`Failed to parse vercel.json: ${error.message}`);
     }
     
-    // Check if both builds and functions properties exist
+    // Issue 1: Check if both builds and functions properties exist
     if (vercelConfig.builds && vercelConfig.functions) {
       console.log('Warning: Found both "builds" and "functions" properties in vercel.json');
       console.log('These properties cannot be used together in Vercel. Moving function config to build config...');
@@ -179,10 +180,36 @@ async function validateVercelConfig() {
       
       // Remove the functions property
       delete vercelConfig.functions;
+      configUpdated = true;
+    }
+    
+    // Issue 2: Check if routes is used alongside headers, rewrites, redirects, etc.
+    const incompatibleWithRoutes = ['headers', 'rewrites', 'redirects', 'cleanUrls', 'trailingSlash'];
+    const hasIncompatibleProps = incompatibleWithRoutes.some(prop => vercelConfig[prop]);
+    
+    if (vercelConfig.routes && hasIncompatibleProps) {
+      console.log('Warning: "routes" cannot be used alongside headers, rewrites, redirects, cleanUrls or trailingSlash');
+      console.log('Converting routes to rewrites...');
       
-      // Write back to vercel.json
+      // Convert routes to rewrites if they don't exist yet
+      if (!vercelConfig.rewrites) {
+        vercelConfig.rewrites = vercelConfig.routes.map(route => ({
+          source: route.src,
+          destination: route.dest
+        }));
+        
+        // Remove the routes property
+        delete vercelConfig.routes;
+        configUpdated = true;
+      }
+    }
+    
+    // Write back to vercel.json if changes were made
+    if (configUpdated) {
       fs.writeFileSync(vercelConfigPath, JSON.stringify(vercelConfig, null, 2));
       console.log('Updated vercel.json successfully');
+    } else {
+      console.log('No configuration issues found in vercel.json');
     }
   } else {
     console.log('vercel.json not found, skipping validation');

@@ -14,31 +14,13 @@
       "use": "@vercel/static"
     }
   ],
-  "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "/api/$1.js"
-    },
-    {
-      "src": "/health",
-      "dest": "/api/health.js"
-    },
-    {
-      "src": "/health.html",
-      "dest": "/public/health.html"
-    },
-    {
-      "src": "/vercel-test.html",
-      "dest": "/public/vercel-test.html"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/public/$1"
-    }
+  "rewrites": [
+    { "source": "/api/:path*", "destination": "/api/:path*.js" },
+    { "source": "/health", "destination": "/api/health.js" },
+    { "source": "/health.html", "destination": "/public/health.html" },
+    { "source": "/vercel-test.html", "destination": "/public/vercel-test.html" },
+    { "source": "/:path*", "destination": "/public/:path*" }
   ],
-  "env": {
-    "NODE_ENV": "production"
-  },
   "headers": [
     {
       "source": "/api/(.*)",
@@ -67,6 +49,9 @@
       ]
     }
   ],
+  "env": {
+    "NODE_ENV": "production"
+  },
   "github": {
     "enabled": false
   }
