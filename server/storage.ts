@@ -10,7 +10,7 @@ import {
   DailyReward, InsertDailyReward, ActiveBoost, InsertActiveBoost,
   milestoneThresholds, referralCommissionRates, SALARY_PER_REFERRAL,
   dailyRewardsByDay, boostTypes, SpinHistory, InsertSpinHistory,
-  SpinReward, InsertSpinReward,
+  SpinReward, InsertSpinReward, dailySpinRewards, superJackpotRewards,
   AchievementBadge, InsertAchievementBadge, UserAchievement, InsertUserAchievement,
   DEFAULT_ACHIEVEMENT_BADGES, CHICKEN_LIFESPAN
 } from "@shared/schema";
@@ -156,6 +156,7 @@ export interface IStorage {
   getSpinRewardsByType(spinType: string): Promise<SpinReward[]>;
   updateSpinReward(id: number, updates: Partial<InsertSpinReward>): Promise<SpinReward>;
   deleteSpinReward(id: number): Promise<void>;
+  initializeSpinRewards(): Promise<void>;
   updateUserAchievement(id: number, updates: Partial<UserAchievement>): Promise<UserAchievement>;
   getCompletedUserAchievements(userId: number): Promise<UserAchievement[]>;
   initializeAchievementBadges(): Promise<void>;
@@ -182,6 +183,7 @@ export class DatabaseStorage implements IStorage {
       await this.initializeAdminUser(); // Make sure admin is initialized
       await this.initializeGameSettings();
       await this.initializeAchievementBadges(); // Initialize achievement badges
+      await this.initializeSpinRewards(); // Initialize spin rewards
     } catch (error) {
       console.error("Error in initializeDefaults:", error);
       throw error;
@@ -1747,9 +1749,9 @@ export class DatabaseStorage implements IStorage {
   async getSpinRewardsByType(spinType: string): Promise<SpinReward[]> {
     try {
       console.log(`[Storage] Fetching spin rewards for type ${spinType}`);
-      return db.select()
-        .from(spinRewards)
-        .where(eq(spinRewards.spinType, spinType));
+      const results = await db.select().from(spinRewards).where(eq(spinRewards.spinType, spinType));
+      console.log(`[Storage] Found ${results.length} ${spinType} spin rewards`);
+      return results;
     } catch (error) {
       console.error('[Storage] Error fetching spin rewards by type:', error);
       throw error;
@@ -1900,6 +1902,62 @@ export class DatabaseStorage implements IStorage {
       console.log(`[Storage] Successfully initialized ${DEFAULT_ACHIEVEMENT_BADGES.length} achievement badges`);
     } catch (error) {
       console.error("[Storage] Error initializing achievement badges:", error);
+      throw error;
+    }
+  }
+  
+  async initializeSpinRewards(): Promise<void> {
+    try {
+      console.log("[Storage] Initializing spin rewards...");
+      
+      // Check if spin rewards already exist
+      const existingDailyRewards = await this.getSpinRewardsByType('daily');
+      const existingSuperRewards = await this.getSpinRewardsByType('super');
+      
+      if (existingDailyRewards.length === 0) {
+        console.log("[Storage] No daily spin rewards found, initializing...");
+        
+        // Initialize daily spin rewards
+        for (const rewardConfig of dailySpinRewards) {
+          const { reward, probability } = rewardConfig;
+          
+          await this.createSpinReward({
+            spinType: 'daily',
+            rewardType: reward.type,
+            amount: reward.amount.toString(),
+            chickenType: reward.chickenType,
+            probability: probability.toString()
+          });
+        }
+        
+        console.log(`[Storage] Successfully initialized ${dailySpinRewards.length} daily spin rewards`);
+      } else {
+        console.log(`[Storage] Found ${existingDailyRewards.length} daily spin rewards, skipping initialization`);
+      }
+      
+      if (existingSuperRewards.length === 0) {
+        console.log("[Storage] No super jackpot rewards found, initializing...");
+        
+        // Initialize super jackpot rewards
+        for (const rewardConfig of superJackpotRewards) {
+          const { reward, probability } = rewardConfig;
+          
+          await this.createSpinReward({
+            spinType: 'super',
+            rewardType: reward.type,
+            amount: reward.amount.toString(),
+            chickenType: reward.chickenType,
+            probability: probability.toString()
+          });
+        }
+        
+        console.log(`[Storage] Successfully initialized ${superJackpotRewards.length} super jackpot rewards`);
+      } else {
+        console.log(`[Storage] Found ${existingSuperRewards.length} super jackpot rewards, skipping initialization`);
+      }
+      
+    } catch (error) {
+      console.error("[Storage] Error initializing spin rewards:", error);
       throw error;
     }
   }

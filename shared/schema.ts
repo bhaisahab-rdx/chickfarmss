@@ -777,3 +777,5 @@ export const DEFAULT_ACHIEVEMENT_BADGES: AchievementBadgeDefinition[] = [
     iconSvg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><circle cx="32" cy="32" r="30" fill="#eb8c39"/><rect x="18" y="24" width="28" height="20" rx="2" fill="#fff"/><path fill="#eb8c39" d="M32,20l-10,4h20L32,20z"/><path fill="#eb8c39" d="M24,30h16v4H24V30z"/><circle cx="32" cy="38" r="2" fill="#eb8c39"/></svg>'
   }
 ];
+
+// We already have spin reward definitions at the top of the file
