@@ -52,6 +52,16 @@ app.use((req, res, next) => {
   // This middleware needs to be before registerRoutes to properly handle the API responses
   app.use('/api', (req, res, next) => {
     res.setHeader('Content-Type', 'application/json');
+    // Add CORS headers explicitly for API routes
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    
+    // Handle preflight requests
+    if (req.method === 'OPTIONS') {
+      return res.status(200).end();
+    }
+    
     next();
   });
 
@@ -74,6 +84,26 @@ app.use((req, res, next) => {
     res.status(status).json({ message });
   });
 
+  // Add a test route that's easy to access
+  app.get('/test', (req, res) => {
+    res.json({ status: 'ok', message: 'Server is working!' });
+  });
+  
+  // Add a route for Replit health checks
+  app.get('/health', (req, res) => {
+    res.status(200).json({ status: 'healthy' });
+  });
+  
+  // Debug route to test API responses
+  app.get('/api/debug', (req, res) => {
+    res.json({
+      message: 'API is working',
+      env: process.env.NODE_ENV,
+      timestamp: new Date().toISOString(),
+      headers: req.headers,
+    });
+  });
+  
   // importantly only setup vite in development and after
   // setting up all the other routes so the catch-all route
   // doesn't interfere with the other routes
@@ -89,16 +119,7 @@ app.use((req, res, next) => {
   const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 5000;
   
   console.log("Starting server on port", port);
-  
-  // Add a test route that's easy to access
-  app.get('/test', (req, res) => {
-    res.send('Server is working!');
-  });
-  
-  // Add a route for Replit health checks
-  app.get('/health', (req, res) => {
-    res.status(200).send('Healthy');
-  });
+  console.log("Current environment:", process.env.NODE_ENV);
   
   // Explicitly serve our static HTML file for the root path
   app.get('/', (req, res) => {
@@ -128,5 +149,9 @@ app.use((req, res, next) => {
     } else {
       console.log(`Open in browser: http://localhost:${port}`);
     }
+    
+    // Print some debug info
+    console.log("Server initialization complete!");
+    console.log("API route example: http://0.0.0.0:" + port + "/api/debug");
   });
 })();
