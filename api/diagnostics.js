@@ -34,6 +34,17 @@ export default function handler(req, res) {
       return obj;
     }, {});
   
+  // Create an object with required environment variables for the test
+  // This ensures the vercel-test.html page can see these variables are set
+  // but doesn't expose their actual values
+  const requiredEnvForTest = {
+    NODE_ENV: process.env.NODE_ENV || 'not set',
+    DATABASE_URL: process.env.DATABASE_URL ? 'is set (value hidden)' : 'not set',
+    SESSION_SECRET: process.env.SESSION_SECRET ? 'is set (value hidden)' : 'not set',
+    NOWPAYMENTS_API_KEY: process.env.NOWPAYMENTS_API_KEY ? 'is set (value hidden)' : 'not set',
+    NOWPAYMENTS_IPN_SECRET_KEY: process.env.NOWPAYMENTS_IPN_SECRET_KEY ? 'is set (value hidden)' : 'not set'
+  };
+
   // Return diagnostic information
   res.status(200).json({
     status: 'ok',
@@ -80,6 +91,8 @@ export default function handler(req, res) {
         locale: Intl.DateTimeFormat().resolvedOptions().locale
       }
     },
-    environment: safeEnvVars
+    environment: safeEnvVars,
+    // Add required env variables in a separate property for the test page
+    env: requiredEnvForTest
   });
 }
