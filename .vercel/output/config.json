@@ -41,6 +41,18 @@
       "dest": "/api"
     },
     {
+      "src": "/api/spin/status",
+      "dest": "/api"
+    },
+    {
+      "src": "/api/spin/spin",
+      "dest": "/api"
+    },
+    {
+      "src": "/api/spin/claim-extra",
+      "dest": "/api"
+    },
+    {
       "src": "/api/spin/(.*)",
       "dest": "/api"
     },
