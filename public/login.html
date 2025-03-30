@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ChickFarms - Login</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: 'Arial', sans-serif;
+      background-color: #fffaf0;
+      color: #333;
+      line-height: 1.6;
+    }
+    header {
+      background-color: #f8931f;
+      color: white;
+      text-align: center;
+      padding: 1rem;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    main {
+      max-width: 800px;
+      margin: 2rem auto;
+      padding: 1rem;
+    }
+    .login-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-top: 2rem;
+    }
+    .logo {
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      background-color: #f8931f;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 1.5rem;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    .logo-inner {
+      font-size: 2.5rem;
+      color: white;
+      font-weight: bold;
+    }
+    h2 {
+      margin-bottom: 1rem;
+      color: #f8931f;
+    }
+    .login-form {
+      background-color: white;
+      border-radius: 8px;
+      padding: 2rem;
+      margin-top: 2rem;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+      width: 100%;
+      max-width: 400px;
+    }
+    .form-group {
+      margin-bottom: 1.5rem;
+    }
+    label {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-weight: bold;
+      color: #555;
+    }
+    input {
+      width: 100%;
+      padding: 0.8rem;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 1rem;
+    }
+    .button {
+      width: 100%;
+      padding: 0.8rem;
+      background-color: #f8931f;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+    .button:hover {
+      background-color: #e67e00;
+    }
+    .divider {
+      text-align: center;
+      margin: 1.5rem 0;
+      position: relative;
+    }
+    .divider::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background-color: #ddd;
+      z-index: 1;
+    }
+    .divider span {
+      background-color: white;
+      padding: 0 10px;
+      position: relative;
+      z-index: 2;
+      color: #777;
+    }
+    .register-link {
+      text-align: center;
+      margin-top: 1.5rem;
+    }
+    .register-link a {
+      color: #f8931f;
+      text-decoration: none;
+    }
+    .register-link a:hover {
+      text-decoration: underline;
+    }
+    .status-message {
+      margin-top: 1rem;
+      padding: 0.8rem;
+      border-radius: 4px;
+      display: none;
+      text-align: center;
+    }
+    .status-message.error {
+      background-color: #ffeaea;
+      color: #e74c3c;
+      border: 1px solid #f5c6cb;
+      display: block;
+    }
+    .status-message.success {
+      background-color: #eaffea;
+      color: #2ecc71;
+      border: 1px solid #c3e6cb;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>ChickFarms</h1>
+  </header>
+  
+  <main>
+    <div class="login-container">
+      <div class="logo">
+        <div class="logo-inner">CF</div>
+      </div>
+      <h2>Welcome Back</h2>
+      <p>Sign in to continue your farming adventure!</p>
+      
+      <div class="login-form">
+        <div id="status-message" class="status-message"></div>
+        
+        <form id="login-form">
+          <div class="form-group">
+            <label for="username">Username or Email</label>
+            <input type="text" id="username" name="username" required>
+          </div>
+          
+          <div class="form-group">
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" required>
+          </div>
+          
+          <button type="submit" class="button">Sign In</button>
+        </form>
+        
+        <div class="divider">
+          <span>OR</span>
+        </div>
+        
+        <button id="guest-login" class="button" style="background-color: #8c52ff;">Continue as Guest</button>
+        
+        <div class="register-link">
+          <p>Don't have an account? <a href="/register.html">Register Now</a></p>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const loginForm = document.getElementById('login-form');
+      const guestLoginBtn = document.getElementById('guest-login');
+      const statusMessage = document.getElementById('status-message');
+      
+      // Handle login form submission
+      loginForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const username = document.getElementById('username').value;
+        const password = document.getElementById('password').value;
+        
+        // Show processing state
+        statusMessage.textContent = 'Logging in...';
+        statusMessage.className = 'status-message';
+        
+        // Call the login API
+        fetch('/api/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ username, password }),
+          credentials: 'include'
+        })
+        .then(response => {
+          if (response.ok) {
+            return response.json();
+          }
+          throw new Error('Login failed');
+        })
+        .then(data => {
+          // Successful login
+          statusMessage.textContent = 'Login successful! Redirecting...';
+          statusMessage.className = 'status-message success';
+          
+          // Redirect to the main application
+          setTimeout(() => {
+            window.location.href = '/';
+          }, 1000);
+        })
+        .catch(error => {
+          // Login failed
+          statusMessage.textContent = 'Login failed. Please check your credentials and try again.';
+          statusMessage.className = 'status-message error';
+        });
+      });
+      
+      // Handle guest login
+      guestLoginBtn.addEventListener('click', function() {
+        // Try to access the application directly
+        window.location.href = '/dist/public/index.html';
+      });
+    });
+  </script>
+</body>
+</html>

@@ -147,9 +147,53 @@
       <p>Your virtual farming adventure awaits!</p>
       
       <div class="buttons">
-        <a href="/" class="button">Enter Game</a>
+        <button id="enter-game-btn" class="button">Enter Game</button>
         <a href="/api/health" class="button secondary">Check API Status</a>
       </div>
+      
+      <script>
+        document.getElementById('enter-game-btn').addEventListener('click', function() {
+          // Try multiple possible paths
+          const paths = [
+            '/login', 
+            '/auth/login',
+            '/signin',
+            '/register',
+            '/auth/register',
+            '/dist/public/index.html',
+            '/dist/index.html',
+            '/index.html',
+            '/'
+          ];
+          
+          // Start with the first path
+          tryNextPath(0);
+          
+          function tryNextPath(index) {
+            if (index >= paths.length) {
+              // If all paths failed, just force reload the current page
+              window.location.reload(true);
+              return;
+            }
+            
+            const path = paths[index];
+            fetch(path, { method: 'HEAD' })
+              .then(response => {
+                if (response.ok) {
+                  // This path works, redirect to it
+                  window.location.href = path;
+                } else {
+                  // Try the next path
+                  tryNextPath(index + 1);
+                }
+              })
+              .catch(error => {
+                // Try the next path
+                tryNextPath(index + 1);
+              });
+          }
+        });
+      </script>
       
       <div class="status">
         <h3>System Status</h3>
