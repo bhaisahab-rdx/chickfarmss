@@ -3,7 +3,7 @@
   "buildCommand": "node build-vercel.js && npm run build",
   "outputDirectory": "dist",
   "routes": [
-    { "src": "/api/(.*)", "dest": "/api/consolidated.js" },
+    { "src": "/api/(.*)", "dest": "/api" },
     { "src": "/(.*)", "dest": "/index.html" }
   ],
   "env": {
