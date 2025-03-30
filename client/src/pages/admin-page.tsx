@@ -59,7 +59,12 @@ const priceSchema = z.object({
   babyChickenPrice: z.number().min(0, "Price cannot be negative"),
   regularChickenPrice: z.number().min(0, "Price cannot be negative"),
   goldenChickenPrice: z.number().min(0, "Price cannot be negative"),
+  // Mystery box prices (mysteryBoxPrice is the legacy field, still needed for compatibility)
   mysteryBoxPrice: z.number().min(0, "Price cannot be negative"),
+  basicMysteryBoxPrice: z.number().min(0, "Price cannot be negative"),
+  standardMysteryBoxPrice: z.number().min(0, "Price cannot be negative"),
+  advancedMysteryBoxPrice: z.number().min(0, "Price cannot be negative"),
+  legendaryMysteryBoxPrice: z.number().min(0, "Price cannot be negative"),
   withdrawalTaxPercentage: z.number().min(0, "Tax cannot be negative").max(100, "Tax cannot exceed 100%"),
 });
 
@@ -71,6 +76,13 @@ export default function AdminPage() {
   if (!user?.isAdmin) {
     return <div>Access Denied</div>;
   }
+  
+  React.useEffect(() => {
+    toast({
+      title: "NOWPayments Integration Active",
+      description: "Payment processing is now fully automated through NOWPayments IPN. Recharge transactions are processed automatically upon payment confirmation.",
+    });
+  }, []);
 
   const statsQuery = useQuery<AdminStats>({
     queryKey: ["/api/admin/stats"],
@@ -178,7 +190,11 @@ export default function AdminPage() {
       babyChickenPrice: 90,
       regularChickenPrice: 150,
       goldenChickenPrice: 400,
-      mysteryBoxPrice: 50,
+      mysteryBoxPrice: 5, // Legacy field
+      basicMysteryBoxPrice: 5,
+      standardMysteryBoxPrice: 10,
+      advancedMysteryBoxPrice: 20,
+      legendaryMysteryBoxPrice: 50,
       withdrawalTaxPercentage: 5,
     },
   });
@@ -192,7 +208,12 @@ export default function AdminPage() {
         babyChickenPrice: pricesQuery.data.babyChickenPrice,
         regularChickenPrice: pricesQuery.data.regularChickenPrice,
         goldenChickenPrice: pricesQuery.data.goldenChickenPrice,
-        mysteryBoxPrice: pricesQuery.data.mysteryBoxPrice || 50,
+        // Keep mysteryBoxPrice in sync with basicMysteryBoxPrice for legacy compatibility
+        mysteryBoxPrice: pricesQuery.data.mysteryBoxPrice || 5,
+        basicMysteryBoxPrice: pricesQuery.data.basicMysteryBoxPrice || 5,
+        standardMysteryBoxPrice: pricesQuery.data.standardMysteryBoxPrice || 10,
+        advancedMysteryBoxPrice: pricesQuery.data.advancedMysteryBoxPrice || 20,
+        legendaryMysteryBoxPrice: pricesQuery.data.legendaryMysteryBoxPrice || 50,
         withdrawalTaxPercentage: pricesQuery.data.withdrawalTaxPercentage
       });
     }
@@ -207,7 +228,12 @@ export default function AdminPage() {
         { itemType: 'baby_chicken', price: data.babyChickenPrice },
         { itemType: 'regular_chicken', price: data.regularChickenPrice },
         { itemType: 'golden_chicken', price: data.goldenChickenPrice },
-        { itemType: 'mystery_box', price: data.mysteryBoxPrice }
+        // For the mystery box prices
+        { itemType: 'mystery_box', price: data.mysteryBoxPrice }, // Legacy field
+        { itemType: 'basic_mystery_box', price: data.basicMysteryBoxPrice },
+        { itemType: 'standard_mystery_box', price: data.standardMysteryBoxPrice },
+        { itemType: 'advanced_mystery_box', price: data.advancedMysteryBoxPrice },
+        { itemType: 'legendary_mystery_box', price: data.legendaryMysteryBoxPrice }
       ];
 
       console.log('Sending price updates:', priceUpdates);
@@ -390,7 +416,7 @@ export default function AdminPage() {
                         </span>
                       </TableCell>
                       <TableCell>
-                        {transaction.status === "pending" && (
+                        {transaction.status === "pending" && transaction.type !== "recharge" && (
                           <div className="space-x-2">
                             <Button
                               size="sm"
@@ -415,6 +441,11 @@ export default function AdminPage() {
                             >
                               Reject
                             </Button>
+                          </div>
+                        )}
+                        {transaction.status === "pending" && transaction.type === "recharge" && (
+                          <div className="text-sm text-muted-foreground italic">
+                            Automatic processing via NOWPayments
                           </div>
                         )}
                       </TableCell>
@@ -712,24 +743,105 @@ export default function AdminPage() {
 
                   <div className="pt-4 border-t mb-4">
                     <h3 className="text-lg font-semibold mb-4">Mystery Box Settings</h3>
-                    <FormField
-                      control={priceForm.control}
-                      name="mysteryBoxPrice"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Mystery Box Price (USDT)</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="number"
-                              step="0.01"
-                              value={field.value || ''}
-                              onChange={(e) => field.onChange(Number(e.target.value))}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                      {/* Hidden field for legacy mysteryBoxPrice - synced with basicMysteryBoxPrice */}
+                      <FormField
+                        control={priceForm.control}
+                        name="mysteryBoxPrice"
+                        render={({ field }) => (
+                          <FormItem className="hidden">
+                            <FormControl>
+                              <Input
+                                type="hidden"
+                                value={field.value || ''}
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                    
+                      <FormField
+                        control={priceForm.control}
+                        name="basicMysteryBoxPrice"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Basic Mystery Box Price (USDT)</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                step="0.01"
+                                value={field.value || ''}
+                                onChange={(e) => {
+                                  // Update both the visible field and hidden mysteryBoxPrice for legacy compatibility
+                                  const value = Number(e.target.value);
+                                  field.onChange(value);
+                                  priceForm.setValue("mysteryBoxPrice", value);
+                                }}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={priceForm.control}
+                        name="standardMysteryBoxPrice"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Standard Mystery Box Price (USDT)</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                step="0.01"
+                                value={field.value || ''}
+                                onChange={(e) => field.onChange(Number(e.target.value))}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={priceForm.control}
+                        name="advancedMysteryBoxPrice"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Advanced Mystery Box Price (USDT)</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                step="0.01"
+                                value={field.value || ''}
+                                onChange={(e) => field.onChange(Number(e.target.value))}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={priceForm.control}
+                        name="legendaryMysteryBoxPrice"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Legendary Mystery Box Price (USDT)</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                step="0.01"
+                                value={field.value || ''}
+                                onChange={(e) => field.onChange(Number(e.target.value))}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
                   </div>
 
                   <div className="pt-4 border-t">

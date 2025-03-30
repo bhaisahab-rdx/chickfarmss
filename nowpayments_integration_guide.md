@@ -2,13 +2,15 @@
 
 This guide explains how to integrate and configure NOWPayments cryptocurrency payment processing for your ChickFarms application.
 
+> **IMPORTANT UPDATE (March 30, 2025)**: The ChickFarms payment system now features fully automated transaction processing through NOWPayments IPN webhooks. Manual approval of recharge transactions is no longer required as the system automatically credits user accounts upon confirmed payments. This streamlines the payment process and improves user experience.
+
 ## Overview
 
 NOWPayments allows ChickFarms to accept cryptocurrency payments (USDT TRC20) for in-game purchases and deposits. This integration enables:
 
 - Generation of payment invoices
 - Real-time payment notifications via webhooks (IPN)
-- Automatic crediting of user accounts upon payment completion
+- Automatic crediting of user accounts upon payment completion (no admin intervention required)
 
 ## Setup Requirements
 
@@ -69,7 +71,8 @@ Use the wallet deposit interface in ChickFarms to create a payment invoice. Veri
 
 1. Make a test payment using the provided payment URL
 2. Monitor server logs for incoming webhook notifications
-3. Verify user balance is updated after payment completion
+3. Verify user balance is updated automatically after payment confirmation (no manual approval needed)
+4. Check the admin panel to confirm the transaction is marked as "completed" automatically
 
 ## Troubleshooting Guide
 
@@ -89,6 +92,13 @@ Use the wallet deposit interface in ChickFarms to create a payment invoice. Veri
    - Check IPN signature validation in `server/routes-nowpayments.ts`
    - Verify transaction processing logic in payment handler
    - Check database connection and transaction records
+   - Ensure NOWPayments webhook endpoints are correctly set up
+
+4. **Automated Payment Processing Not Working**
+   - Verify the IPN Secret key is correctly configured in environment variables
+   - Check server logs for IPN callback validation errors
+   - Ensure the NOWPayments IPN callback status is set to "Active" in the dashboard
+   - Verify that the processIPNNotification function in server/services/nowpayments.ts is working properly
 
 ## API Reference
 

@@ -93,6 +93,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         babyChickenPrice: parseFloat(prices.find(p => p.itemType === 'baby_chicken')?.price || '90'),
         regularChickenPrice: parseFloat(prices.find(p => p.itemType === 'regular_chicken')?.price || '150'),
         goldenChickenPrice: parseFloat(prices.find(p => p.itemType === 'golden_chicken')?.price || '400'),
+        // Mystery box prices
+        mysteryBoxPrice: parseFloat(prices.find(p => p.itemType === 'mystery_box')?.price || '50'),
+        basicMysteryBoxPrice: parseFloat(prices.find(p => p.itemType === 'basic_mystery_box')?.price || '5'),
+        standardMysteryBoxPrice: parseFloat(prices.find(p => p.itemType === 'standard_mystery_box')?.price || '10'),
+        advancedMysteryBoxPrice: parseFloat(prices.find(p => p.itemType === 'advanced_mystery_box')?.price || '20'),
+        legendaryMysteryBoxPrice: parseFloat(prices.find(p => p.itemType === 'mystery_box')?.price || '50'),
         withdrawalTaxPercentage: 5 // Default value, you might want to get this from settings table
       };
       res.json(gamePrices);

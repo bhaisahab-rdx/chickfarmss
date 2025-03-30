@@ -528,7 +528,12 @@ export interface GamePrices {
   babyChickenPrice: number;
   regularChickenPrice: number;
   goldenChickenPrice: number;
+  // Mystery box prices
   mysteryBoxPrice: number;
+  basicMysteryBoxPrice: number;
+  standardMysteryBoxPrice: number;
+  advancedMysteryBoxPrice: number;
+  legendaryMysteryBoxPrice: number;
   withdrawalTaxPercentage: number;
 }
 
