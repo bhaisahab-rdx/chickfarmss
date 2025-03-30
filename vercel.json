@@ -24,6 +24,7 @@
   ],
   "routes": [
     { "src": "/api/test-deployment", "dest": "/api/test-deployment.js" },
+    { "src": "/api/env-test", "dest": "/api/env-test.js" },
     { "src": "/api/(.*)", "dest": "/api/$1.js" },
     { "src": "/health", "dest": "/api/health.js" },
     { "src": "/health.html", "dest": "/public/health.html" },
