@@ -1,0 +1,111 @@
+{
+  "status": "ok",
+  "timestamp": "2025-03-30T15:36:01.690Z",
+  "nodejs": {
+    "version": "v22.14.0",
+    "platform": "linux",
+    "arch": "x64",
+    "pid": 3,
+    "uptime": "72 seconds",
+    "memoryUsage": {
+      "rss": "58 MB",
+      "heapTotal": "8 MB",
+      "heapUsed": "6 MB",
+      "external": "2 MB"
+    },
+    "env": "production"
+  },
+  "request": {
+    "url": "/api/diagnostics",
+    "method": "GET",
+    "headers": {
+      "host": "chickfarmss-wqo7.vercel.app",
+      "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36",
+      "referer": "https://chickfarmss-wqo7.vercel.app/vercel-test.html",
+      "x-forwarded-for": "5.31.217.232",
+      "x-forwarded-host": "chickfarmss-wqo7.vercel.app",
+      "x-forwarded-proto": "https"
+    }
+  },
+  "deployment": {
+    "vercel": {
+      "detected": true,
+      "url": "chickfarmss-wqo7-ixd2u74dp-hidogangs-projects.vercel.app",
+      "region": "iad1",
+      "env": "production"
+    },
+    "database": {
+      "configured": true,
+      "url": "postgresql://****:****@aws-0-ap-south-1.pooler.supabase.com:6543/postgres"
+    },
+    "config": {
+      "timezone": "UTC",
+      "locale": "en-US"
+    }
+  },
+  "environment": {
+    "AWS_DEFAULT_REGION": "us-east-1",
+    "AWS_EXECUTION_ENV": "AWS_Lambda_nodejs22.x",
+    "AWS_LAMBDA_EXEC_WRAPPER": "/opt/rust/bootstrap",
+    "AWS_LAMBDA_FUNCTION_MEMORY_SIZE": "1024",
+    "AWS_LAMBDA_FUNCTION_NAME": "team_ISoEBL2OtWfgERmcaf9SQ2Lb-c344b43f0c66ac41a43a3c325a31858780",
+    "AWS_LAMBDA_FUNCTION_VERSION": "$LATEST",
+    "AWS_LAMBDA_INITIALIZATION_TYPE": "on-demand",
+    "AWS_LAMBDA_LOG_GROUP_NAME": "/aws/lambda/team_ISoEBL2OtWfgERmcaf9SQ2Lb-c344b43f0c66ac41a43a3c325a31858780",
+    "AWS_LAMBDA_LOG_STREAM_NAME": "2025/03/30/[$LATEST]ca15eeffc50e419b8913c9b355d7318a",
+    "AWS_LAMBDA_RUNTIME_API": "169.254.100.1:9001",
+    "AWS_REGION": "us-east-1",
+    "AWS_XRAY_CONTEXT_MISSING": "LOG_ERROR",
+    "AWS_XRAY_DAEMON_ADDRESS": "169.254.100.1:2000",
+    "DATABASE_URL": "postgresql://****:****@aws-0-ap-south-1.pooler.supabase.com:6543/postgres",
+    "LAMBDA_RUNTIME_DIR": "/var/runtime",
+    "LAMBDA_TASK_ROOT": "/var/task",
+    "LANG": "en_US.UTF-8",
+    "LD_LIBRARY_PATH": "/var/lang/lib:/lib64:/usr/lib64:/var/runtime:/var/runtime/lib:/var/task:/var/task/lib:/opt/lib",
+    "NODE_ENV": "production",
+    "NODE_PATH": "/opt/nodejs/node22/node_modules:/opt/nodejs/node_modules:/var/runtime/node_modules:/var/runtime:/var/task",
+    "NOW_REGION": "iad1",
+    "NX_DAEMON": "false",
+    "PATH": "/var/lang/bin:/usr/local/bin:/usr/bin/:/bin:/opt/bin",
+    "SHLVL": "0",
+    "TURBO_CACHE": "remote:rw",
+    "TURBO_DOWNLOAD_LOCAL_ENABLED": "true",
+    "TURBO_PLATFORM_ENV": "DATABASE_URL,SESSION_SECRET,NODE_ENV,NOWPAYMENTS_API_KEY,NOWPAYMENTS_IPN_SECRET_KEY",
+    "TURBO_REMOTE_ONLY": "true",
+    "TURBO_RUN_SUMMARY": "true",
+    "TZ": ":UTC",
+    "VERCEL": "1",
+    "VERCEL_BRANCH_URL": "chickfarmss-wqo7-git-main-hidogangs-projects.vercel.app",
+    "VERCEL_DEPLOYMENT_ID": "dpl_sKrL93jVWZyza2dqa6epDWjR8DK1",
+    "VERCEL_ENV": "production",
+    "VERCEL_GIT_COMMIT_MESSAGE": "Fix: Resolve Vercel Hobby plan function limit by consolidating all API endpoints into a single serverless function.  Improved routing and added comprehensive error handling.\n\nReplit-Commit-Author: Agent\nReplit-Commit-Session-Id: 2866122b-8b4c-4d75-abc2-260fdf9a93ea",
+    "VERCEL_GIT_COMMIT_REF": "main",
+    "VERCEL_GIT_COMMIT_SHA": "a8efc3d72122dfdeff391db48ad44c4341e523e6",
+    "VERCEL_GIT_PREVIOUS_SHA": "",
+    "VERCEL_GIT_PROVIDER": "github",
+    "VERCEL_GIT_PULL_REQUEST_ID": "",
+    "VERCEL_GIT_REPO_ID": "957514469",
+    "VERCEL_GIT_REPO_OWNER": "bhaisahab-rdx",
+    "VERCEL_GIT_REPO_SLUG": "chickfarmss",
+    "VERCEL_HANDLER": "/var/task/api/consolidated.js",
+    "VERCEL_IPC_PATH": "/tmp/vercel-2190149775.sock",
+    "VERCEL_PARENT_SPAN_ID": "90b9408c8597bbb3",
+    "VERCEL_PROJECT_ID": "prj_Y77salGUtcssxvn6Il4CipIxqdAA",
+    "VERCEL_PROJECT_PRODUCTION_URL": "chickfarmss-wqo7.vercel.app",
+    "VERCEL_REGION": "iad1",
+    "VERCEL_SHOULD_ADD_HELPERS": "1",
+    "VERCEL_TARGET_ENV": "production",
+    "VERCEL_URL": "chickfarmss-wqo7-ixd2u74dp-hidogangs-projects.vercel.app",
+    "_AWS_XRAY_DAEMON_ADDRESS": "169.254.100.1",
+    "_AWS_XRAY_DAEMON_PORT": "2000",
+    "_HANDLER": "api/consolidated.js",
+    "_LAMBDA_TELEMETRY_LOG_FD": "62"
+  },
+  "env": {
+    "NODE_ENV": "production",
+    "DATABASE_URL": "is set (value hidden)",
+    "SESSION_SECRET": "is set (value hidden)",
+    "NOWPAYMENTS_API_KEY": "is set (value hidden)",
+    "NOWPAYMENTS_IPN_SECRET_KEY": "is set (value hidden)"
+  }
+}

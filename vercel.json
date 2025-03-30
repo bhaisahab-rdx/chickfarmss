@@ -29,8 +29,10 @@
     { "src": "/vercel-test.html", "dest": "/public/vercel-test.html" },
     { "src": "/assets/(.*)", "dest": "/dist/public/assets/$1" },
     { "src": "^/$", "dest": "/index.html" },
+    { "src": "/index.html", "dest": "/index.html" },
+    { "src": "/dist/public/index.html", "dest": "/index.html" },
     { "src": "/(.*\\.(js|css|png|jpg|gif|svg|ico|json|ttf|otf|woff|woff2))$", "dest": "/dist/public/$1" },
-    { "src": "/(.*)", "dest": "/dist/public/index.html" }
+    { "src": "/(.*)", "dest": "/index.html" }
   ],
   "env": {
     "NODE_ENV": "production",
