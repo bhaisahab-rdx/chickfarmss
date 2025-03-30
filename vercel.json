@@ -23,10 +23,13 @@
     }
   ],
   "routes": [
-    { "src": "/api/test-deployment", "dest": "/api/test-deployment.js" },
-    { "src": "/api/env-test", "dest": "/api/env-test.js" },
-    { "src": "/api/(.*)", "dest": "/api/$1.js" },
-    { "src": "/health", "dest": "/api/health.js" },
+    { "src": "/api/test-deployment", "dest": "/api/consolidated.js" },
+    { "src": "/api/env-test", "dest": "/api/consolidated.js" },
+    { "src": "/api/health", "dest": "/api/consolidated.js" },
+    { "src": "/api/minimal", "dest": "/api/consolidated.js" },
+    { "src": "/api/diagnostics", "dest": "/api/consolidated.js" },
+    { "src": "/api/db-test", "dest": "/api/consolidated.js" },
+    { "src": "/health", "dest": "/api/consolidated.js" },
     { "src": "/health.html", "dest": "/public/health.html" },
     { "src": "/vercel-test.html", "dest": "/public/vercel-test.html" },
     { "src": "/assets/(.*)", "dest": "/dist/public/assets/$1" },
