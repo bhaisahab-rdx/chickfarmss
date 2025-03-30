@@ -321,7 +321,7 @@ async function createVercelOutputStructure() {
   
   // Create .vc-config.json in the API function directory
   const vcConfigJson = {
-    runtime: 'nodejs18.x',
+    runtime: 'nodejs20.x',
     handler: 'index.js',
     launcherType: 'Nodejs'
   };

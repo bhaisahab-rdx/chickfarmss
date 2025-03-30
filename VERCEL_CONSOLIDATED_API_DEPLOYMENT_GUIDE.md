@@ -12,6 +12,8 @@ The consolidated API approach works by:
 
 ## Deployment Steps
 
+> **Important Note**: The deployment uses Node.js 20.x runtime. Make sure your code is compatible with this version.
+
 ### 1. Prepare Your Application
 
 Ensure your application is ready for deployment:

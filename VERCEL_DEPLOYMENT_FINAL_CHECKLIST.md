@@ -50,6 +50,7 @@ Ensure these environment variables are set in Vercel:
   ```
 - [ ] Build command is set to: `node build-vercel.js`
 - [ ] Output directory is set to: `.vercel/output`
+- [ ] Serverless function runtime is set to: `nodejs20.x`
 
 ## Post-Deployment Checks
 
