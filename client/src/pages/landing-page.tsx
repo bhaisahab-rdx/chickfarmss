@@ -356,7 +356,7 @@ export default function LandingPage() {
                         <p className="mt-2 sm:mt-3 text-amber-700 text-xs sm:text-sm">{chicken.desc}</p>
                         <div className="mt-3 sm:mt-4">
                           <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-200 text-xs sm:text-sm">
-                            ROI: {index === 0 ? "40" : index === 1 ? "30" : "20"} days
+                            Life Span: {index === 0 ? "40 days" : index === 1 ? "182 days" : "365 days"}
                           </Badge>
                         </div>
                       </motion.div>

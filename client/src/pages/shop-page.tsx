@@ -42,7 +42,7 @@ const CHICKEN_TYPES = [
       water: 2,
       wheat: 2
     },
-    roi: "30 days",
+    roi: "182 days",
     hatchesPerDay: 4.8,
     eggsPerDay: 24,
     color: "#F5F5F5",
@@ -56,7 +56,7 @@ const CHICKEN_TYPES = [
       water: 10,
       wheat: 15
     },
-    roi: "20 days",
+    roi: "365 days",
     hatchesPerDay: 8,
     eggsPerDay: 160,
     color: "#FFD700",
@@ -522,7 +522,7 @@ export default function ShopPage() {
                 <div className="bg-gradient-to-b from-amber-50 to-white p-4 space-y-3 rounded-b-xl">
                   <div className="grid grid-cols-2 gap-3">
                     <div className="bg-white p-3 rounded-lg border border-amber-100 text-center cursor-help hover:border-amber-300 transition-all">
-                      <div className="text-amber-600 text-xs font-semibold mb-1">ROI Period</div>
+                      <div className="text-amber-600 text-xs font-semibold mb-1">Life Span</div>
                       <div className="text-amber-900 font-bold">{chicken.roi}</div>
                     </div>
 

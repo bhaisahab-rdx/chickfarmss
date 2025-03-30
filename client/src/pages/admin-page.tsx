@@ -333,7 +333,11 @@ export default function AdminPage() {
         </Card>
       </div>
 
-      <Tabs defaultValue="transactions">
+      <Tabs defaultValue="transactions" onValueChange={(value) => {
+        if (value === 'telegramIds') {
+          telegramIdsQuery.refetch();
+        }
+      }}>
         <TabsList>
           <TabsTrigger value="transactions">All Transactions</TabsTrigger>
           <TabsTrigger value="withdrawals">Withdrawal Requests</TabsTrigger>
@@ -763,6 +767,94 @@ export default function AdminPage() {
                   </Button>
                 </form>
               </Form>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="telegramIds">
+          <Card>
+            <CardHeader>
+              <CardTitle>Telegram IDs Management</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex justify-between items-center mb-4">
+                <p className="text-sm text-muted-foreground">
+                  List of all users and their Telegram IDs
+                </p>
+                <Button 
+                  onClick={() => {
+                    telegramIdsQuery.refetch();
+                  }}
+                  className="mb-4"
+                >
+                  Refresh Data
+                </Button>
+              </div>
+              
+              <div className="space-y-4">
+                <Button 
+                  onClick={() => {
+                    if (telegramIdsQuery.data) {
+                      let csv = "User ID,Username,Telegram ID\n";
+                      telegramIdsQuery.data.forEach(user => {
+                        csv += `${user.id},${user.username},${user.telegramId || "Not set"}\n`;
+                      });
+                      
+                      const blob = new Blob([csv], { type: 'text/csv' });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = 'telegram_ids.csv';
+                      document.body.appendChild(a);
+                      a.click();
+                      document.body.removeChild(a);
+                    }
+                  }}
+                  disabled={!telegramIdsQuery.data}
+                  className="mb-4"
+                >
+                  Download as CSV
+                </Button>
+                
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>User ID</TableHead>
+                      <TableHead>Username</TableHead>
+                      <TableHead>Telegram ID</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {telegramIdsQuery.isLoading ? (
+                      <TableRow>
+                        <TableCell colSpan={3} className="text-center">
+                          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto" />
+                        </TableCell>
+                      </TableRow>
+                    ) : telegramIdsQuery.data?.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={3} className="text-center">
+                          No users found
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      telegramIdsQuery.data?.map((user) => (
+                        <TableRow key={user.id}>
+                          <TableCell>{user.id}</TableCell>
+                          <TableCell>{user.username}</TableCell>
+                          <TableCell>
+                            {user.telegramId ? (
+                              <span className="font-mono">{user.telegramId}</span>
+                            ) : (
+                              <span className="text-muted-foreground italic">Not set</span>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

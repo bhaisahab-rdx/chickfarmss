@@ -1778,16 +1778,16 @@ export class DatabaseStorage implements IStorage {
   
   async getAllUsersTelegramIds(): Promise<{ id: number; username: string; telegramId: string | null }[]> {
     try {
-      console.log('[Storage] Fetching all users with Telegram IDs');
+      console.log('[Storage] Fetching all users with their Telegram IDs');
       const result = await db.select({
         id: users.id,
         username: users.username,
         telegramId: users.telegramId
       })
       .from(users)
-      .where(sql`${users.telegramId} IS NOT NULL`);  // Only get users who have set a Telegram ID
+      .orderBy(users.id);  // Get all users, ordered by ID
       
-      console.log(`[Storage] Found ${result.length} users with Telegram IDs`);
+      console.log(`[Storage] Found ${result.length} users`);
       return result;
     } catch (error) {
       console.error('[Storage] Error fetching users with Telegram IDs:', error);

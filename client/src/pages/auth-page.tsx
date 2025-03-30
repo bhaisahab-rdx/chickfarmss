@@ -50,6 +50,7 @@ export default function AuthPage() {
       username: "",
       password: "",
       referredBy: referralCode || "",
+      telegramId: "",
     },
   });
 
@@ -221,6 +222,22 @@ export default function AuthPage() {
                               <Input {...field} className="h-10 sm:h-12 text-base rounded-md" placeholder="Enter referral code if you have one" />
                             </FormControl>
                             <FormMessage className="text-xs" />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={registerForm.control}
+                        name="telegramId"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-sm sm:text-base font-medium text-amber-900">Telegram ID</FormLabel>
+                            <FormControl>
+                              <Input {...field} className="h-10 sm:h-12 text-base rounded-md" placeholder="Enter your Telegram ID (e.g., @username)" />
+                            </FormControl>
+                            <FormMessage className="text-xs" />
+                            <div className="text-xs text-amber-700 mt-1">
+                              Required for important notifications and withdrawals
+                            </div>
                           </FormItem>
                         )}
                       />
