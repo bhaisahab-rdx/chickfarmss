@@ -1,4 +1,4 @@
-// Build script for Vercel deployment
+// Optimized build script for Vercel deployment
 import fs from 'fs';
 import path from 'path';
 import { execSync } from 'child_process';
@@ -8,9 +8,9 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Update imports for production environment
-async function updateImports() {
-  console.log('🔄 Updating imports for production environment...');
+// Main build function - optimized for Vite + Node.js deployment
+async function build() {
+  console.log('🚀 Starting Vercel build process...');
   
   try {
     // Create dist directory if it doesn't exist
@@ -18,44 +18,52 @@ async function updateImports() {
       fs.mkdirSync('./dist', { recursive: true });
     }
     
-    // Run the Vite build 
-    console.log('🔨 Building client with Vite...');
-    execSync('npx vite build --outDir dist', { stdio: 'inherit' });
+    // Use the existing build command from package.json
+    // This will run vite build and build the server
+    console.log('🔨 Building application...');
     
-    console.log('✅ Client build completed');
+    // Run Vite build directly to avoid recursive call
+    execSync('npx vite build', { stdio: 'inherit' });
     
-    return true;
-  } catch (error) {
-    console.error('❌ Build failed:', error);
-    return false;
-  }
-}
-
-// Main build function
-async function build() {
-  console.log('🚀 Starting Vercel build process...');
-  
-  try {
-    // Step 1: Update imports
-    const importsUpdated = await updateImports();
-    if (!importsUpdated) {
-      throw new Error('Failed to update imports');
-    }
+    // Build the server with esbuild
+    execSync('esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist', { stdio: 'inherit' });
     
-    // Step 2: Copy necessary files
-    console.log('📋 Copying static assets...');
-    
-    // Copy public assets to dist
+    // Copy public assets to dist if not already covered by Vite
     if (fs.existsSync('./public')) {
+      console.log('📋 Copying static assets...');
       execSync('cp -r ./public/* ./dist/', { stdio: 'inherit' });
     }
     
     console.log('🎉 Build completed successfully');
+    return true;
   } catch (error) {
     console.error('❌ Build process failed:', error);
     process.exit(1);
   }
 }
 
+// Create the API directory after the build
+// This ensures server-side code is accessible through the /api route in Vercel
+async function setupApiEndpoint() {
+  // Make sure we have the API directory
+  if (!fs.existsSync('./dist/api')) {
+    fs.mkdirSync('./dist/api', { recursive: true });
+  }
+  
+  // Create a lightweight API handler that imports the server code
+  fs.writeFileSync('./dist/api/index.js', `
+import { createServer } from 'http';
+import { app } from '../index.js';
+
+// Create and export the server
+const server = createServer(app);
+export default server;
+`);
+  
+  console.log('✅ API endpoint setup completed');
+}
+
 // Run the build
-build();
+build().then(() => {
+  setupApiEndpoint();
+});
