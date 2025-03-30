@@ -171,6 +171,9 @@ export default function HomePage() {
 
   // Helper function to determine if a chicken can hatch
   const canHatch = (chicken: Chicken) => {
+    // Dead chickens can't hatch eggs
+    if (chicken.status === "dead") return false;
+    
     if (!chicken.lastHatchTime) return true;
 
     const requirements = {
@@ -413,14 +416,21 @@ export default function HomePage() {
               onClick={() => setActiveChicken(activeChicken === chicken.id ? null : chicken.id)}
             >
               {/* Chicken Image with Animation */}
-              <div className="flex justify-center items-center p-4 h-32 bg-gradient-to-b from-amber-50 to-amber-100/50">
+              <div className="flex justify-center items-center p-4 h-32 bg-gradient-to-b from-amber-50 to-amber-100/50 relative">
+                {chicken.status === "dead" && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/40 z-10 rounded-t-lg">
+                    <span className="text-white font-bold px-3 py-1 bg-red-500 rounded-full text-sm">
+                      DECEASED
+                    </span>
+                  </div>
+                )}
                 <motion.div
-                  animate={getChickenAnimation(chicken.type)}
+                  animate={chicken.status === "dead" ? {}: getChickenAnimation(chicken.type)}
                   transition={{
                     repeat: Infinity,
                     repeatType: "reverse"
                   }}
-                  className="relative w-24 h-24"
+                  className={`relative w-24 h-24 ${chicken.status === "dead" ? "opacity-70 grayscale" : ""}`}
                 >
                   {getChickenImage(chicken.type)}
                 </motion.div>
@@ -468,8 +478,15 @@ export default function HomePage() {
                   </div>
                 </div>
 
-                {/* Hatch Button or Cooldown Timer */}
-                {canHatch(chicken) ? (
+                {/* Hatch Button or Cooldown Timer or Dead Status */}
+                {chicken.status === "dead" ? (
+                  <div className="bg-red-50 rounded-lg p-2 text-center border border-red-200">
+                    <p className="text-xs text-red-700 mb-1">Chicken is no longer alive</p>
+                    <p className="text-sm font-medium text-red-800">
+                      This baby chicken has reached the end of its lifespan
+                    </p>
+                  </div>
+                ) : canHatch(chicken) ? (
                   <motion.button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -561,6 +578,25 @@ export default function HomePage() {
                         {chicken.type === 'golden' ? '5' : chicken.type === 'regular' ? '3' : '1'} eggs per cycle
                       </div>
                     </div>
+                    
+                    {chicken.type === 'baby' && (
+                      <div className="mt-2 pt-2 border-t border-amber-100">
+                        <div className="text-xs text-gray-500 mb-1">Lifespan Status:</div>
+                        <div className="text-xs">
+                          {chicken.status === "dead" ? (
+                            <span className="text-red-600 font-medium">Deceased</span>
+                          ) : (
+                            <>
+                              <span className="text-green-600 font-medium">Alive</span>
+                              <span className="text-gray-500"> - Baby chickens live for 40 days</span>
+                            </>
+                          )}
+                        </div>
+                        <div className="text-xs text-gray-500 mt-1">
+                          Chicken created: {new Date(chicken.createdAt).toLocaleDateString()}
+                        </div>
+                      </div>
+                    )}
                   </motion.div>
                 )}
               </AnimatePresence>

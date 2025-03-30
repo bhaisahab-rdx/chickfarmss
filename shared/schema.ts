@@ -243,11 +243,21 @@ export const users = pgTable("users", {
   referralCount: integer("referral_count").notNull().default(0),
 });
 
+// Define chicken lifespan constants
+export const CHICKEN_LIFESPAN = {
+  baby: 40 * 24 * 60 * 60 * 1000, // 40 days in milliseconds
+  regular: null, // Unlimited lifespan
+  golden: null // Unlimited lifespan
+};
+
 export const chickens = pgTable("chickens", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull(),
   type: text("type").notNull(), // baby, regular, golden
   lastHatchTime: timestamp("last_hatch_time"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  status: text("status").notNull().default("alive"), // alive or dead
+  deathDate: timestamp("death_date"), // Only for baby chickens that have died
 });
 
 export const resources = pgTable("resources", {

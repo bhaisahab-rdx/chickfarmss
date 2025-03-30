@@ -1457,8 +1457,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Chickens
   app.get("/api/chickens", isAuthenticated, async (req, res) => {
-    const chickens = await storage.getChickensByUserId(req.user!.id);
-    res.json(chickens);
+    try {
+      // First check chicken lifespans
+      await storage.checkAndUpdateChickenStatus(req.user!.id);
+      // Then get the updated list
+      const chickens = await storage.getChickensByUserId(req.user!.id);
+      res.json(chickens);
+    } catch (error) {
+      console.error("Error fetching chickens:", error);
+      res.status(500).json({ error: "Failed to fetch chickens" });
+    }
   });
 
   app.post("/api/chickens/buy", isAuthenticated, async (req, res) => {

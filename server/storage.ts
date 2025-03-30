@@ -11,7 +11,7 @@ import {
   milestoneThresholds, referralCommissionRates, SALARY_PER_REFERRAL,
   dailyRewardsByDay, boostTypes, SpinHistory, InsertSpinHistory,
   AchievementBadge, InsertAchievementBadge, UserAchievement, InsertUserAchievement,
-  DEFAULT_ACHIEVEMENT_BADGES,
+  DEFAULT_ACHIEVEMENT_BADGES, CHICKEN_LIFESPAN
 } from "@shared/schema";
 import {
   users, chickens, resources, transactions, prices,
@@ -54,6 +54,8 @@ export interface IStorage {
   updateChickenHatchTime(chickenId: number): Promise<void>;
   deleteChicken(chickenId: number): Promise<void>;
   getChickenCountsByType(): Promise<{ type: string, count: number }[]>;
+  checkAndUpdateChickenStatus(userId: number): Promise<void>;
+  markChickenAsDead(chickenId: number): Promise<void>;
 
   // Resource operations
   getResourcesByUserId(userId: number): Promise<Resource>;
@@ -536,14 +538,69 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getChickensByUserId(userId: number): Promise<Chicken[]> {
+    // First check and update chicken status for this user 
+    await this.checkAndUpdateChickenStatus(userId);
+    // Then return all chickens
     return db.select().from(chickens).where(eq(chickens.userId, userId));
   }
 
   async createChicken(userId: number, type: string): Promise<Chicken> {
     const [chicken] = await db.insert(chickens)
-      .values({ userId, type })
+      .values({ 
+        userId, 
+        type,
+        status: "alive",
+        createdAt: new Date()
+      })
       .returning();
     return chicken;
+  }
+  
+  // Check if any baby chickens have reached the end of their lifespan
+  async checkAndUpdateChickenStatus(userId: number): Promise<void> {
+    try {
+      // Get all alive baby chickens for this user
+      const babyChickens = await db.select()
+        .from(chickens)
+        .where(
+          and(
+            eq(chickens.userId, userId),
+            eq(chickens.type, "baby"),
+            eq(chickens.status, "alive")
+          )
+        );
+      
+      const now = new Date();
+      
+      // Check each baby chicken's age
+      for (const chicken of babyChickens) {
+        if (chicken.createdAt) {
+          const createdAt = new Date(chicken.createdAt);
+          const chickAge = now.getTime() - createdAt.getTime();
+          
+          // If chicken has exceeded lifespan (40 days), mark as dead
+          if (chickAge > CHICKEN_LIFESPAN.baby) {
+            await this.markChickenAsDead(chicken.id);
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error checking chicken status:", error);
+    }
+  }
+  
+  // Mark a chicken as dead
+  async markChickenAsDead(chickenId: number): Promise<void> {
+    try {
+      await db.update(chickens)
+        .set({ 
+          status: "dead",
+          deathDate: new Date()
+        })
+        .where(eq(chickens.id, chickenId));
+    } catch (error) {
+      console.error("Error marking chicken as dead:", error);
+    }
   }
 
   async updateChickenHatchTime(chickenId: number): Promise<void> {
@@ -996,15 +1053,22 @@ export class DatabaseStorage implements IStorage {
       // Default to resources
       if (boxConfig.rewards.resources) {
         const resourceType = Math.random() < 0.5 ? "wheat_bags" : "water_buckets";
-        const ranges = boxConfig.rewards.resources[resourceType === "wheat_bags" ? "wheat" : "water"].ranges;
-        const range = ranges[0];
-        const amount = Math.floor(Math.random() * (range.max - range.min + 1)) + range.min;
+        const resourceKey = resourceType === "wheat_bags" ? "wheat" : "water";
+        
+        // Check if the specific resource exists
+        if (boxConfig.rewards.resources[resourceKey] && boxConfig.rewards.resources[resourceKey]?.ranges) {
+          const ranges = boxConfig.rewards.resources[resourceKey]?.ranges || [];
+          if (ranges.length > 0) {
+            const range = ranges[0];
+            const amount = Math.floor(Math.random() * (range.max - range.min + 1)) + range.min;
 
-        return {
-          rewardType: "resources",
-          resourceType,
-          resourceAmount: amount
-        };
+            return {
+              rewardType: "resources",
+              resourceType,
+              resourceAmount: amount
+            };
+          }
+        }
       }
 
       // Absolute fallback
@@ -1026,15 +1090,23 @@ export class DatabaseStorage implements IStorage {
   private determineRarity(boxType: string): string {
     try {
       const boxConfig = mysteryBoxTypes[boxType];
-      if (!boxConfig || !boxConfig.rarityDistribution) {
-        throw new Error("Invalid box type or missing rarity distribution");
+      if (!boxConfig) {
+        throw new Error("Invalid box type");
       }
+      
+      // Default rarity system if none is defined in the box config
+      const rarityDistribution = {
+        common: 0.60,
+        rare: 0.30,
+        epic: 0.09,
+        legendary: 0.01
+      };
 
       const rand = Math.random();
       let threshold = 0;
 
-      for (const [rarity, chance] of Object.entries(boxConfig.rarityDistribution)) {
-        threshold += chance as number;
+      for (const [rarity, chance] of Object.entries(rarityDistribution)) {
+        threshold += chance;
         if (rand < threshold) {
           return rarity;
         }
@@ -1695,23 +1767,25 @@ export const mysteryBoxTypes: {
   [key: string]: {
     price: number;
     name: string;
+    description?: string;
     rewards: {
-      eggs: {
+      eggs?: {
         ranges: { min: number; max: number; chance: number }[];
       };
       chicken?: { types: string[]; chance: number };
       usdt?: { ranges: { amount: number; chance: number }[] };
       resources?: {
-        wheat: { ranges: { min: number; max: number; chance: number, amount: number }[] };
-        water: { ranges: { min: number; max: number; chance: number, amount: number }[] };
+        wheat?: { ranges: { min: number; max: number; chance: number }[] };
+        water?: { ranges: { min: number; max: number; chance: number }[] };
       };
-      rarityDistribution: { [key: string]: number };
-    }
+    };
+    rarityDistribution: { [key: string]: number };
   }
 } = {
   basic: {
     price: 5,
     name: "Basic Mystery Box",
+    description: "A basic mystery box with common rewards",
     rewards: {
       eggs: {
         ranges: [
@@ -1719,16 +1793,17 @@ export const mysteryBoxTypes: {
           { min: 11, max: 15, chance: 0.40 }, // 40% chance
           { min: 16, max: 20, chance: 0.10 }, // 10% chance
         ]
-      },
-      rarityDistribution: {
-        common: 0.9,
-        uncommon: 0.1
       }
+    },
+    rarityDistribution: {
+      common: 0.9,
+      uncommon: 0.1
     }
   },
   standard: {
     price: 10,
     name: "Standard Mystery Box",
+    description: "A standard mystery box with balanced rewards",
     rewards: {
       eggs: {
         ranges: [
@@ -1740,17 +1815,18 @@ export const mysteryBoxTypes: {
       chicken: {
         types: ["baby"],
         chance: 0.05 // 5% chance for baby chicken
-      },
-      rarityDistribution: {
-        common: 0.7,
-        uncommon: 0.2,
-        rare: 0.1
       }
+    },
+    rarityDistribution: {
+      common: 0.7,
+      uncommon: 0.2,
+      rare: 0.1
     }
   },
   advanced: {
     price: 20,
     name: "Advanced Mystery Box",
+    description: "An advanced mystery box with better rewards",
     rewards: {
       eggs: {
         ranges: [
@@ -1769,19 +1845,24 @@ export const mysteryBoxTypes: {
         ]
       },
       resources: {
-        wheat: [{ min: 1, max: 5, chance: 0.5, amount: 1 }],
-        water: [{ min: 1, max: 5, chance: 0.5, amount: 1 }]
-      },
-      rarityDistribution: {
-        common: 0.5,
-        uncommon: 0.3,
-        rare: 0.2
+        wheat: { 
+          ranges: [{ min: 1, max: 5, chance: 0.5 }]
+        },
+        water: { 
+          ranges: [{ min: 1, max: 5, chance: 0.5 }]
+        }
       }
+    },
+    rarityDistribution: {
+      common: 0.5,
+      uncommon: 0.3,
+      rare: 0.2
     }
   },
   legendary: {
     price: 50,
     name: "Legendary Mystery Box",
+    description: "A legendary mystery box with the best possible rewards",
     rewards: {
       eggs: {
         ranges: [
@@ -1800,15 +1881,19 @@ export const mysteryBoxTypes: {
         ]
       },
       resources: {
-        wheat: [{ min: 5, max: 10, chance: 0.5, amount: 1 }],
-        water: [{ min: 5, max: 10, chance: 0.5, amount: 1 }]
-      },
-      rarityDistribution: {
-        common: 0.2,
-        uncommon: 0.3,
-        rare: 0.4,
-        epic: 0.1
+        wheat: { 
+          ranges: [{ min: 5, max: 10, chance: 0.5 }]
+        },
+        water: { 
+          ranges: [{ min: 5, max: 10, chance: 0.5 }]
+        }
       }
+    },
+    rarityDistribution: {
+      common: 0.2,
+      uncommon: 0.3,
+      rare: 0.4,
+      epic: 0.1
     }
   }
 };
