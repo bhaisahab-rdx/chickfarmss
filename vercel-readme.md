@@ -29,61 +29,76 @@ NOWPAYMENTS_IPN_SECRET_KEY=A73NxQfXxJzHJF3Qh9jWkxbSvZHas8um
 Make sure these files are properly set up:
 
 1. **vercel.json**: Contains build settings and routes configuration
-   - Important: The catch-all route `/(.*) -> /index.html` must include Content-Type header
-   
+   - Configure memory and duration limits for functions
+   - Set proper route order with specific routes first
+   - Include proper Content-Type headers for HTML routes
+
 2. **.vercelignore**: Prevents unnecessary files from being uploaded
    - Include node_modules, .git, etc.
 
 3. **API Handlers**: Standalone JS files in /api folder
+   - minimal.js: Ultra-simple API endpoint for basic testing
+   - diagnostics.js: Environment and database diagnostics
    - health.js: Simple health check
    - test.js: Environment variable test
    - app.js: Main API handler
 
-### 4. Testing the Deployment
+### 4. Progressive Testing Strategy
 
-After deploying, verify these endpoints in order:
+Test in this specific order to isolate issues:
 
-1. **Static File**: https://chiket.vercel.app/vercel-test.html
-2. **API Health**: https://chiket.vercel.app/api/health
-3. **API Diagnostics**: https://chiket.vercel.app/api/diagnostics
-4. **Full Frontend**: https://chiket.vercel.app/
+1. **Static HTML**: First test https://yourdomain.vercel.app/vercel-test.html
+   - This verifies basic static file serving with no server-side code
 
-### 5. Troubleshooting
+2. **Simple API**: Test https://yourdomain.vercel.app/api/minimal
+   - This tests the most basic serverless function without database
 
-If you see raw HTML or JavaScript code displayed instead of a rendered page:
+3. **Diagnostics**: Check https://yourdomain.vercel.app/api/diagnostics
+   - This shows environment variables and basic configuration
 
-1. **Content-Type Issue**: Check vercel.json to ensure the catch-all route includes content-type header
-2. **Routing Problem**: Verify that the route order in vercel.json is correct (API routes first, filesystem second, catch-all last)
-3. **Build Output**: Confirm that the correct build output is being generated in the dist folder
-4. **Browser Cache**: Try opening the site in an incognito window or clearing your browser cache
+4. **Full Application**: Only after above tests pass, try the main app
 
-### 6. Database Connectivity
+### 5. Fixing "FUNCTION_INVOCATION_FAILED" Errors
 
-1. **IP Allowlist**: Make sure your database (Supabase) allows connections from Vercel's IP addresses
-2. **Connection Pooling**: Consider enabling connection pooling for better performance
-3. **Test Connection**: Use the API diagnostics endpoint to verify database connectivity
+If you see 500 errors with "FUNCTION_INVOCATION_FAILED":
 
-### 7. Manual Testing
+1. **Database Connection**: Most common cause - check if Supabase allows Vercel's IP addresses
+2. **Memory Limits**: We've increased to 1024MB in vercel.json
+3. **Execution Time**: We've increased to 10 seconds in vercel.json
+4. **Cold Starts**: First request might fail, retry after a minute
+5. **See Full Guide**: Check vercel_error_fix_guide.md for detailed troubleshooting
 
-Test the API with cURL commands:
+### 6. Optimizing Database Connections
+
+For PostgreSQL databases in serverless environments:
+
+1. **Connection Pooling**: Enable connection pooling in Supabase
+2. **Connection Limits**: Serverless functions can quickly exhaust connections
+3. **Implement Retries**: Add retry logic for transient connection failures
+4. **Add Timeouts**: Set explicit timeouts to avoid hanging connections
+
+### 7. Manual Testing With cURL
+
+Test the API endpoints:
 
 ```bash
-# Test health endpoint
-curl https://chiket.vercel.app/api/health
+# Test minimal API endpoint
+curl https://yourdomain.vercel.app/api/minimal
 
 # Test diagnostics endpoint
-curl https://chiket.vercel.app/api/diagnostics
+curl https://yourdomain.vercel.app/api/diagnostics
 
-# Test API entry point
-curl https://chiket.vercel.app/api
+# Test health endpoint
+curl https://yourdomain.vercel.app/api/health
 ```
 
-### 8. Final Checklist Before Going Live
+### 8. Vercel Dashboard Debugging
 
-- Verify all API endpoints are working
-- Test authentication flow
-- Ensure database connections are stable
-- Test the payment processing system
-- Verify CORS settings allow connections from your domain
+Use Vercel's dashboard for deeper debugging:
 
-If issues persist after following these steps, review the Vercel build logs for specific error messages or contact Vercel support for assistance.
+1. Go to Functions tab to see specific function errors
+2. Check the deployment logs for build errors
+3. Look at the function invocation details for runtime errors
+4. Note the specific function ID when contacting support
+
+If all else fails, see the detailed troubleshooting guide in vercel_error_fix_guide.md.

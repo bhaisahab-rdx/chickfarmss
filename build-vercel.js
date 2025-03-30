@@ -50,8 +50,25 @@ async function setupApiEndpoint() {
     fs.mkdirSync('./dist/api', { recursive: true });
   }
   
+  console.log('📋 Copying API handlers from /api to /dist/api...');
+  
+  // Copy standalone API handlers from the api directory
+  if (fs.existsSync('./api')) {
+    const apiFiles = fs.readdirSync('./api');
+    
+    for (const file of apiFiles) {
+      if (file.endsWith('.js')) {
+        // Read file content
+        const sourceContent = fs.readFileSync(`./api/${file}`, 'utf8');
+        // Write to destination
+        fs.writeFileSync(`./dist/api/${file}`, sourceContent);
+        console.log(`  ✅ Copied ./api/${file} to ./dist/api/${file}`);
+      }
+    }
+  }
+  
   // Create a lightweight API handler that imports the server code
-  fs.writeFileSync('./dist/api/index.js', `
+  fs.writeFileSync('./dist/api/server.js', `
 import { createServer } from 'http';
 import { app } from '../index.js';
 
