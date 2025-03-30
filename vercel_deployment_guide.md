@@ -1,71 +1,93 @@
 # ChickFarms Vercel Deployment Guide
 
-This guide will walk you through deploying the ChickFarms application to Vercel.
+This guide provides step-by-step instructions for deploying the ChickFarms application on Vercel.
 
 ## Prerequisites
 
-1. A GitHub repository containing your ChickFarms codebase
-2. A Vercel account linked to your GitHub account
-3. A PostgreSQL database (e.g., Supabase)
-4. NOWPayments API credentials
+Before deploying to Vercel, make sure you have:
 
-## Environment Variables
+1. A [Vercel account](https://vercel.com/signup)
+2. Access to the PostgreSQL database (Supabase or similar)
+3. NOWPayments API key and IPN secret key (for payment processing)
 
-Make sure to set the following environment variables in your Vercel project settings:
+## Step 1: Fork or Clone the Repository
+
+First, ensure you have the latest version of the ChickFarms codebase in your own repository.
+
+## Step 2: Set Up Environment Variables
+
+In your Vercel project settings, add the following environment variables:
 
 ```
-DATABASE_URL=postgresql://postgres:thekinghu8751@db.zgsyciaoixairqqfwvyt.supabase.co:5432/postgres
-SESSION_SECRET=,Y1#!e&yGr-.%;Zb7X*W](YJ=DyE-F
+DATABASE_URL=your_postgresql_connection_string
+SESSION_SECRET=your_secure_session_secret
 NODE_ENV=production
-NOWPAYMENTS_API_KEY=JW7JXM6-DHEMGBX-J58QEXM-R2ETSY3
-NOWPAYMENTS_IPN_SECRET_KEY=A73NxQfXxJzHJF3Qh9jWkxbSvZHas8um
+NOWPAYMENTS_API_KEY=your_nowpayments_api_key
+NOWPAYMENTS_IPN_SECRET_KEY=your_nowpayments_ipn_secret_key
 VERCEL_URL=${VERCEL_URL}
 ```
 
-Note: The `VERCEL_URL` variable is automatically provided by Vercel and should be referenced as `${VERCEL_URL}`.
+The `VERCEL_URL` variable is automatically provided by Vercel, so you don't need to set a specific value.
 
-## Deployment Steps
+## Step 3: Configure Vercel Build Settings
 
-1. Push your code to GitHub (if you haven't already)
-2. Log in to your Vercel account
-3. Click "Add New" > "Project"
-4. Import your GitHub repository
-5. Configure your project:
-   - Framework Preset: Select "Vite" from the dropdown
-   - Root Directory: Leave as default (should be "/")
-   - Build Command: Use default (will use the one in package.json)
-   - Output Directory: Defaults to "dist"
-6. Add all the environment variables listed above
-7. Click "Deploy"
+Ensure your Vercel project is configured with the following settings:
 
-## Post-Deployment Configuration
+1. **Framework Preset**: Custom (No Framework)
+2. **Build Command**: `./vercel-build.sh`
+3. **Output Directory**: `dist`
 
-After successful deployment, you need to:
+## Step 4: Deploy to Vercel
 
-1. Update your NOWPayments IPN callback URL to point to your Vercel deployment:
-   - Log in to NOWPayments dashboard
-   - Go to Callbacks/IPN settings
-   - Set the callback URL to: `https://your-vercel-url.vercel.app/api/nowpayments/ipn`
-   - Update the `NOWPAYMENTS_IPN_SECRET_KEY` if needed
+1. Connect your repository to Vercel
+2. Configure your project settings as described above
+3. Click "Deploy"
 
-2. Verify your deployment:
-   - Visit your deployed site at `https://your-vercel-url.vercel.app`
-   - Make sure you can log in
-   - Test the payment system by attempting a small deposit
-   - Verify other functionality like chicken management, spin wheel, etc.
+## Verifying Deployment
 
-## Troubleshooting
+After deployment, your application should be accessible at your Vercel domain (usually `your-project-name.vercel.app`).
 
-If you encounter issues:
+To verify everything is working correctly:
 
-1. Check Vercel build logs for errors
-2. Verify that all environment variables are correctly set
-3. Make sure your database is accessible from Vercel's servers
-4. If you see 500 errors, check your server logs in Vercel's dashboard
-5. For payment issues, verify your NOWPayments API settings and callback URL
+1. Test user registration and login
+2. Verify chicken management functionality
+3. Check that the NOWPayments integration works by testing a small deposit
+4. Verify that the admin panel is accessible for admin users
 
-## Updating Your Deployment
+## Troubleshooting Common Issues
 
-To update your deployment, simply push changes to your GitHub repository. Vercel will automatically rebuild and deploy your application.
+### API Routes Return 404 Errors
 
-For major changes involving database schema updates, run migrations manually or update through Drizzle's tools before deploying the code changes.
+If your API routes return 404 errors:
+
+1. Verify that `vercel.json` has the correct route configuration
+2. Check that the API serverless function was built correctly
+3. Ensure your `buildCommand` is executing `vercel-build.sh` correctly
+
+### Database Connection Issues
+
+If your application can't connect to the database:
+
+1. Double-check your `DATABASE_URL` environment variable
+2. Ensure your database allows connections from Vercel's IP ranges
+3. Verify that the database schema has been properly migrated
+
+### NOWPayments Integration Issues
+
+If payments don't process correctly:
+
+1. Verify your NOWPayments API keys are correct
+2. Check that your IPN callback URL is configured correctly in the NOWPayments dashboard
+3. Ensure the environment variables are properly set in Vercel
+
+## Maintaining Your Deployment
+
+For future updates:
+
+1. Make changes to your codebase locally and test thoroughly
+2. Push changes to your repository
+3. Vercel will automatically rebuild and redeploy your application
+
+## Need Help?
+
+If you encounter any issues during deployment, check the Vercel logs for error messages or contact support for assistance.
