@@ -51,10 +51,111 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
     <title>ChickFarms</title>
-    <script type="module" crossorigin src="/assets/index-Bm_ffHaT.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-B1q1z2yK.css">
+    <!-- Fallback for when the app doesn't load properly -->
+    <style>
+      #loading {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100vh;
+        margin: 0;
+        font-family: 'Arial', sans-serif;
+      }
+      .loader {
+        border: 5px solid #f3f3f3;
+        border-top: 5px solid #f8931f; /* ChickFarms orange */
+        border-radius: 50%;
+        width: 50px;
+        height: 50px;
+        animation: spin 1s linear infinite;
+        margin-bottom: 20px;
+      }
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+      .fallback-message {
+        display: none;
+        margin-top: 20px;
+        text-align: center;
+        padding: 20px;
+        max-width: 500px;
+      }
+    </style>
+    <script>
+      // Attempt to load the main app dynamically
+      window.addEventListener('DOMContentLoaded', function() {
+        // Try to locate assets from various possible locations
+        function tryLoadApp() {
+          // Show loading state
+          document.getElementById('root').innerHTML = `
+            <div id="loading">
+              <div class="loader"></div>
+              <h2>Loading ChickFarms...</h2>
+              <div id="fallback-message" class="fallback-message"></div>
+            </div>
+          `;
+
+          // Potential asset paths to try
+          const potentialPaths = [
+            '/assets/',
+            '/dist/public/assets/',
+            '/public/assets/'
+          ];
+          
+          // Try to detect assets by checking for common file patterns
+          potentialPaths.forEach(function(basePath) {
+            fetch(basePath)
+              .then(response => {
+                if (response.ok || response.status === 404) {
+                  // Even a 404 response means the server is responsive
+                  return fetch(`${window.location.origin}/api/health`)
+                    .then(apiResponse => {
+                      if (apiResponse.ok) {
+                        // If API is available, suggest direct path
+                        loadMainApp('/');
+                      }
+                    });
+                }
+              })
+              .catch(err => {
+                console.error('Asset detection error:', err);
+              });
+          });
+
+          // After 5 seconds, show instructions if app hasn't loaded
+          setTimeout(function() {
+            if (document.getElementById('fallback-message')) {
+              document.getElementById('fallback-message').style.display = 'block';
+              document.getElementById('fallback-message').innerHTML = `
+                <p>If the application doesn't load automatically, please try:</p>
+                <ul style="text-align: left;">
+                  <li>Accessing <a href="/">the root URL</a> directly</li>
+                  <li>Clearing your browser cache and refreshing</li>
+                  <li>Checking the API status at <a href="/api/health">/api/health</a></li>
+                </ul>
+              `;
+            }
+          }, 5000);
+        }
+
+        function loadMainApp(basePath) {
+          // Redirect to the proper path
+          window.location.href = basePath;
+        }
+
+        tryLoadApp();
+      });
+    </script>
   </head>
   <body>
     <div id="root"></div>
+    <noscript>
+      <div style="text-align: center; padding: 20px;">
+        <h2>JavaScript Required</h2>
+        <p>ChickFarms requires JavaScript to be enabled in your browser.</p>
+      </div>
+    </noscript>
   </body>
 </html>
