@@ -2,7 +2,7 @@
   "version": 2,
   "builds": [
     {
-      "src": "api/**/*.js",
+      "src": "api/consolidated.js",
       "use": "@vercel/node",
       "config": {
         "memory": 1024,
@@ -23,12 +23,7 @@
     }
   ],
   "routes": [
-    { "src": "/api/test-deployment", "dest": "/api/consolidated.js" },
-    { "src": "/api/env-test", "dest": "/api/consolidated.js" },
-    { "src": "/api/health", "dest": "/api/consolidated.js" },
-    { "src": "/api/minimal", "dest": "/api/consolidated.js" },
-    { "src": "/api/diagnostics", "dest": "/api/consolidated.js" },
-    { "src": "/api/db-test", "dest": "/api/consolidated.js" },
+    { "src": "/api/(.*)", "dest": "/api/consolidated.js" },
     { "src": "/health", "dest": "/api/consolidated.js" },
     { "src": "/health.html", "dest": "/public/health.html" },
     { "src": "/vercel-test.html", "dest": "/public/vercel-test.html" },

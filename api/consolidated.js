@@ -385,6 +385,86 @@ async function handleTestDeployment(req, res) {
 }
 
 /**
+ * Handle debug requests
+ */
+function handleDebug(req, res) {
+  const debugInfo = {
+    timestamp: new Date().toISOString(),
+    request: {
+      method: req.method,
+      url: req.url,
+      headers: req.headers,
+      query: req.query,
+      body: req.body,
+      ip: req.ip || req.connection.remoteAddress
+    },
+    env: {
+      node_env: process.env.NODE_ENV || 'development',
+      database_configured: !!process.env.DATABASE_URL,
+      vercel: !!process.env.VERCEL
+    },
+    runtime: {
+      platform: process.platform,
+      nodeVersion: process.version,
+      memory: process.memoryUsage()
+    }
+  };
+  
+  res.status(200).json(debugInfo);
+}
+
+/**
+ * Handle index requests
+ */
+function handleIndex(req, res) {
+  res.status(200).json({
+    name: "ChickFarms API",
+    version: "1.0.0",
+    status: "operational",
+    environment: process.env.NODE_ENV || "development",
+    timestamp: new Date().toISOString(),
+    endpoints: [
+      "/api/health",
+      "/api/minimal",
+      "/api/diagnostics",
+      "/api/env-test",
+      "/api/db-test",
+      "/api/test-deployment",
+      "/api/debug"
+    ]
+  });
+}
+
+/**
+ * Handle pooled-test requests
+ */
+async function handlePooledTest(req, res) {
+  try {
+    // Test database connection
+    const connectionResult = await testConnection();
+    
+    // Return results
+    res.status(200).json({
+      success: connectionResult,
+      message: connectionResult ? 'Pooled database connection successful' : 'Pooled database connection failed',
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV || 'development',
+      database: {
+        configured: !!process.env.DATABASE_URL,
+        pooled: true
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Pooled database test failed',
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+}
+
+/**
  * Main handler for all API requests
  * @param {import('express').Request} req - Express request
  * @param {import('express').Response} res - Express response
@@ -394,7 +474,12 @@ export default async function handler(req, res) {
   const url = new URL(req.url, `http://${req.headers.host}`);
   const pathSegments = url.pathname.split('/').filter(Boolean);
   
-  // The path after /api/consolidated
+  // Handle root path separately
+  if (pathSegments.length === 1 && pathSegments[0] === 'api') {
+    return handleIndex(req, res);
+  }
+  
+  // The path after /api/
   const action = pathSegments[pathSegments.length - 1];
   
   // Route to the appropriate handler based on the action
@@ -417,12 +502,40 @@ export default async function handler(req, res) {
     case 'test-deployment':
       await handleTestDeployment(req, res);
       break;
+    case 'debug':
+      handleDebug(req, res);
+      break;
+    case 'pooled-test':
+      await handlePooledTest(req, res);
+      break;
+    case 'index':
+      handleIndex(req, res);
+      break;
     default:
-      // Handle unknown paths
-      res.status(404).json({
-        error: 'Not found',
-        message: `Unknown API endpoint: ${url.pathname}`,
-        availableEndpoints: ['health', 'minimal', 'diagnostics', 'env-test', 'db-test', 'test-deployment']
-      });
+      // Try to guess which handler the user wanted based on the url path
+      if (url.pathname.includes('health')) {
+        handleHealth(req, res);
+      } else if (url.pathname.includes('db') || url.pathname.includes('database')) {
+        await handleDbTest(req, res);
+      } else if (url.pathname.includes('env')) {
+        handleEnvTest(req, res);
+      } else if (url.pathname.includes('diag')) {
+        handleDiagnostics(req, res);
+      } else if (url.pathname.includes('test-deploy') || url.pathname.includes('deployment')) {
+        await handleTestDeployment(req, res);
+      } else if (url.pathname.includes('debug')) {
+        handleDebug(req, res);
+      } else if (url.pathname.includes('pooled')) {
+        await handlePooledTest(req, res);
+      } else if (url.pathname.includes('minimal')) {
+        handleMinimal(req, res);
+      } else {
+        // Handle unknown paths
+        res.status(404).json({
+          error: 'Not found',
+          message: `Unknown API endpoint: ${url.pathname}`,
+          availableEndpoints: ['health', 'minimal', 'diagnostics', 'env-test', 'db-test', 'test-deployment', 'debug', 'pooled-test', 'index']
+        });
+      }
   }
 }
