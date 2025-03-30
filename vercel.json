@@ -2,14 +2,9 @@
   "version": 2,
   "buildCommand": "node build-vercel.js && npm run build",
   "outputDirectory": "dist",
-  "rewrites": [
-    { "source": "/api/auth/(.*)", "destination": "/api/consolidated.js" },
-    { "source": "/api/user", "destination": "/api/consolidated.js" },
-    { "source": "/api/login", "destination": "/api/consolidated.js" },
-    { "source": "/api/register", "destination": "/api/consolidated.js" },
-    { "source": "/api/logout", "destination": "/api/consolidated.js" },
-    { "source": "/api/(.*)", "destination": "/api/consolidated.js" },
-    { "source": "/(.*)", "destination": "/index.html" }
+  "routes": [
+    { "src": "/api/(.*)", "dest": "/api/consolidated.js" },
+    { "src": "/(.*)", "dest": "/index.html" }
   ],
   "env": {
     "NODE_ENV": "production",

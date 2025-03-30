@@ -1,67 +1,91 @@
-# Solving Vercel Hobby Plan Function Limit
+# Vercel Function Limit Fix
 
-## The Problem
+Vercel's Hobby plan has a limit of 12 serverless functions per deployment. This document outlines how to consolidate your API endpoints to stay within this limit.
 
-Your Vercel deployment was failing with this error:
+## Problem Identified
+
+When deploying to Vercel, you received the following error:
 
 ```
-Error: No more than 12 Serverless Functions can be added to a Deployment on the Hobby plan. 
-Create a team (Pro plan) to deploy more. Learn More: https://vercel.link/function-count-limit
+Error: No more than 12 Serverless Functions can be added to a Deployment on the Hobby plan. Create a team (Pro plan) to deploy more. Learn More: https://vercel.link/function-count-limit
 ```
 
-Vercel's Hobby plan has a limit of 12 serverless functions per deployment. Each JavaScript file in your `/api` directory becomes a separate serverless function.
+## Solution
 
-## The Solution
+We need to consolidate more API routes into fewer serverless functions. We've already combined several auth routes into `consolidated.js`, but we need to further reduce the number of functions.
 
-We've solved this without requiring a plan upgrade by consolidating multiple API endpoints into a single serverless function:
+### Step 1: Update vercel.json
 
-### 1. Created a Consolidated API Handler
-
-The file `api/consolidated.js` now contains the functionality of multiple API endpoints:
-- health
-- minimal
-- diagnostics
-- env-test
-- db-test
-- test-deployment
-
-This combined endpoint uses path-based routing to determine which functionality to execute based on the requested URL.
-
-### 2. Updated Route Configuration
-
-We've updated `vercel.json` to route multiple API paths to the same consolidated handler:
+You need to modify your `vercel.json` file to route more API endpoints to fewer functions:
 
 ```json
-"routes": [
-  { "src": "/api/test-deployment", "dest": "/api/consolidated.js" },
-  { "src": "/api/env-test", "dest": "/api/consolidated.js" },
-  { "src": "/api/health", "dest": "/api/consolidated.js" },
-  { "src": "/api/minimal", "dest": "/api/consolidated.js" },
-  { "src": "/api/diagnostics", "dest": "/api/consolidated.js" },
-  { "src": "/api/db-test", "dest": "/api/consolidated.js" },
-  { "src": "/health", "dest": "/api/consolidated.js" },
-  ...
-]
+{
+  "version": 2,
+  "buildCommand": "node build-vercel.js && npm run build",
+  "outputDirectory": "dist",
+  "routes": [
+    { "src": "/api/auth/(.*)", "dest": "/api/consolidated.js" },
+    { "src": "/api/user", "dest": "/api/consolidated.js" },
+    { "src": "/api/login", "dest": "/api/consolidated.js" },
+    { "src": "/api/register", "dest": "/api/consolidated.js" },
+    { "src": "/api/logout", "dest": "/api/consolidated.js" },
+    { "src": "/api/spin/(.*)", "dest": "/api/game-features.js" },
+    { "src": "/api/chicken/(.*)", "dest": "/api/game-features.js" },
+    { "src": "/api/farm/(.*)", "dest": "/api/game-features.js" },
+    { "src": "/api/market/(.*)", "dest": "/api/game-features.js" },
+    { "src": "/api/wallet/(.*)", "dest": "/api/game-features.js" },
+    { "src": "/api/admin/(.*)", "dest": "/api/admin-functions.js" },
+    { "src": "/api/(.*)", "dest": "/api/consolidated.js" },
+    { "src": "/(.*)", "dest": "/index.html" }
+  ],
+  "env": {
+    "NODE_ENV": "production",
+    "DATABASE_URL": "postgresql://postgres.zgsyciaoixairqqfwvyt:thekinghu8751@aws-0-ap-south-1.pooler.supabase.com:6543/postgres",
+    "SESSION_SECRET": "w8smRGPCRnWFtBSPf9cD",
+    "NOWPAYMENTS_API_KEY": "JW7JXM6-DHEMGBX-J58QEXM-R2ETSY3",
+    "NOWPAYMENTS_IPN_SECRET_KEY": "A73NxQfXxJzHJF3Qh9jWkxbSvZHas8um"
+  }
+}
 ```
 
-## Benefits
+### Step 2: Create Additional Consolidated API Files
 
-1. **Stay within the Hobby plan limits**: Reduce the number of serverless functions without losing functionality
-2. **No cost increase**: Avoid upgrading to the Pro plan
-3. **No functional changes**: All API endpoints continue to work as before
+Create two new consolidated API files:
 
-## Next Steps
+1. `api/game-features.js` - To handle all game-related API endpoints (spin, chickens, farm, etc.)
+2. `api/admin-functions.js` - To handle all admin-related functions
 
-1. **Push these changes to your repository**
-2. **Deploy to Vercel again**
-3. **Check the Vercel logs** to ensure the deployment succeeds without the function limit error
-4. **Test your application** to ensure all functionality still works as expected
+These files should be structured similar to `consolidated.js` but handle different routes.
 
-## Monitoring and Future Considerations
+### Alternative: Use Vercel Pro Plan
 
-As your application grows, keep track of the number of API endpoints you add. If you continue to add more functionality, you may need to:
+If consolidating functions is too complex, consider upgrading to Vercel's Pro plan which allows more functions per deployment.
 
-1. Further consolidate API endpoints into logical groups
-2. Consider upgrading to the Pro plan if consolidation becomes too complex
+### Immediate Solution for Testing
 
-The new consolidated API handler is designed to be extensible - you can add more endpoint handlers to it as needed.
+The simplest immediate solution is to use the "One Function" approach, where all API routes are handled by a single function:
+
+```json
+{
+  "version": 2,
+  "buildCommand": "node build-vercel.js && npm run build",
+  "outputDirectory": "dist",
+  "routes": [
+    { "src": "/api/(.*)", "dest": "/api/consolidated.js" },
+    { "src": "/(.*)", "dest": "/index.html" }
+  ],
+  "env": {
+    "NODE_ENV": "production",
+    "DATABASE_URL": "postgresql://postgres.zgsyciaoixairqqfwvyt:thekinghu8751@aws-0-ap-south-1.pooler.supabase.com:6543/postgres",
+    "SESSION_SECRET": "w8smRGPCRnWFtBSPf9cD",
+    "NOWPAYMENTS_API_KEY": "JW7JXM6-DHEMGBX-J58QEXM-R2ETSY3",
+    "NOWPAYMENTS_IPN_SECRET_KEY": "A73NxQfXxJzHJF3Qh9jWkxbSvZHas8um"
+  }
+}
+```
+
+Then update `consolidated.js` to handle ALL API routes.
+
+## Performance Considerations
+
+Consolidating all routes into a single function may affect cold start times, as each function will be larger. However, this approach works well for testing and can be optimized later if needed.

@@ -219,6 +219,36 @@ async function validateVercelConfig() {
       configUpdated = true;
     }
     
+    // FUNCTION LIMIT FIX: Ensure we're using a single API function for all routes
+    // to stay within the 12-function limit of Vercel's Hobby plan
+    if (vercelConfig.routes) {
+      // Check if we need to consolidate routes to a single function
+      let needsConsolidation = false;
+      let apiRouteCount = 0;
+      
+      for (const route of vercelConfig.routes) {
+        if (route.src && route.src.startsWith('/api/') && route.dest && route.dest !== '/api/consolidated.js') {
+          needsConsolidation = true;
+          apiRouteCount++;
+        }
+      }
+      
+      if (needsConsolidation || apiRouteCount > 10) {  // Leave room for 2 other functions
+        console.log('Consolidating API routes to stay within Vercel function limits...');
+        
+        // Replace all API routes with a single consolidated route
+        vercelConfig.routes = vercelConfig.routes.filter(route => !route.src.startsWith('/api/'));
+        
+        // Add a single consolidated route for all API endpoints
+        vercelConfig.routes.unshift({
+          src: '/api/(.*)',
+          dest: '/api/consolidated.js'
+        });
+        
+        configUpdated = true;
+      }
+    }
+    
     // Write back to vercel.json if changes were made
     if (configUpdated) {
       fs.writeFileSync(vercelConfigPath, JSON.stringify(vercelConfig, null, 2));
