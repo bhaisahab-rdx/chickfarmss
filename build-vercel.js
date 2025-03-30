@@ -30,6 +30,9 @@ async function build() {
     // 2. Set up API endpoint
     await setupApiEndpoint();
     
+    // 3. Check and fix vercel.json configuration
+    await validateVercelConfig();
+    
     console.log('Build completed successfully');
   } catch (error) {
     console.error('Build failed:', error);
@@ -128,6 +131,61 @@ npm-debug.log
 `;
     
     fs.writeFileSync(vercelIgnorePath, ignoreContent);
+  }
+}
+
+/**
+ * Validate and fix the vercel.json configuration
+ * Ensures functions and builds properties aren't used together
+ */
+async function validateVercelConfig() {
+  console.log('Validating vercel.json configuration...');
+  
+  const vercelConfigPath = path.join(__dirname, 'vercel.json');
+  
+  if (fs.existsSync(vercelConfigPath)) {
+    let vercelConfig;
+    
+    try {
+      const configContent = fs.readFileSync(vercelConfigPath, 'utf8');
+      vercelConfig = JSON.parse(configContent);
+    } catch (error) {
+      throw new Error(`Failed to parse vercel.json: ${error.message}`);
+    }
+    
+    // Check if both builds and functions properties exist
+    if (vercelConfig.builds && vercelConfig.functions) {
+      console.log('Warning: Found both "builds" and "functions" properties in vercel.json');
+      console.log('These properties cannot be used together in Vercel. Moving function config to build config...');
+      
+      // For each function configuration
+      for (const functionPattern in vercelConfig.functions) {
+        const functionConfig = vercelConfig.functions[functionPattern];
+        
+        // Find matching build configuration
+        const matchingBuildIndex = vercelConfig.builds.findIndex(build => 
+          build.src === functionPattern || 
+          (functionPattern.includes('*') && build.src.startsWith(functionPattern.split('*')[0]))
+        );
+        
+        if (matchingBuildIndex !== -1) {
+          // Add config to the build
+          vercelConfig.builds[matchingBuildIndex].config = {
+            ...vercelConfig.builds[matchingBuildIndex].config,
+            ...functionConfig
+          };
+        }
+      }
+      
+      // Remove the functions property
+      delete vercelConfig.functions;
+      
+      // Write back to vercel.json
+      fs.writeFileSync(vercelConfigPath, JSON.stringify(vercelConfig, null, 2));
+      console.log('Updated vercel.json successfully');
+    }
+  } else {
+    console.log('vercel.json not found, skipping validation');
   }
 }
 

@@ -113,6 +113,29 @@ Solutions:
 - Make sure all local imports use the `.js` extension
 - Run the `node vercel-api-build.js` script before deploying
 
+### Issue: Vercel.json Configuration Conflicts
+
+Symptoms:
+- Error message: "The `functions` property cannot be used in conjunction with the `builds` property."
+- Deployment fails during the build phase
+
+Solutions:
+- Remove the `functions` property and move the configuration into the `config` property of the corresponding build
+- Example:
+  ```json
+  "builds": [
+    {
+      "src": "api/**/*.js",
+      "use": "@vercel/node",
+      "config": {
+        "memory": 1024,
+        "maxDuration": 10
+      }
+    }
+  ]
+  ```
+- See the `vercel_error_fix_guide.md` for detailed examples
+
 ## Support
 
 If you continue experiencing issues, contact us at support@chickfarms.com or open an issue in the GitHub repository.

@@ -96,6 +96,47 @@ import { something } from './utils.js'
 }
 ```
 
+## Configuration File Issues
+
+### Error: The `functions` property cannot be used in conjunction with the `builds` property
+
+**Problem**: Vercel doesn't allow using both `functions` and `builds` properties in vercel.json at the same time.
+
+**Solution**:
+Move your function-specific configurations into the `config` property of the corresponding build:
+
+```json
+// Change this:
+{
+  "builds": [
+    {
+      "src": "api/**/*.js",
+      "use": "@vercel/node"
+    }
+  ],
+  "functions": {
+    "api/**/*.js": {
+      "memory": 1024,
+      "maxDuration": 10
+    }
+  }
+}
+
+// To this:
+{
+  "builds": [
+    {
+      "src": "api/**/*.js",
+      "use": "@vercel/node",
+      "config": {
+        "memory": 1024,
+        "maxDuration": 10
+      }
+    }
+  ]
+}
+```
+
 ## Environment Variable Issues
 
 ### Error: Missing environment variables
