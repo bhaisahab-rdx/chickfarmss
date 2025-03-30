@@ -1,120 +1,71 @@
-# Vercel Deployment Guide for ChickFarms (Updated March 2025)
+# ChickFarms Vercel Deployment Guide
 
-This comprehensive guide will walk you through deploying your ChickFarms application to Vercel for production use.
+This guide will walk you through deploying the ChickFarms application to Vercel.
 
 ## Prerequisites
 
-1. A GitHub account with your ChickFarms repository
-2. A Vercel account (you can sign up with your GitHub account)
-3. A PostgreSQL database (we recommend Supabase, see the `supabase_setup_guide.md`)
-4. NOWPayments API credentials for crypto payment processing
+1. A GitHub repository containing your ChickFarms codebase
+2. A Vercel account linked to your GitHub account
+3. A PostgreSQL database (e.g., Supabase)
+4. NOWPayments API credentials
+
+## Environment Variables
+
+Make sure to set the following environment variables in your Vercel project settings:
+
+```
+DATABASE_URL=postgresql://postgres:thekinghu8751@db.zgsyciaoixairqqfwvyt.supabase.co:5432/postgres
+SESSION_SECRET=,Y1#!e&yGr-.%;Zb7X*W](YJ=DyE-F
+NODE_ENV=production
+NOWPAYMENTS_API_KEY=JW7JXM6-DHEMGBX-J58QEXM-R2ETSY3
+NOWPAYMENTS_IPN_SECRET_KEY=A73NxQfXxJzHJF3Qh9jWkxbSvZHas8um
+VERCEL_URL=${VERCEL_URL}
+```
+
+Note: The `VERCEL_URL` variable is automatically provided by Vercel and should be referenced as `${VERCEL_URL}`.
 
 ## Deployment Steps
 
-### Step 1: Prepare Your Repository
-
-1. Ensure your code is committed to GitHub
-2. Make sure the `build-vercel.js` script is up to date
-3. Verify that `vercel.json` configuration is correctly set up
-
-### Step 2: Connect to Vercel
-
-1. Go to [Vercel Dashboard](https://vercel.com/dashboard) and sign in
-2. Click "Add New" → "Project"
-3. Import your GitHub repository
-4. Select the ChickFarms repository
-
-### Step 3: Configure Project Settings
-
-1. In the project settings:
-   - Framework Preset: Choose "Other" to use our custom configuration
-   - Build Command: `node build-vercel.js && npm run build`
-   - Output Directory: `dist`
-   - Install Command: `npm install`
-   - Development Command: `npm run dev`
-
-2. Under the Settings tab, make sure:
-   - The Node.js version is set to 18.x or later
-
-### Step 4: Environment Variables
-
-Add the following environment variables in the Vercel project settings:
-
-```
-DATABASE_URL=postgresql://postgres:[YOUR-PASSWORD]@db.[YOUR-PROJECT-ID].supabase.co:5432/postgres
-SESSION_SECRET=choose_a_strong_random_string_for_encryption
-NODE_ENV=production
-NOWPAYMENTS_API_KEY=your_nowpayments_api_key
-NOWPAYMENTS_IPN_SECRET_KEY=your_nowpayments_ipn_secret_key
-VERCEL_URL=${VERCEL_URL}  # This is automatically provided by Vercel
-```
-
-### Step 5: Deploy
-
-1. Click "Deploy"
-2. Wait for the build and deployment to complete (typically 1-2 minutes)
-3. After deployment, Vercel will provide you with a preview URL
+1. Push your code to GitHub (if you haven't already)
+2. Log in to your Vercel account
+3. Click "Add New" > "Project"
+4. Import your GitHub repository
+5. Configure your project:
+   - Framework Preset: Select "Vite" from the dropdown
+   - Root Directory: Leave as default (should be "/")
+   - Build Command: Use default (will use the one in package.json)
+   - Output Directory: Defaults to "dist"
+6. Add all the environment variables listed above
+7. Click "Deploy"
 
 ## Post-Deployment Configuration
 
-### Configure Custom Domain
+After successful deployment, you need to:
 
-1. Go to your Vercel project dashboard
-2. Click on "Domains"
-3. Add your custom domain (e.g., chickfarms.com)
-4. Follow Vercel's instructions to configure DNS settings
+1. Update your NOWPayments IPN callback URL to point to your Vercel deployment:
+   - Log in to NOWPayments dashboard
+   - Go to Callbacks/IPN settings
+   - Set the callback URL to: `https://your-vercel-url.vercel.app/api/nowpayments/ipn`
+   - Update the `NOWPAYMENTS_IPN_SECRET_KEY` if needed
 
-### Update NOWPayments IPN URL
+2. Verify your deployment:
+   - Visit your deployed site at `https://your-vercel-url.vercel.app`
+   - Make sure you can log in
+   - Test the payment system by attempting a small deposit
+   - Verify other functionality like chicken management, spin wheel, etc.
 
-1. Log in to your NOWPayments account
-2. Update your IPN callback URL to your new domain:
-   ```
-   https://your-domain.com/api/ipn/nowpayments
-   ```
+## Troubleshooting
 
-### Set Up Monitoring
+If you encounter issues:
 
-1. Enable Vercel Analytics to track user activity and performance
-2. Set up error alerts in Vercel (Settings → Monitoring)
+1. Check Vercel build logs for errors
+2. Verify that all environment variables are correctly set
+3. Make sure your database is accessible from Vercel's servers
+4. If you see 500 errors, check your server logs in Vercel's dashboard
+5. For payment issues, verify your NOWPayments API settings and callback URL
 
-## Scale Your Deployment (As Needed)
+## Updating Your Deployment
 
-1. If your user base grows, consider:
-   - Upgrading your Supabase database plan
-   - Enabling Edge Function Caching in Vercel
-   - Setting up server-side caching for frequently accessed resources
+To update your deployment, simply push changes to your GitHub repository. Vercel will automatically rebuild and deploy your application.
 
-## Database Management
-
-1. Run migrations using the Vercel CLI:
-   ```bash
-   vercel env pull .env.production.local
-   NODE_ENV=production npm run db:push
-   ```
-
-2. Or manage your database directly through Supabase dashboard
-
-## Troubleshooting Deployment Issues
-
-- **Build Failures**: Check Vercel build logs for detailed error messages
-- **Runtime Errors**: Use Vercel Logs to identify issues
-- **Database Connection Issues**: Verify IP restrictions in Supabase
-- **Payment Processing Problems**: Check NOWPayments API settings and webhooks
-
-## Backup and Recovery
-
-1. Regularly back up your database using:
-   ```bash
-   node export-db-sql.js database_backup.sql
-   ```
-2. Store backups securely and implement a regular backup schedule
-
-## Important Security Considerations
-
-- Enable CORS protection
-- Set up rate limiting for API endpoints
-- Configure proper CSP headers
-- Regularly update dependencies
-- Monitor for unusual transaction patterns
-
-Remember to replace placeholder values with your actual configuration details before deployment.
+For major changes involving database schema updates, run migrations manually or update through Drizzle's tools before deploying the code changes.

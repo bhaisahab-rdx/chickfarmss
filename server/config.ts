@@ -20,7 +20,8 @@ export const config = {
             `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co` : 
             'http://localhost:5000'))),
     // Production domain for NOWPayments callbacks
-    productionDomain: 'https://chickfarms.com'
+    productionDomain: process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 
+                      (process.env.DOMAIN ? `https://${process.env.DOMAIN}` : 'https://chickfarms.com')
   },
   
   // Environment settings
@@ -33,6 +34,7 @@ export const config = {
   nowpayments: {
     apiKey: process.env.NOWPAYMENTS_API_KEY || null,
     ipnSecretKey: process.env.NOWPAYMENTS_IPN_SECRET_KEY || null,
-    callbackDomain: 'https://chickfarms.com'
+    callbackDomain: process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 
+                    (process.env.DOMAIN ? `https://${process.env.DOMAIN}` : 'https://chickfarms.com')
   }
 };
