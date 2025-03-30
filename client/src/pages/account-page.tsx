@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -14,17 +14,66 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format } from "date-fns";
-import { Copy, Link, Award, History } from "lucide-react";
+import { Copy, Link, Award, History, Save, MessageSquare } from "lucide-react";
 import BalanceBar from "@/components/balance-bar";
 import { AchievementCollection, RecentAchievements } from "@/components/achievements";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useState, useEffect } from "react";
+import { queryClient } from "@/lib/queryClient";
 
 export default function AccountPage() {
   const { toast } = useToast();
   const { user } = useAuth();
+  const [telegramId, setTelegramId] = useState("");
   
   // Debug user object and referral code
   console.log("AccountPage - User object:", user);
   console.log("AccountPage - Referral code:", user?.referralCode);
+
+  // Load telegramId from user object when it's available
+  useEffect(() => {
+    if (user?.telegramId) {
+      setTelegramId(user.telegramId);
+    }
+  }, [user]);
+
+  const saveTelegramMutation = useMutation({
+    mutationFn: async (telegramId: string) => {
+      const response = await fetch('/api/account/telegram-id', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ telegramId }),
+      });
+      if (!response.ok) {
+        throw new Error('Failed to save Telegram ID');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Your Telegram ID has been saved",
+      });
+      // Invalidate user data to refresh
+      queryClient.invalidateQueries({ queryKey: ['/api/user'] });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleSaveTelegramId = () => {
+    if (telegramId.trim()) {
+      saveTelegramMutation.mutate(telegramId);
+    }
+  };
 
   const transactionsQuery = useQuery<Transaction[]>({
     queryKey: ["/api/transactions"],
@@ -117,6 +166,35 @@ export default function AccountPage() {
                   <div>
                     <p className="text-xs sm:text-sm text-muted-foreground">Current Balance</p>
                     <p className="text-base sm:text-lg font-medium">${user?.usdtBalance || 0}</p>
+                  </div>
+                  <div className="pt-2 border-t border-gray-100">
+                    <p className="text-xs sm:text-sm text-muted-foreground mb-2 flex items-center">
+                      <MessageSquare className="h-3 w-3 mr-1" /> 
+                      Telegram ID
+                    </p>
+                    <div className="flex items-center space-x-2">
+                      <Input 
+                        value={telegramId} 
+                        onChange={(e) => setTelegramId(e.target.value)}
+                        placeholder="Enter your Telegram ID" 
+                        className="text-sm h-8"
+                      />
+                      <Button 
+                        size="sm"
+                        className="h-8 bg-blue-500 hover:bg-blue-600 text-white"
+                        onClick={handleSaveTelegramId}
+                        disabled={saveTelegramMutation.isPending}
+                      >
+                        {saveTelegramMutation.isPending ? (
+                          <div className="animate-spin h-4 w-4 border-2 border-white rounded-full border-t-transparent" />
+                        ) : (
+                          <Save className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      This ID will be used for important notifications and communications
+                    </p>
                   </div>
                 </CardContent>
               </Card>

@@ -91,6 +91,11 @@ export default function AdminPage() {
   const pricesQuery = useQuery<GamePrices>({
     queryKey: ["/api/admin/prices"],
   });
+  
+  const telegramIdsQuery = useQuery<{ id: number; username: string; telegramId: string }[]>({
+    queryKey: ["/api/admin/telegram-ids"],
+    enabled: false // Only load when tab is selected
+  });
 
   const walletForm = useForm({
     resolver: zodResolver(walletAddressSchema),
@@ -334,6 +339,7 @@ export default function AdminPage() {
           <TabsTrigger value="withdrawals">Withdrawal Requests</TabsTrigger>
           <TabsTrigger value="wallet">Wallet Addresses</TabsTrigger>
           <TabsTrigger value="prices">Game Settings</TabsTrigger>
+          <TabsTrigger value="telegramIds">Telegram IDs</TabsTrigger>
         </TabsList>
 
         <TabsContent value="transactions">

@@ -47,6 +47,8 @@ export interface IStorage {
   updateUserStreak(userId: number, streak: number): Promise<void>;
   updateLastDailyReward(userId: number, date: Date): Promise<void>;
   updateLastSalaryPaid(userId: number, date: Date): Promise<void>;
+  updateUserTelegramId(userId: number, telegramId: string): Promise<void>;
+  getAllUsersTelegramIds(): Promise<{ id: number; username: string; telegramId: string | null }[]>;
 
   // Chicken operations
   getChickensByUserId(userId: number): Promise<Chicken[]>;
@@ -1756,6 +1758,39 @@ export class DatabaseStorage implements IStorage {
       console.log(`[Storage] Successfully initialized ${DEFAULT_ACHIEVEMENT_BADGES.length} achievement badges`);
     } catch (error) {
       console.error("[Storage] Error initializing achievement badges:", error);
+      throw error;
+    }
+  }
+
+  // Telegram ID methods
+  async updateUserTelegramId(userId: number, telegramId: string): Promise<void> {
+    try {
+      console.log(`[Storage] Updating Telegram ID for user ${userId} to ${telegramId}`);
+      await db.update(users)
+        .set({ telegramId })
+        .where(eq(users.id, userId));
+      console.log(`[Storage] Successfully updated Telegram ID for user ${userId}`);
+    } catch (error) {
+      console.error(`[Storage] Error updating Telegram ID for user ${userId}:`, error);
+      throw error;
+    }
+  }
+  
+  async getAllUsersTelegramIds(): Promise<{ id: number; username: string; telegramId: string | null }[]> {
+    try {
+      console.log('[Storage] Fetching all users with Telegram IDs');
+      const result = await db.select({
+        id: users.id,
+        username: users.username,
+        telegramId: users.telegramId
+      })
+      .from(users)
+      .where(sql`${users.telegramId} IS NOT NULL`);  // Only get users who have set a Telegram ID
+      
+      console.log(`[Storage] Found ${result.length} users with Telegram IDs`);
+      return result;
+    } catch (error) {
+      console.error('[Storage] Error fetching users with Telegram IDs:', error);
       throw error;
     }
   }

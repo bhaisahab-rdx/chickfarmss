@@ -241,6 +241,7 @@ export const users = pgTable("users", {
   lastSpinAt: timestamp("last_spin_at"),
   extraSpinsAvailable: integer("extra_spins_available").notNull().default(0),
   referralCount: integer("referral_count").notNull().default(0),
+  telegramId: text("telegram_id"), // Store user's Telegram ID for notifications
 });
 
 // Define chicken lifespan constants
@@ -400,14 +401,17 @@ export const insertUserSchema = createInsertSchema(users)
     username: true,
     password: true,
     referredBy: true,
+    telegramId: true,
   })
   .extend({
     username: z.string().min(3, "Username must be at least 3 characters"),
     password: z.string().min(6, "Password must be at least 6 characters"),
     referredBy: z.string().nullish(),
+    telegramId: z.string().nullish(),
   })
   .partial({
     referredBy: true,
+    telegramId: true,
   });
 
 export const insertChickenSchema = createInsertSchema(chickens);

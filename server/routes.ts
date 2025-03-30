@@ -1188,6 +1188,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Telegram ID endpoints
+  // Update user's Telegram ID
+  app.post("/api/account/telegram-id", isAuthenticated, async (req, res) => {
+    try {
+      // Ensure user is authenticated
+      if (!req.user) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      const userId = req.user.id;
+      const { telegramId } = req.body;
+
+      // Validate the telegramId
+      if (!telegramId || typeof telegramId !== 'string') {
+        return res.status(400).json({ error: "Invalid Telegram ID format" });
+      }
+
+      await storage.updateUserTelegramId(userId, telegramId);
+      
+      res.json({ 
+        success: true, 
+        message: "Telegram ID updated successfully" 
+      });
+    } catch (error) {
+      console.error("Error updating Telegram ID:", error);
+      res.status(500).json({ error: "Failed to update Telegram ID" });
+    }
+  });
+
+  // Admin endpoint to get all users with Telegram IDs
+  app.get("/api/admin/telegram-ids", isAuthenticated, async (req, res) => {
+    try {
+      // Ensure user is authenticated and is an admin
+      if (!req.user) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      if (!req.user.isAdmin) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      const users = await storage.getAllUsersTelegramIds();
+      res.json(users);
+    } catch (error) {
+      console.error("Error fetching Telegram IDs:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   app.post("/api/admin/transactions/update", async (req, res) => {
     const schema = z.object({
       transactionId: z.string(),
