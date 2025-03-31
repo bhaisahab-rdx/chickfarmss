@@ -3,13 +3,53 @@
   "buildCommand": "node build-vercel.js && npm run build",
   "outputDirectory": "dist",
   "routes": [
-    { "src": "/api/debug-spin", "dest": "/api" },
-    { "src": "/api/spin/status", "dest": "/api" },
-    { "src": "/api/spin/spin", "dest": "/api" },
-    { "src": "/api/spin/claim-extra", "dest": "/api" },
-    { "src": "/api/spin/(.*)", "dest": "/api" },
-    { "src": "/api/(.*)", "dest": "/api" },
-    { "src": "/(.*)", "dest": "/index.html" }
+    {
+      "src": "/api/vercel-debug",
+      "dest": "/api"
+    },
+    {
+      "src": "/api/debug-spin",
+      "dest": "/api"
+    },
+    {
+      "src": "/api/diagnostics",
+      "dest": "/api"
+    },
+    {
+      "src": "/api/health",
+      "dest": "/api"
+    },
+    {
+      "src": "/api/spin/status",
+      "dest": "/api"
+    },
+    {
+      "src": "/api/spin/spin",
+      "dest": "/api"
+    },
+    {
+      "src": "/api/spin/claim-extra",
+      "dest": "/api"
+    },
+    {
+      "src": "/api/spin/(.*)",
+      "dest": "/api"
+    },
+    {
+      "src": "/api/auth/(.*)",
+      "dest": "/api"
+    },
+    {
+      "src": "/api/(.*)",
+      "dest": "/api"
+    },
+    {
+      "handle": "filesystem"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
+    }
   ],
   "env": {
     "NODE_ENV": "production",

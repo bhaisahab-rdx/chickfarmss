@@ -28,11 +28,6 @@ module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
-  
-  // Debug logging for Vercel environment
-  console.log(`[Vercel API] Request received: ${req.method} ${req.url}`);
-  console.log(`[Vercel API] Headers: ${JSON.stringify(req.headers)}`);
-  
   res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization');
   
   // Handle preflight requests
@@ -61,8 +56,10 @@ module.exports = async (req, res) => {
       return await handleTestDeployment(req, res);
     } else if (pathname === '/api/debug') {
       return handleDebug(req, res);
+    } else if (pathname === '/api/vercel-debug') {
+      return handleVercelDebug(req, res);
     } else if (pathname === '/api/debug-spin') {
-      return handleDebugSpin(req, res);
+      return handleSpinDebug(req, res);
     } else if (pathname === '/api') {
       return handleIndex(req, res);
     } else if (pathname.startsWith('/api/auth/')) {
@@ -70,9 +67,11 @@ module.exports = async (req, res) => {
     } else if (pathname.startsWith('/api/pooled-test')) {
       return await handlePooledTest(req, res);
     } else if (pathname.startsWith('/api/spin/')) {
+      console.log(`[Consolidated API] Processing spin request for: ${pathname}`);
       return await handleSpin(req, res, pathname);
     } else {
       // Return 404 for unhandled routes
+      console.log(`[Consolidated API] Unknown route requested: ${pathname}`);
       res.status(404).json({ error: 'Not found', message: `Route ${pathname} not implemented in consolidated API` });
     }
   } catch (error) {
@@ -237,109 +236,101 @@ function handleDebug(req, res) {
 }
 
 /**
- * Special debug endpoint to diagnose spin functionality
+ * Handle Vercel-specific debug requests
  */
-async function handleDebugSpin(req, res) {
-  console.log('[DEBUG-SPIN] Debug endpoint called');
-  
-  // Parse the URL to show how routing works
-  const url = new URL(req.url, `http://${req.headers.host}`);
-  const pathname = url.pathname;
-  
-  // Create test paths for testing
-  const testPaths = [
-    '/api/spin/status',
-    '/api/spin/spin',
-    '/api/spin/claim-extra'
-  ];
-  
-  // Test each path with our startsWith condition
-  const pathTests = testPaths.map(testPath => ({
-    path: testPath,
-    matchesSpinPattern: testPath.startsWith('/api/spin/'),
-    extractedAction: testPath.replace('/api/spin/', '')
-  }));
-  
-  // Test regex patterns that might be used in routing
-  const regexTests = [
-    { pattern: '/api/spin/(.*)', match: '/api/spin/status'.match(new RegExp('/api/spin/(.*)')) !== null },
-    { pattern: '^/api/spin/(.*)$', match: '/api/spin/status'.match(new RegExp('^/api/spin/(.*)$')) !== null },
-    { pattern: '/api/spin/*', match: '/api/spin/status'.match(new RegExp('/api/spin/*')) !== null }
-  ];
-  
-  // Extract cookies for debug info
-  const cookies = parseCookies(req.headers.cookie || '');
-  
-  // Verify token if present
-  let tokenStatus = 'No token provided';
-  if (cookies.session) {
-    try {
-      const userId = validateSessionToken(cookies.session);
-      tokenStatus = userId ? `Valid (User ID: ${userId})` : 'Invalid token';
-    } catch (error) {
-      tokenStatus = `Error validating token: ${error.message}`;
-    }
+function handleVercelDebug(req, res) {
+  // Create a safe copy of headers without sensitive information
+  const safeHeaders = { ...req.headers };
+  if (safeHeaders.authorization) {
+    safeHeaders.authorization = '[REDACTED]';
   }
-  
-  // Check if we can connect to the database
-  let databaseStatus = 'Not checked';
-  try {
-    const client = await pool.connect();
-    const result = await client.query('SELECT NOW() as time');
-    const dbTime = result.rows[0].time;
-    client.release();
-    databaseStatus = `Connected successfully (DB time: ${dbTime})`;
-  } catch (error) {
-    databaseStatus = `Connection error: ${error.message}`;
+  if (safeHeaders.cookie) {
+    safeHeaders.cookie = '[REDACTED]';
   }
-  
-  // Get the deployment URL for testing routes
-  const protocol = req.headers['x-forwarded-proto'] || 'http';
-  const host = req.headers.host || 'localhost';
-  const baseUrl = `${protocol}://${host}`;
-  
-  // Response with comprehensive debug info
+
+  // Information about the request
+  const requestInfo = {
+    method: req.method,
+    url: req.url,
+    path: req.url ? req.url.split('?')[0] : null,
+    query: req.query,
+    headers: safeHeaders,
+    cookies: req.headers.cookie ? req.headers.cookie.split(';').map(c => c.trim().split('=')[0]) : [],
+    body: req.body ? '[BODY_PRESENT]' : null,
+  };
+
+  // Information about the environment
+  const environmentInfo = {
+    nodeEnv: process.env.NODE_ENV,
+    vercelEnv: process.env.VERCEL_ENV,
+    region: process.env.VERCEL_REGION,
+    hasSessionSecret: !!process.env.SESSION_SECRET,
+    hasDatabaseUrl: !!process.env.DATABASE_URL,
+    databaseUrlPrefix: process.env.DATABASE_URL ? process.env.DATABASE_URL.split('://')[0] : null,
+  };
+
+  // Return all diagnostics
   res.status(200).json({
-    status: 'debug',
-    message: 'Spin endpoint debugging information',
-    request: {
-      url: req.url,
-      pathname,
-      method: req.method,
-      headers: req.headers,
-      cookies
+    status: "ok",
+    time: new Date().toISOString(),
+    requestInfo,
+    environmentInfo,
+    message: "This endpoint provides debugging information for Vercel deployment."
+  });
+}
+
+/**
+ * Handle spin-specific debug requests
+ */
+function handleSpinDebug(req, res) {
+  // Get session information
+  const cookies = parseCookies(req.headers.cookie || '');
+  const sessionToken = cookies.session || cookies['chickfarms.sid'];
+  
+  // Get user ID from session if available
+  let userId = null;
+  let sessionValidated = false;
+  
+  try {
+    if (sessionToken) {
+      userId = validateSessionToken(sessionToken);
+      sessionValidated = userId !== null;
+    }
+  } catch (error) {
+    // Session validation failed, but we'll continue with the debug info
+    console.error('Session validation error:', error);
+  }
+
+  // Comprehensive debug information
+  res.status(200).json({
+    status: "ok",
+    timestamp: new Date().toISOString(),
+    deployment: {
+      isVercel: !!(process.env.VERCEL || process.env.VERCEL_URL),
+      environment: process.env.NODE_ENV || 'development',
+      isDevelopment: process.env.NODE_ENV === 'development',
+      isProduction: process.env.NODE_ENV === 'production',
     },
-    routing: {
-      pathTests,
-      regexTests,
-      requestWouldMatchSpinPattern: pathname.startsWith('/api/spin/'),
-      spinApiEndpoints: testPaths.map(path => `${baseUrl}${path}`),
-      vercelConfig: {
-        routesChecks: [
-          { description: "Spin routes should come before general API route", checkManually: true },
-          { description: "Debug endpoint should be explicitly configured", checkManually: true }
-        ]
+    session: {
+      hasSessionToken: !!sessionToken,
+      tokenValidated: sessionValidated,
+      userId: userId,
+    },
+    configuration: {
+      routes: {
+        spinStatusDirect: '/api/spin/status',
+        spinActionDirect: '/api/spin/spin',
+        spinExtraDirect: '/api/spin/claim-extra',
+      },
+      database: {
+        isConnected: !!process.env.DATABASE_URL,
+        provider: process.env.DATABASE_URL ? process.env.DATABASE_URL.split('://')[0] : null,
       }
     },
-    authentication: {
-      cookiePresent: Boolean(cookies.session),
-      cookieValue: cookies.session ? `${cookies.session.substring(0, 10)}...` : null,
-      tokenStatus
-    },
-    environment: {
-      databaseStatus,
-      databaseUrl: process.env.DATABASE_URL ? 'Set (hidden)' : 'Not set',
-      sessionSecret: process.env.SESSION_SECRET ? 'Set (hidden)' : 'Not set',
-      nodeEnv: process.env.NODE_ENV || 'Not set'
-    },
-    troubleshooting: {
-      verifyAuthentication: `First log in at ${baseUrl}/login, then check if the spin endpoints work`,
-      checkFunctionLogs: "If endpoints still return 404, check Vercel function logs for routing issues",
-      potentialFixes: [
-        "Ensure routes in .vercel/output/config.json have '/api/spin/(.*)' before '/api/(.*)'",
-        "Verify SESSION_SECRET is correctly set in environment variables",
-        "Try removing and re-adding the spin route pattern in .vercel/output/config.json"
-      ]
+    request: {
+      headers: req.headers,
+      path: req.url,
+      cookieNames: Object.keys(cookies)
     }
   });
 }
@@ -360,6 +351,7 @@ function handleIndex(req, res) {
       '/api/db-test',
       '/api/test-deployment',
       '/api/debug',
+      '/api/vercel-debug',
       '/api/debug-spin',
       '/api/auth/login',
       '/api/auth/register',
@@ -712,10 +704,7 @@ async function handleSpin(req, res, pathname) {
   try {
     // Extract the spin action from the pathname
     const spinAction = pathname.replace('/api/spin/', '');
-    
-    console.log(`[Vercel Spin API] Processing spin request: ${spinAction}, path: ${pathname}, method: ${req.method}`);
-    console.log(`[Vercel Spin API] Cookies: ${req.headers.cookie || 'none'}`);
-    
+    console.log(`[Spin API] Processing spin action: ${spinAction}, method: ${req.method}, path: ${pathname}`);
 
     // Get session token from cookies
     const cookies = parseCookies(req.headers.cookie || '');
@@ -743,7 +732,7 @@ async function handleSpin(req, res, pathname) {
       res.status(404).json({ error: 'Not found', message: `Spin action ${spinAction} not implemented` });
     }
   } catch (error) {
-    console.error('Spin handling error:', error);
+    console.error('Spin error:', error);
     res.status(500).json({ error: 'Server error', message: error.message });
   }
 }
@@ -753,27 +742,26 @@ async function handleSpin(req, res, pathname) {
  */
 async function handleSpinStatus(req, res, userId) {
   try {
+    console.log(`[Spin Status] Getting spin status for user: ${userId}`);
+    // Get the user data
     const client = await pool.connect();
     const result = await client.query('SELECT "lastSpinAt", "extraSpinsAvailable" FROM users WHERE id = $1', [userId]);
     client.release();
-    
+
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Not found', message: 'User not found' });
     }
-    
+
     const user = result.rows[0];
-    const lastSpinAt = user.lastSpinAt ? new Date(user.lastSpinAt) : null;
+    const lastSpinAt = new Date(user.lastSpinAt);
     const now = new Date();
     
-    // Check if 24 hours have passed since the last spin
-    const canSpinDaily = !lastSpinAt || (now - lastSpinAt) >= 24 * 60 * 60 * 1000;
+    // Calculate time until next spin is available (24 hours from last spin)
+    const nextSpinTime = new Date(lastSpinAt);
+    nextSpinTime.setHours(nextSpinTime.getHours() + 24);
     
-    // Calculate time until next spin (in milliseconds)
-    let timeUntilNextSpin = 0;
-    if (!canSpinDaily && lastSpinAt) {
-      const nextSpinTime = new Date(lastSpinAt.getTime() + 24 * 60 * 60 * 1000);
-      timeUntilNextSpin = Math.max(0, nextSpinTime - now);
-    }
+    const timeUntilNextSpin = Math.max(0, nextSpinTime.getTime() - now.getTime());
+    const canSpinDaily = timeUntilNextSpin === 0;
     
     res.status(200).json({
       canSpinDaily,
@@ -791,66 +779,58 @@ async function handleSpinStatus(req, res, userId) {
  */
 async function handleSpinAction(req, res, userId) {
   try {
+    // Check if user can spin
     const client = await pool.connect();
+    const result = await client.query('SELECT "lastSpinAt", "extraSpinsAvailable", "usdtBalance" FROM users WHERE id = $1', [userId]);
     
-    // Get user's last spin time and extra spins
-    const userResult = await client.query(
-      'SELECT "lastSpinAt", "extraSpinsAvailable", "usdtBalance" FROM users WHERE id = $1',
-      [userId]
-    );
-    
-    if (userResult.rows.length === 0) {
+    if (result.rows.length === 0) {
       client.release();
       return res.status(404).json({ error: 'Not found', message: 'User not found' });
     }
-    
-    const user = userResult.rows[0];
-    const lastSpinAt = user.lastSpinAt ? new Date(user.lastSpinAt) : null;
+
+    const user = result.rows[0];
+    const lastSpinAt = new Date(user.lastSpinAt);
     const now = new Date();
     
-    // Check if 24 hours have passed since the last spin or if user has extra spins
-    const canSpinDaily = !lastSpinAt || (now - lastSpinAt) >= 24 * 60 * 60 * 1000;
+    // Calculate time until next spin is available (24 hours from last spin)
+    const nextSpinTime = new Date(lastSpinAt);
+    nextSpinTime.setHours(nextSpinTime.getHours() + 24);
     
-    if (!canSpinDaily && user.extraSpinsAvailable === 0) {
+    const timeUntilNextSpin = Math.max(0, nextSpinTime.getTime() - now.getTime());
+    const canSpinDaily = timeUntilNextSpin === 0;
+    
+    // Check if user can spin
+    if (!canSpinDaily && user.extraSpinsAvailable <= 0) {
       client.release();
-      return res.status(403).json({ 
-        error: 'Forbidden', 
-        message: 'You cannot spin yet. Wait until 24 hours have passed since your last spin.'
-      });
+      return res.status(400).json({ error: 'Bad request', message: 'No spins available' });
     }
     
-    // Determine what type of spin this is (daily or extra)
-    const isExtraSpin = !canSpinDaily && user.extraSpinsAvailable > 0;
+    // Generate a random reward between 0.01 and 0.10 USDT
+    const reward = (Math.floor(Math.random() * 10) + 1) / 100;
     
-    // Generate a random reward (between 0.01 and 0.50 USDT)
-    const reward = (Math.floor(Math.random() * 50) + 1) / 100;
+    // Update user data
+    let spinType = '';
     
-    // Update user's balance and spin time
-    const newBalance = (parseFloat(user.usdtBalance) + reward).toFixed(2);
-    
-    if (isExtraSpin) {
-      // Use an extra spin
-      await client.query(
-        'UPDATE users SET "usdtBalance" = $1, "extraSpinsAvailable" = "extraSpinsAvailable" - 1 WHERE id = $2',
-        [newBalance, userId]
-      );
+    if (canSpinDaily) {
+      // Use the daily spin
+      await client.query('UPDATE users SET "lastSpinAt" = NOW(), "usdtBalance" = "usdtBalance" + $1 WHERE id = $2', [reward, userId]);
+      spinType = 'daily';
     } else {
-      // Update last spin time for daily spin
-      await client.query(
-        'UPDATE users SET "usdtBalance" = $1, "lastSpinAt" = NOW() WHERE id = $2',
-        [newBalance, userId]
-      );
+      // Use an extra spin
+      await client.query('UPDATE users SET "extraSpinsAvailable" = "extraSpinsAvailable" - 1, "usdtBalance" = "usdtBalance" + $1 WHERE id = $2', [reward, userId]);
+      spinType = 'extra';
     }
     
+    // Get updated user data
+    const updatedResult = await client.query('SELECT "usdtBalance", "extraSpinsAvailable" FROM users WHERE id = $1', [userId]);
     client.release();
     
-    // Return the result
     res.status(200).json({
       success: true,
+      spinType,
       reward,
-      newBalance,
-      spinType: isExtraSpin ? 'extra' : 'daily',
-      extraSpinsRemaining: isExtraSpin ? user.extraSpinsAvailable - 1 : user.extraSpinsAvailable
+      newBalance: updatedResult.rows[0].usdtBalance,
+      extraSpinsRemaining: updatedResult.rows[0].extraSpinsAvailable
     });
   } catch (error) {
     console.error('Spin action error:', error);
@@ -859,24 +839,21 @@ async function handleSpinAction(req, res, userId) {
 }
 
 /**
- * Handle claiming an extra spin
+ * Handle claim extra spin requests
  */
 async function handleClaimExtraSpin(req, res, userId) {
   try {
+    // Add an extra spin to the user's account
     const client = await pool.connect();
+    await client.query('UPDATE users SET "extraSpinsAvailable" = "extraSpinsAvailable" + 1 WHERE id = $1', [userId]);
     
-    // Update user's extra spins
-    await client.query(
-      'UPDATE users SET "extraSpinsAvailable" = "extraSpinsAvailable" + 1 WHERE id = $1 RETURNING "extraSpinsAvailable"',
-      [userId]
-    );
-    
+    // Get updated user data
+    const updatedResult = await client.query('SELECT "extraSpinsAvailable" FROM users WHERE id = $1', [userId]);
     client.release();
     
-    // Return success
     res.status(200).json({
       success: true,
-      message: 'Extra spin claimed successfully'
+      extraSpinsAvailable: updatedResult.rows[0].extraSpinsAvailable
     });
   } catch (error) {
     console.error('Claim extra spin error:', error);

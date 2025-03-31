@@ -227,31 +227,35 @@ async function validateVercelConfig() {
     // FUNCTION LIMIT FIX: Ensure we're using a single API function for all routes
     // to stay within the 12-function limit of Vercel's Hobby plan
     if (vercelConfig.routes) {
-      // Check if we need to consolidate routes to a single function
-      let needsConsolidation = false;
-      let apiRouteCount = 0;
+      // Always consolidate routes to a single function
+      console.log('Consolidating API routes to stay within Vercel function limits...');
       
-      for (const route of vercelConfig.routes) {
-        if (route.src && route.src.startsWith('/api/') && route.dest && route.dest !== '/api/consolidated.js') {
-          needsConsolidation = true;
-          apiRouteCount++;
-        }
-      }
+      // Get specific routes for special handling (preserve their order and pattern)
+      const specialRoutes = vercelConfig.routes.filter(route => 
+        route.src === '/api/vercel-debug' || 
+        route.src === '/api/debug-spin' || 
+        route.src === '/api/diagnostics' || 
+        route.src === '/api/health' || 
+        route.src === '/api/spin/status' || 
+        route.src === '/api/spin/spin' || 
+        route.src === '/api/spin/claim-extra' || 
+        route.src === '/api/spin/(.*)' || 
+        route.src === '/api/auth/(.*)'
+      );
       
-      if (needsConsolidation || apiRouteCount > 10) {  // Leave room for 2 other functions
-        console.log('Consolidating API routes to stay within Vercel function limits...');
-        
-        // Replace all API routes with a single consolidated route
-        vercelConfig.routes = vercelConfig.routes.filter(route => !route.src.startsWith('/api/'));
-        
-        // Add a single consolidated route for all API endpoints
-        vercelConfig.routes.unshift({
-          src: '/api/(.*)',
-          dest: '/api/consolidated.js'
-        });
-        
-        configUpdated = true;
-      }
+      // Get non-API routes
+      const nonApiRoutes = vercelConfig.routes.filter(route => 
+        !route.src || !route.src.startsWith('/api/')
+      );
+      
+      // Build a new routes array with special routes first, then catch-all API route, then non-API routes
+      vercelConfig.routes = [
+        ...specialRoutes,
+        { src: '/api/(.*)', dest: '/api' },
+        ...nonApiRoutes
+      ];
+      
+      configUpdated = true;
     }
     
     // Write back to vercel.json if changes were made

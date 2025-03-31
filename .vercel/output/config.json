@@ -37,6 +37,10 @@
       "dest": "/index.html"
     },
     {
+      "src": "/api/vercel-debug",
+      "dest": "/api"
+    },
+    {
       "src": "/api/debug-spin",
       "dest": "/api"
     },
