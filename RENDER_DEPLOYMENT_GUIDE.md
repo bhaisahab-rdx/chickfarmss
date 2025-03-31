@@ -28,6 +28,8 @@ The project has already been configured for deployment with:
 5. Render will automatically detect the `render.yaml` file and set up your services
 6. Review the settings and click "Apply"
 
+> **Note**: The deployment uses a custom `render-build.js` script which handles installing both dependencies and devDependencies needed for building the application. This script ensures Vite and esbuild are available during the build process.
+
 #### Option 2: Manual Deployment
 
 1. Log in to your Render dashboard
@@ -36,7 +38,7 @@ The project has already been configured for deployment with:
 4. Configure the following settings:
    - **Name**: chickfarms
    - **Environment**: Node
-   - **Build Command**: `npm install && npm run build`
+   - **Build Command**: `npm install && node render-build.js`
    - **Start Command**: `node server.js`
 5. Under "Advanced" settings, add the following environment variables:
    - `NODE_ENV`: production
@@ -95,6 +97,10 @@ If you encounter any issues with your deployment, check the following:
 2. **Environment Variables**: Ensure all required environment variables are set correctly
 3. **Database Connection**: Verify that the database connection is working
 4. **API Errors**: Check server logs for any API errors or exceptions
+5. **Build Failures**: If you see errors like "vite: not found" or other build tool issues:
+   - Verify the render-build.js script is properly being executed
+   - Check that your repository includes all necessary configuration files (vite.config.ts, etc.)
+   - If needed, manually install build dependencies in the Render dashboard using the Shell tab
 
 ### Maintaining Your Deployment
 
