@@ -38,7 +38,13 @@ The project has already been configured for deployment with:
 4. Configure the following settings:
    - **Name**: chickfarms
    - **Environment**: Node
-   - **Build Command**: `npm install && node render-build.js`
+   - **Build Command**: 
+     ```
+     npm install &&
+     npm install vite esbuild @vitejs/plugin-react typescript &&
+     npx vite build &&
+     npx esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist
+     ```
    - **Start Command**: `node server.js`
 5. Under "Advanced" settings, add the following environment variables:
    - `NODE_ENV`: production

@@ -5,16 +5,12 @@
  * It exports all tables and their data to an SQL file that can be imported on Render.
  */
 
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import { Pool } from 'pg';
-import dotenv from 'dotenv';
+const fs = require('fs');
+const path = require('path');
+const { Pool } = require('pg');
+const dotenv = require('dotenv');
 
 dotenv.config();
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 const outputFile = path.join(__dirname, 'render-database-backup.sql');
 
