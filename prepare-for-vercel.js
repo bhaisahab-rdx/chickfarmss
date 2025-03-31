@@ -1,9 +1,15 @@
 /**
- * ChickFarms Vercel Deployment Preparation Script
+ * ChickFarms Vercel Deployment Preparation Script (Enhanced Version)
  * 
  * This script prepares your ChickFarms application for deployment to Vercel
  * by updating all necessary configuration files to ensure proper routing
- * for the spin functionality.
+ * for the spin functionality and fixing common deployment issues.
+ * 
+ * Updates in this enhanced version:
+ * - Improved route ordering with prioritized spin endpoints
+ * - Added explicit route for vercel-debug.js
+ * - Better error handling and validation
+ * - More detailed logging
  */
 
 import fs from 'fs';

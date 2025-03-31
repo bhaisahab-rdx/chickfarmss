@@ -298,7 +298,15 @@ async function createVercelOutputStructure() {
       { src: '/game.html', status: 404, dest: '/index.html' },
       { src: '/public/index.html', status: 404, dest: '/index.html' },
       { src: '/public/game.html', status: 404, dest: '/index.html' },
-      // Route all API calls to the consolidated API function
+      // Specific debug endpoints with high priority
+      { src: '/api/vercel-debug', dest: '/api' },
+      { src: '/api/debug-spin', dest: '/api' },
+      // Spin-specific endpoints - high priority to ensure they're handled correctly
+      { src: '/api/spin/status', dest: '/api' },
+      { src: '/api/spin/spin', dest: '/api' },
+      { src: '/api/spin/claim-extra', dest: '/api' },
+      { src: '/api/spin/(.*)', dest: '/api' },
+      // Route all other API calls to the consolidated API function
       { src: '/api/(.*)', dest: '/api' },
       // Serve files from the filesystem first
       { handle: 'filesystem' },

@@ -56,6 +56,10 @@ module.exports = async (req, res) => {
       return await handleTestDeployment(req, res);
     } else if (pathname === '/api/debug') {
       return handleDebug(req, res);
+    } else if (pathname === '/api/vercel-debug') {
+      return handleVercelDebug(req, res);
+    } else if (pathname === '/api/debug-spin') {
+      return handleSpinDebug(req, res);
     } else if (pathname === '/api') {
       return handleIndex(req, res);
     } else if (pathname.startsWith('/api/auth/')) {
@@ -232,6 +236,106 @@ function handleDebug(req, res) {
 }
 
 /**
+ * Handle Vercel-specific debug requests
+ */
+function handleVercelDebug(req, res) {
+  // Create a safe copy of headers without sensitive information
+  const safeHeaders = { ...req.headers };
+  if (safeHeaders.authorization) {
+    safeHeaders.authorization = '[REDACTED]';
+  }
+  if (safeHeaders.cookie) {
+    safeHeaders.cookie = '[REDACTED]';
+  }
+
+  // Information about the request
+  const requestInfo = {
+    method: req.method,
+    url: req.url,
+    path: req.url ? req.url.split('?')[0] : null,
+    query: req.query,
+    headers: safeHeaders,
+    cookies: req.headers.cookie ? req.headers.cookie.split(';').map(c => c.trim().split('=')[0]) : [],
+    body: req.body ? '[BODY_PRESENT]' : null,
+  };
+
+  // Information about the environment
+  const environmentInfo = {
+    nodeEnv: process.env.NODE_ENV,
+    vercelEnv: process.env.VERCEL_ENV,
+    region: process.env.VERCEL_REGION,
+    hasSessionSecret: !!process.env.SESSION_SECRET,
+    hasDatabaseUrl: !!process.env.DATABASE_URL,
+    databaseUrlPrefix: process.env.DATABASE_URL ? process.env.DATABASE_URL.split('://')[0] : null,
+  };
+
+  // Return all diagnostics
+  res.status(200).json({
+    status: "ok",
+    time: new Date().toISOString(),
+    requestInfo,
+    environmentInfo,
+    message: "This endpoint provides debugging information for Vercel deployment."
+  });
+}
+
+/**
+ * Handle spin-specific debug requests
+ */
+function handleSpinDebug(req, res) {
+  // Get session information
+  const cookies = parseCookies(req.headers.cookie || '');
+  const sessionToken = cookies.session || cookies['chickfarms.sid'];
+  
+  // Get user ID from session if available
+  let userId = null;
+  let sessionValidated = false;
+  
+  try {
+    if (sessionToken) {
+      userId = validateSessionToken(sessionToken);
+      sessionValidated = userId !== null;
+    }
+  } catch (error) {
+    // Session validation failed, but we'll continue with the debug info
+    console.error('Session validation error:', error);
+  }
+
+  // Comprehensive debug information
+  res.status(200).json({
+    status: "ok",
+    timestamp: new Date().toISOString(),
+    deployment: {
+      isVercel: !!(process.env.VERCEL || process.env.VERCEL_URL),
+      environment: process.env.NODE_ENV || 'development',
+      isDevelopment: process.env.NODE_ENV === 'development',
+      isProduction: process.env.NODE_ENV === 'production',
+    },
+    session: {
+      hasSessionToken: !!sessionToken,
+      tokenValidated: sessionValidated,
+      userId: userId,
+    },
+    configuration: {
+      routes: {
+        spinStatusDirect: '/api/spin/status',
+        spinActionDirect: '/api/spin/spin',
+        spinExtraDirect: '/api/spin/claim-extra',
+      },
+      database: {
+        isConnected: !!process.env.DATABASE_URL,
+        provider: process.env.DATABASE_URL ? process.env.DATABASE_URL.split('://')[0] : null,
+      }
+    },
+    request: {
+      headers: req.headers,
+      path: req.url,
+      cookieNames: Object.keys(cookies)
+    }
+  });
+}
+
+/**
  * Handle index requests
  */
 function handleIndex(req, res) {
@@ -247,6 +351,8 @@ function handleIndex(req, res) {
       '/api/db-test',
       '/api/test-deployment',
       '/api/debug',
+      '/api/vercel-debug',
+      '/api/debug-spin',
       '/api/auth/login',
       '/api/auth/register',
       '/api/auth/logout',
