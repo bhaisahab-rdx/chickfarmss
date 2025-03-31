@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: chickfarms
+    env: node
+    buildCommand: npm install && npm run build
+    startCommand: node server.js
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: DATABASE_URL
+        sync: false # This means you'll need to set this manually in the Render dashboard
+      - key: SESSION_SECRET
+        sync: false
+      - key: NOWPAYMENTS_API_KEY
+        sync: false
+      - key: NOWPAYMENTS_IPN_SECRET_KEY
+        sync: false
+    healthCheckPath: /api/health
