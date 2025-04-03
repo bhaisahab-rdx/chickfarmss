@@ -86,7 +86,7 @@ function LoadingScreen({ onFinishLoading }: { onFinishLoading: () => void }) {
       >
         <img
           ref={logoRef}
-          src="/assets/chickfarms-logo.svg"
+          src="/assets/chickfarms-logo.png"
           alt="ChickFarms"
           className="w-32 h-32 object-contain"
         />

@@ -32,6 +32,13 @@ const isAdmin = (req: Request, res: Response, next: NextFunction) => {
 };
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Direct redirect to the game app from root to ensure users can always access it
+  app.get('/', (req, res, next) => {
+    // Use next() to let the Vite middleware handle it in development
+    // or the static file server in production
+    next();
+  });
+
   // API status endpoint for health checks
   app.get('/api/health', (req: Request, res: Response) => {
     res.json({ 

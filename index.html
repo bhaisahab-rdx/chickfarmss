@@ -96,7 +96,7 @@
     <p>Loading your virtual farming adventure...</p>
     <div class="spinner"></div>
     <div id="status" class="status-message">Checking application status...</div>
-    <a href="/dist/public/index.html" class="button">Enter Game</a>
+    <a href="/" class="button">Enter Game</a>
   </div>
 
   <script>
@@ -109,14 +109,14 @@
       const statusElement = document.getElementById('status');
       
       // Try to fetch the main application
-      fetch('/dist/public/index.html')
+      fetch('/')
         .then(response => {
           if (response.ok) {
             statusElement.textContent = 'Application is ready. Click "Enter Game" to continue.';
             
             // Auto-redirect after 2 seconds if the app is available
             setTimeout(function() {
-              window.location.href = '/dist/public/index.html';
+              window.location.href = '/';
             }, 2000);
           } else {
             statusElement.textContent = 'Main application is not accessible. Click "Enter Game" to try anyway.';
