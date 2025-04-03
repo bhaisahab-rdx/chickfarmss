@@ -2,11 +2,7 @@ services:
   - type: web
     name: chickfarms
     env: node
-    buildCommand: >
-      npm install &&
-      npm install vite esbuild @vitejs/plugin-react typescript &&
-      npx vite build &&
-      npx esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist
+    buildCommand: node render-build.js
     startCommand: node server.js
     autoDeploy: true
     envVars:

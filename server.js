@@ -1,5 +1,5 @@
 /**
- * ChickFarms Production Server
+ * ChickFarms Production Server for Render Deployment
  * 
  * This file is used by Render to start the production server.
  * It handles both the API endpoints and serves the static files.
@@ -9,60 +9,77 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
-const { createRequire } = require('module');
-
-// Setup dynamic imports for CommonJS environment
-const requireDynamic = createRequire(__filename);
 
 // Store route registrations
 let registerRoutes;
 let registerNowPaymentsRoutes;
 
-// Dynamically load routes based on environment
+// Simple function to load compiled server code
 async function loadRoutes() {
+  console.log('Loading server routes...');
+  
   try {
-    if (process.env.NODE_ENV === 'production') {
-      // In production, load from the compiled dist directory
-      console.log('Running in production mode, using compiled routes from dist');
+    // Force production mode to use dist folder
+    process.env.NODE_ENV = 'production';
+    
+    console.log('Looking for compiled routes in dist directory...');
+    
+    // For Render deployment, we'll just load directly from the dist folder
+    // Since we manually run the build steps in buildCommand
+    if (fs.existsSync('./dist/routes.js')) {
+      console.log('Found compiled routes.js file');
       
-      // Use dynamic import() for ESM modules
+      // The import() function is available in Node.js even in CommonJS modules
       try {
-        // Try ES modules first
-        const { registerRoutes: mainRegisterRoutes } = await import('./dist/routes.js');
-        const { registerRoutes: paymentsRegisterRoutes } = await import('./dist/routes-nowpayments.js');
+        const routesModule = await import('./dist/routes.js');
+        console.log('Successfully loaded routes.js');
         
-        registerRoutes = mainRegisterRoutes;
-        registerNowPaymentsRoutes = paymentsRegisterRoutes;
-      } catch (esmErr) {
-        console.log('ES Module import failed, trying CommonJS require');
-        
-        // Fallback to CommonJS if ESM fails
-        try {
-          registerRoutes = require('./dist/routes.js').registerRoutes;
-          registerNowPaymentsRoutes = require('./dist/routes-nowpayments.js').registerRoutes;
-        } catch (cjsErr) {
-          throw new Error(`Failed to load routes: ESM error: ${esmErr.message}, CJS error: ${cjsErr.message}`);
+        if (routesModule && typeof routesModule.registerRoutes === 'function') {
+          registerRoutes = routesModule.registerRoutes;
+          console.log('Successfully loaded main route registration function');
+        } else {
+          console.error('routes.js exists but does not export registerRoutes function!');
+          process.exit(1);
         }
+      } catch (err) {
+        console.error('Failed to import routes.js:', err);
+        process.exit(1);
       }
     } else {
-      // In development, try to load directly from TypeScript files
-      console.log('Running in development mode, using TypeScript routes');
+      console.error('Could not find compiled routes.js in dist directory!');
+      console.error('Current directory contents:', fs.readdirSync('./'));
+      console.error('Dist directory exists?', fs.existsSync('./dist'));
+      if (fs.existsSync('./dist')) {
+        console.error('Dist directory contents:', fs.readdirSync('./dist'));
+      }
+      process.exit(1);
+    }
+    
+    // Load payment routes the same way
+    if (fs.existsSync('./dist/routes-nowpayments.js')) {
+      console.log('Found compiled routes-nowpayments.js file');
       
       try {
-        // Try ES modules first
-        const { registerRoutes: mainRegisterRoutes } = await import('./server/routes.js');
-        const { registerRoutes: paymentsRegisterRoutes } = await import('./server/routes-nowpayments.js');
+        const paymentsModule = await import('./dist/routes-nowpayments.js');
+        console.log('Successfully loaded routes-nowpayments.js');
         
-        registerRoutes = mainRegisterRoutes;
-        registerNowPaymentsRoutes = paymentsRegisterRoutes;
+        if (paymentsModule && typeof paymentsModule.registerRoutes === 'function') {
+          registerNowPaymentsRoutes = paymentsModule.registerRoutes;
+          console.log('Successfully loaded payment route registration function');
+        } else {
+          console.error('routes-nowpayments.js exists but does not export registerRoutes function!');
+          // Not exiting as payments might be optional
+        }
       } catch (err) {
-        console.error('Error loading development routes:', err);
-        throw err;
+        console.error('Failed to import routes-nowpayments.js:', err);
+        // Not exiting as payments might be optional
       }
+    } else {
+      console.warn('Could not find compiled routes-nowpayments.js in dist directory');
     }
   } catch (error) {
     console.error('Error importing routes:', error);
-    throw error;
+    process.exit(1);
   }
 }
 

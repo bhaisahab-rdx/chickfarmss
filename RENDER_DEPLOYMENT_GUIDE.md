@@ -1,6 +1,6 @@
-# ChickFarms Render Deployment Guide
+# ChickFarms Render Deployment Guide (Updated March 2025)
 
-This guide provides detailed instructions for deploying the ChickFarms application to Render's hosting platform.
+This guide provides detailed instructions for deploying the ChickFarms application to Render's hosting platform, with fixes for the most common deployment issues.
 
 ## Prerequisites
 
@@ -8,14 +8,22 @@ This guide provides detailed instructions for deploying the ChickFarms applicati
 2. Access to the ChickFarms GitHub repository or the code files
 3. Database credentials for the PostgreSQL database
 
+## Updated Deployment Configuration (March 2025)
+
+We've significantly improved the deployment configuration to fix common issues with the Vite build process and ESM imports. Key improvements include:
+
+1. **Enhanced build script**: Using a comprehensive `render-build.js` script that handles dependency installation, environment setup, and verification steps
+2. **Simplified server.js**: Better handling of ESM/CJS compatibility with detailed error logging
+3. **Fixed module issues**: Properly handling ES modules in the Node.js environment
+
 ## Deployment Steps
 
 ### 1. Prepare Your Project
 
 The project has already been configured for deployment with:
-- `render.yaml` configuration file
-- `server.js` production server file
-- `Procfile` for process management
+- `render.yaml` configuration file (updated for reliability)
+- `server.js` production server file (enhanced for compatibility) 
+- `render-build.js` comprehensive build script (NEW)
 
 ### 2. Deploy on Render
 
@@ -28,23 +36,17 @@ The project has already been configured for deployment with:
 5. Render will automatically detect the `render.yaml` file and set up your services
 6. Review the settings and click "Apply"
 
-> **Note**: The deployment uses a custom `render-build.js` script which handles installing both dependencies and devDependencies needed for building the application. This script ensures Vite and esbuild are available during the build process.
+> **Note**: The deployment uses our enhanced `render-build.js` script which handles installing all required dependencies (including dev dependencies), sets up the proper environment, and includes verification steps to ensure all build tools are properly installed.
 
-#### Option 2: Manual Deployment
+#### Option 2: Manual Deployment (With Enhanced Build Process)
 
 1. Log in to your Render dashboard
 2. Click "New" and select "Web Service" from the dropdown menu
 3. Connect to your GitHub repository or upload the files directly
 4. Configure the following settings:
    - **Name**: chickfarms
-   - **Environment**: Node
-   - **Build Command**: 
-     ```
-     npm install &&
-     npm install vite esbuild @vitejs/plugin-react typescript &&
-     npx vite build &&
-     npx esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist
-     ```
+   - **Environment**: Node.js
+   - **Build Command**: `node render-build.js`
    - **Start Command**: `node server.js`
 5. Under "Advanced" settings, add the following environment variables:
    - `NODE_ENV`: production
@@ -95,18 +97,48 @@ To migrate your existing data to Render:
 3. Verify that the frontend loads correctly
 4. Test key functionality like authentication, game mechanics, and payments
 
-### Troubleshooting
+### Troubleshooting Common Issues
 
 If you encounter any issues with your deployment, check the following:
 
-1. **Deployment Logs**: Review the build and runtime logs in the Render dashboard
-2. **Environment Variables**: Ensure all required environment variables are set correctly
-3. **Database Connection**: Verify that the database connection is working
-4. **API Errors**: Check server logs for any API errors or exceptions
-5. **Build Failures**: If you see errors like "vite: not found" or other build tool issues:
-   - Verify the render-build.js script is properly being executed
-   - Check that your repository includes all necessary configuration files (vite.config.ts, etc.)
-   - If needed, manually install build dependencies in the Render dashboard using the Shell tab
+#### Build Errors
+
+1. **"Cannot find package 'vite' imported from..."**
+   - This is fixed in our enhanced render-build.js script which properly installs all required build dependencies
+   - Solution: Use `node render-build.js` as your build command
+   
+2. **"ERR_MODULE_NOT_FOUND" or "Unknown file extension .ts"**
+   - Caused by ES Module compatibility issues in production
+   - Solution: Our updated server.js handles this with proper module loading detection
+   
+3. **"command not found" (status 127)**
+   - Happens when build tools aren't available in the build environment
+   - Solution: The render-build.js script now checks and installs tools globally if needed
+
+#### Runtime Errors
+
+1. **"Cannot find module './dist/...'"**
+   - Check that the build completed successfully and generated files in the dist directory
+   - Review logs to make sure esbuild ran without errors
+   
+2. **Database Connection Issues**
+   - Verify your DATABASE_URL is correctly set in the Render environment variables
+   - Check that the database is accessible from Render's IP ranges
+   
+3. **API Errors or Blank Pages**
+   - Check server logs for detailed error messages
+   - Verify that all environment variables are correctly set
+   - Test the API health endpoint to ensure the server is running
+
+#### Emergency Fixes
+
+If you're still having issues:
+
+1. Use the Render Shell tab to access your deployment environment
+2. Run `NODE_ENV=production node render-build.js` manually
+3. Verify the dist directory contents with `ls -la dist`
+4. Check for errors in the server logs with `tail -f /var/log/render/app.log`
+5. Test the server in development mode with `NODE_ENV=development node server.js`
 
 ### Maintaining Your Deployment
 
