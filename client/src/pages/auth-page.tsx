@@ -109,7 +109,7 @@ export default function AuthPage() {
                 animate={{ scale: showAnimation ? [1, 1.02, 1] : 1 }}
                 transition={{ duration: 1.5, repeat: Infinity, repeatType: 'reverse' }}
               >
-                <img src="/assets/chickfarms-logo.svg" className="h-20 sm:h-28 w-auto" alt="ChickFarms" />
+                <img src="/assets/chickfarms-logo.png" className="h-20 sm:h-28 w-auto" alt="ChickFarms" />
                 <motion.div
                   initial={{ opacity: 0, y: 5 }}
                   animate={{ opacity: 1, y: 0 }}
