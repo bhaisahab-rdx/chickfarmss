@@ -1,8 +1,0 @@
-[build]
-builder = "nixpacks"
-buildCommand = "node build.js"
-
-[deploy]
-startCommand = "NODE_ENV=production node --experimental-modules server.js"
-healthcheckPath = "/api/health"
-restartPolicyType = "on_failure"
