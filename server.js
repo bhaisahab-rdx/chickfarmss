@@ -1,14 +1,19 @@
 /**
- * ChickFarms Production Server for Render Deployment
+ * ChickFarms Production Server for Railway Deployment
  * 
- * This file is used by Render to start the production server.
+ * This file is used by Railway/Render to start the production server.
  * It handles both the API endpoints and serves the static files.
  */
 
-const express = require('express');
-const cors = require('cors');
-const path = require('path');
-const fs = require('fs');
+import express from 'express';
+import cors from 'cors';
+import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
+
+// Get __dirname equivalent in ES Modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Store route registrations
 let registerRoutes;
@@ -152,4 +157,4 @@ initializeApp().then(() => {
   process.exit(1);
 });
 
-module.exports = app;
+export default app;
