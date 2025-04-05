@@ -1,0 +1,21 @@
+[
+  {
+    "id": 1,
+    "username": "adminraja",
+    "password": "248351f9d22d3e7defa5481c096149bf841d285a9fb0cc5eea10c59d18ee8acead80d9aa0941118d48d51cf739fee8953d78e06bcb56f09fe4aa59c1ba4aad27.1a8ce988fa0161bc66bda0ea15da6644",
+    "usdt_balance": "0.00",
+    "referral_code": "ADMIN",
+    "referred_by": null,
+    "is_admin": true,
+    "last_login_at": null,
+    "total_referral_earnings": "0.00",
+    "total_team_earnings": "0.00",
+    "last_salary_paid_at": null,
+    "last_daily_reward_at": null,
+    "current_streak": 0,
+    "last_spin_at": null,
+    "extra_spins_available": 0,
+    "referral_count": 0,
+    "telegram_id": null
+  }
+]
