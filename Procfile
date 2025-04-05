@@ -1,1 +1,1 @@
-web: node --experimental-modules server.js
+web: NODE_ENV=production node --experimental-modules server.js
